@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import { Image, type ImageRef } from 'expo-image';
 import { useEffect, useImperativeHandle, useMemo, useState, type Ref } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { MediaImagePlaceholder } from './MediaImagePlaceholder';
 import { IS_ELECTRON } from '@/lib/platform';
 import { manipulationTiming } from '@/theme/motion';
 import { ImagePointerPan } from './ImagePointerPan';
@@ -31,6 +32,11 @@ type Props = {
   uri: string;
   /** Stable native cache identity when the remote source publishes a hash. */
   cacheKey?: string;
+  /** Retain an already decoded neighbour bitmap through page selection. */
+  decodedImage?: ImageRef;
+  /** Exact media geometry for the placeholder, when metadata is available. */
+  aspectRatio?: number;
+  interactionEnabled?: boolean;
   /** A blurred preview shown until the full image decodes (ThumbHash). */
   thumbhash?: string;
   blurhash?: string;
@@ -57,6 +63,9 @@ export function ZoomableImage({
   onScaleChange,
   uri,
   cacheKey,
+  decodedImage,
+  aspectRatio,
+  interactionEnabled = true,
   thumbhash,
   blurhash,
   dismissAxis = 'both',
@@ -64,6 +73,7 @@ export function ZoomableImage({
   onZoomedChange,
   onDragProgress,
 }: Props) {
+  const [displayedUri, setDisplayedUri] = useState<string | null>(null);
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const tx = useSharedValue(0);
@@ -150,6 +160,7 @@ export function ZoomableImage({
   }
 
   const pinch = Gesture.Pinch()
+    .enabled(interactionEnabled)
     .onUpdate((e) => {
       'worklet';
       scale.value = Math.min(IMAGE_MAX_SCALE, Math.max(1, savedScale.value * e.scale));
@@ -181,6 +192,7 @@ export function ZoomableImage({
       ? Gesture.Pan().activeOffsetY([-15, 15]).failOffsetX([-15, 15])
       : Gesture.Pan();
     return g
+      .enabled(interactionEnabled)
       .activeCursor(IS_ELECTRON && isZoomed ? 'grabbing' : 'auto')
       .onStart(() => {
         'worklet';
@@ -228,11 +240,11 @@ export function ZoomableImage({
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dismissAxis, isZoomed]);
+  }, [dismissAxis, isZoomed, interactionEnabled]);
 
   const doubleTap = Gesture.Tap()
     // Electron's DOM surface owns both clicks so one double-click toggles once.
-    .enabled(!IS_ELECTRON)
+    .enabled(interactionEnabled && !IS_ELECTRON)
     .numberOfTaps(2)
     .onEnd((_e, success) => {
       'worklet';
@@ -250,7 +262,7 @@ export function ZoomableImage({
   // Single tap dismisses (standard lightbox) — only when not zoomed, so a stray
   // tap while zoomed doesn't close. Waits for the double-tap to fail.
   const singleTap = Gesture.Tap()
-    .enabled(!IS_ELECTRON)
+    .enabled(interactionEnabled && !IS_ELECTRON)
     .numberOfTaps(1)
     .onEnd((_e, success) => {
       'worklet';
@@ -279,7 +291,7 @@ export function ZoomableImage({
 
   return (
     <ImagePointerPan
-      enabled={IS_ELECTRON && isZoomed}
+      enabled={interactionEnabled && IS_ELECTRON && isZoomed}
       onStart={startPointerPan}
       onMove={movePointerPan}
       onWheelPan={moveWheelPan}
@@ -295,18 +307,15 @@ export function ZoomableImage({
           style={StyleSheet.absoluteFill}
         >
           <Animated.View style={[StyleSheet.absoluteFill, imageStyle]}>
+            {!decodedImage && displayedUri !== uri ? (
+              <MediaImagePlaceholder thumbhash={thumbhash} blurhash={blurhash} aspectRatio={aspectRatio} />
+            ) : null}
             <Image
-              source={{ uri, cacheKey }}
-              placeholder={
-                thumbhash ? { thumbhash } : blurhash ? { blurhash } : undefined
-              }
-              placeholderContentFit="contain"
+              source={decodedImage ?? { uri, cacheKey }}
+              onDisplay={() => setDisplayedUri(uri)}
               style={{ width: '100%', height: '100%' }}
               contentFit="contain"
-              // No fade-in transition: a ThumbHash only stores the aspect ratio
-              // quantized to sevenths, so the placeholder's contain-fit rect can
-              // differ slightly from the real image's — crossfading between the two
-              // shows a blurry ghost ring around the sharp image for the duration.
+              // Replace the fitted preview on display without a crossfade.
               cachePolicy="memory-disk"
               recyclingKey={cacheKey ?? uri}
               autoplay

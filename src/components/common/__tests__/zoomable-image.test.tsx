@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Image } from 'expo-image';
+import { Image, type ImageRef } from 'expo-image';
+import { MediaImagePlaceholder } from '../MediaImagePlaceholder';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -265,4 +266,31 @@ it('takes over a moving image from its visible position when dragging begins', (
   pan(20, 10);
   expect(cancelAnimation).toHaveBeenCalledTimes(2);
   expect(transform()).toEqual([{ translateX: 130 }, { translateY: -34 }, { scale: 1.375 }]);
+});
+
+it('uses a prepared bitmap immediately without reintroducing its hash preview', () => {
+  const decodedImage = { width: 1600, height: 900 } as ImageRef;
+  act(() => { renderer = create(<ZoomableImage uri="file:///cached.jpg" decodedImage={decodedImage}
+    thumbhash="preview" aspectRatio={16 / 9} onRequestClose={close} />); });
+  expect(renderer.root.findByType(Image).props.source).toBe(decodedImage);
+  expect(renderer.root.findAllByType(MediaImagePlaceholder)).toHaveLength(0);
+});
+
+it('removes the fitted remote preview only after the actual image is displayed', () => {
+  act(() => { renderer = create(<ZoomableImage uri="https://media.test/image.jpg"
+    thumbhash="preview" aspectRatio={16 / 9} onRequestClose={close} />); });
+  expect(renderer.root.findByType(MediaImagePlaceholder).props.aspectRatio).toBe(16 / 9);
+  act(() => { renderer.root.findByType(Image).props.onDisplay(); });
+  expect(renderer.root.findAllByType(MediaImagePlaceholder)).toHaveLength(0);
+});
+
+it('keeps inactive cached neighbours visible with every touch gesture disabled', () => {
+  const decodedImage = { width: 1600, height: 900 } as ImageRef;
+  mockElectron = false;
+  act(() => { renderer = create(<ZoomableImage uri="file:///cached.jpg" decodedImage={decodedImage}
+    interactionEnabled={false} onRequestClose={close} />); });
+  expect(renderer.root.findByType(Image).props.source).toBe(decodedImage);
+  for (const name of ['PinchGestureHandler', 'PanGestureHandler', 'TapGestureHandler']) {
+    expect(gesture(name).config.enabled).toBe(false);
+  }
 });

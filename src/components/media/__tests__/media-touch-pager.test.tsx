@@ -81,10 +81,12 @@ it('retains the player and clears an unfinished drag when the viewport rotates',
   expect(unmounted).not.toHaveBeenCalled();
 });
 
-it('positions previews outside the native viewport without pixel widths', () => {
+it('positions every surface through UI transforms with the same fixed native layout', () => {
   render();
-  expect(StyleSheet.flatten(renderer.root.findByProps({ testID: 'previous' }).parent?.props.style)).toMatchObject({ start: '-100%', end: '100%' });
-  expect(StyleSheet.flatten(renderer.root.findByProps({ testID: 'next' }).parent?.props.style)).toMatchObject({ start: '100%', end: '-100%' });
+  const previous = StyleSheet.flatten(renderer.root.findByProps({ testID: 'previous' }).parent?.props.style);
+  const next = StyleSheet.flatten(renderer.root.findByProps({ testID: 'next' }).parent?.props.style);
+  expect(previous).toMatchObject({ ...StyleSheet.flatten(StyleSheet.absoluteFill), transform: [{ translateX: -400 }] });
+  expect(next).toMatchObject({ ...StyleSheet.flatten(StyleSheet.absoluteFill), transform: [{ translateX: 400 }] });
 });
 
 it.each([[false, -120, 1], [false, 120, -1], [true, 120, 1], [true, -120, -1]])(
@@ -110,5 +112,66 @@ it('supports fast swipes with Reduce Motion without moving the surface', () => {
   render();
   drag(-20, -1000);
   expect(onPage).toHaveBeenCalledWith(1);
+  expect(translation()).toEqual([{ translateX: 0 }]);
+});
+
+function ImageSurface({ name }: { name: string }) {
+  useEffect(() => { mounted(name); return () => { unmounted(name); }; }, [name]);
+  return <View testID={`image-${name}`} />;
+}
+
+it.each([false, true])('retains surfaces across forward and backward selection (Reduce Motion=%s)', (reducedMotion) => {
+  mockReducedMotion = reducedMotion;
+  act(() => { renderer = create(<MediaTouchPager width={400} height={800} pageKey="a" nextKey="b"
+    enabled next={<ImageSurface name="b" />} onPage={onPage}><ImageSurface name="a" /></MediaTouchPager>); });
+  const neighbour = renderer.root.findByProps({ testID: 'image-b' });
+  drag(-120);
+  act(() => { renderer.update(<MediaTouchPager width={400} height={800} pageKey="b" previousKey="a" nextKey="c"
+    enabled previous={<ImageSurface name="a" />} next={<ImageSurface name="c" />} onPage={onPage}>
+    <ImageSurface name="b" /></MediaTouchPager>); });
+  expect(renderer.root.findByProps({ testID: 'image-b' })).toBe(neighbour);
+  expect(mounted.mock.calls.map(([name]) => name)).toEqual(['a', 'b', 'c']);
+  expect(unmounted).not.toHaveBeenCalled();
+  expect(translation()).toEqual([{ translateX: 0 }]);
+  expect(renderer.root.findByProps({ testID: 'media-current-surface' }).props.pointerEvents).toBe('auto');
+  act(() => { renderer.update(<MediaTouchPager width={400} height={800} pageKey="a" nextKey="b"
+    enabled next={<ImageSurface name="b" />} onPage={onPage}><ImageSurface name="a" /></MediaTouchPager>); });
+  expect(renderer.root.findByProps({ testID: 'image-b' })).toBe(neighbour);
+  expect(unmounted.mock.calls.map(([name]) => name)).toEqual(['c']);
+});
+
+it.each([false, true])('keeps the arrived bitmap stationary during a delayed React selection (RTL=%s)', (rtl) => {
+  mockRTL = rtl;
+  act(() => { renderer = create(<MediaTouchPager width={400} height={800} pageKey="a" nextKey="b"
+    enabled next={<View testID="arriving" />} onPage={onPage}><View testID="departing" /></MediaTouchPager>); });
+  const frame = () => renderer.root.findByProps({ testID: 'arriving' }).parent!;
+  const originalLayout = frame().props.style[0];
+  drag(rtl ? 120 : -120);
+  // The animation has completed on the UI thread; React still identifies a as selected.
+  expect(StyleSheet.flatten(frame().props.style).transform[0].translateX).toBeCloseTo(0);
+  act(() => { renderer.update(<MediaTouchPager width={400} height={800} pageKey="b" previousKey="a"
+    enabled previous={<View testID="departing" />} onPage={onPage}><View testID="arriving" /></MediaTouchPager>); });
+  // No native layout movement or relative translation reset at the React handoff.
+  expect(frame().props.style[0]).toBe(originalLayout);
+  expect(StyleSheet.flatten(frame().props.style).transform[0].translateX).toBeCloseTo(0);
+});
+
+it('keeps the selected coordinate through rotation after several completed swipes', () => {
+  function show(page: number, width: number, height: number) {
+    const element = <MediaTouchPager width={width} height={height} pageKey={`page-${page}`}
+      previousKey={`page-${page - 1}`} nextKey={`page-${page + 1}`} enabled
+      previous={<View />} next={<View />} onPage={onPage}><View testID="selected" /></MediaTouchPager>;
+    act(() => { if (renderer) renderer.update(element); else renderer = create(element); });
+  }
+  show(0, 400, 800);
+  for (let page = 1; page <= 3; page++) {
+    drag(-120);
+    show(page, 400, 800);
+    expect(translation()).toEqual([{ translateX: 0 }]);
+  }
+  const { handlers } = renderer.root.findByType(GestureDetector).props.gesture as TestGesture;
+  act(() => { handlers.onUpdate({ translationX: -60 }); });
+  expect(translation()[0].translateX).toBeCloseTo(-60);
+  show(3, 800, 400);
   expect(translation()).toEqual([{ translateX: 0 }]);
 });

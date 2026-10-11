@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { Image, type ImageRef } from 'expo-image';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { FlatList } from 'react-native';
+import { FlatList, View } from 'react-native';
 
 import { useAttachment } from '@/hooks/use-attachment';
 import { useConversationMedia, type ConversationMediaItem } from '@/hooks/use-conversation-media';
@@ -9,6 +10,7 @@ import { MediaPager } from '../MediaPager';
 import { MediaTouchPager } from '../MediaTouchPager';
 import { MediaVideoPage } from '../MediaVideoPage';
 import { platform } from '@/platform';
+import { MediaImagePlaceholder } from '@/components/common/MediaImagePlaceholder';
 import { MediaDismissSurface } from '../MediaDismissSurface';
 
 let mockWidth = 390;
@@ -21,12 +23,18 @@ let mockElectron = false;
 let mockLoaded = false;
 let mockItems: ConversationMediaItem[] = [];
 let mockInstance = 0;
+let mockCachedImages = new Map<string, ImageRef | null>();
 const mockMounted = jest.fn();
 const mockUnmounted = jest.fn();
 const mockScrollToOffset = jest.fn();
 const mockRequestClose = jest.fn();
 
+jest.mock('@/hooks/use-cached-media-images', () => ({ useCachedMediaImages: () => mockCachedImages }));
 jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('react-native-gesture-handler', () => ({
+  ...jest.requireActual('react-native-gesture-handler'),
+  GestureDetector: ({ children }: { children: ReactNode }) => children,
+}));
 jest.mock('expo-router', () => ({ router: { navigate: jest.fn() } }));
 jest.mock('@solar-icons/react-native/category/messages/Linear/ChatRound', () => ({ ChatRound: () => null }), { virtual: true });
 jest.mock('@solar-icons/react-native/category/video/Linear/GalleryWide', () => ({ GalleryWide: () => null }), { virtual: true });
@@ -64,12 +72,13 @@ jest.mock('@/hooks/use-attachment', () => ({
 }));
 jest.mock('react-native-reanimated', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  return { __esModule: true, default: { View: jest.requireActual('react-native').View },
+  return { __esModule: true, default: { View: jest.requireActual('react-native').View, createAnimatedComponent: (component: unknown) => component },
     Easing: { out: () => (value: number) => value },
     ReduceMotion: { System: 'system' },
     LinearTransition: {
       duration() { return this; }, easing() { return this; }, reduceMotion() { return this; },
     },
+    useAnimatedStyle: (factory: () => unknown) => factory(),
     useSharedValue: (value: number) => React.useRef({ value }).current };
 });
 jest.mock('@/components/common/ZoomableImage', () => {
@@ -113,7 +122,8 @@ function render() {
 const image = () => renderer!.root.findByProps({ uri: preview.uri });
 
 beforeEach(() => {
-  jest.clearAllMocks(); mockWidth = 390; mockHeight = 844; mockEntered = false; mockElectron = false; mockLoaded = false; mockItems = []; mockInstance = 0;
+  jest.clearAllMocks(); mockWidth = 390; mockHeight = 844; mockEntered = false; mockElectron = false; mockLoaded = false; mockItems = []; mockInstance = 0; mockCachedImages = new Map();
+  jest.mocked(useAttachment).mockReturnValue({ state: { status: 'loading' } } as ReturnType<typeof useAttachment>);
 });
 afterEach(() => { act(() => renderer?.unmount()); renderer = undefined; });
 
@@ -216,3 +226,101 @@ it('keeps the selected video and rotation policy through viewport changes withou
 });
 
 jest.mock('@/components/chat/AttachmentTransferProgress', () => ({ AttachmentTransferProgress: () => null }));
+
+it('hands the cached neighbour bitmap to the selected page without a hash-only reload', () => {
+  mockEntered = true; mockLoaded = true;
+  const next = neighbour('newer');
+  const decoded = { width: 1600, height: 900 } as ImageRef;
+  mockItems = [focus, next];
+  mockCachedImages.set(next.mediaKey, decoded);
+  render();
+  const pager = renderer!.root.findByType(MediaTouchPager);
+  let neighbourRenderer: ReactTestRenderer;
+  act(() => { neighbourRenderer = create(pager.props.next); });
+  const retained = neighbourRenderer!.root.findByProps({ uri: next.meta.url });
+  const instance = retained.props.instance;
+  expect(retained.props.decodedImage).toBe(decoded);
+  expect(retained.props.interactionEnabled).toBe(false);
+  act(() => { pager.props.onPage(1); });
+  act(() => { neighbourRenderer!.update(renderer!.root.findByType(MediaTouchPager).props.children); });
+  const selected = neighbourRenderer!.root.findByProps({ uri: next.meta.url });
+  expect(selected.props.instance).toBe(instance);
+  expect(selected.props.interactionEnabled).toBe(true);
+  act(() => neighbourRenderer!.unmount());
+  expect(renderer!.root.findByProps({ uri: next.meta.url }).props.decodedImage).toBe(decoded);
+});
+
+it('fits undownloaded neighbours using embedded dimensions', () => {
+  mockLoaded = true;
+  const next = neighbour('newer');
+  next.meta = { ...next.meta, width: 1600, height: 900, thumbhash: 'preview' } as typeof next.meta;
+  mockItems = [focus, next];
+  mockCachedImages.set(next.mediaKey, null);
+  render();
+  let neighbourRenderer: ReactTestRenderer;
+  act(() => { neighbourRenderer = create(renderer!.root.findByType(MediaTouchPager).props.next); });
+  expect(neighbourRenderer!.root.findByType(MediaImagePlaceholder).props.aspectRatio).toBe(1600 / 900);
+  act(() => neighbourRenderer!.unmount());
+});
+
+it('fits a selected downloading attachment using its declared dimensions', () => {
+  mockLoaded = true;
+  const downloading = { ...focus, meta: { ...focus.meta, dim: '1600x900' } } as ConversationMediaItem;
+  mockItems = [downloading];
+  act(() => { renderer = create(<MediaPager conversationKey="chat" focusMessageId="focus" focusOrderAt={2}
+    focusUrl={focusUrl} showGrid onClose={jest.fn()} />); });
+  expect(renderer!.root.findByType(MediaImagePlaceholder).props.aspectRatio).toBe(1600 / 900);
+});
+
+it('retains cached attachment views and starts no neighbour download during promotion', () => {
+  mockLoaded = true;
+  const next = { ...focus, mediaKey: 'next-attachment', messageId: 'next' };
+  const decoded = { width: 1600, height: 900 } as ImageRef;
+  mockItems = [focus, next];
+  mockCachedImages.set(next.mediaKey, decoded);
+  render();
+  let neighbourRenderer: ReactTestRenderer;
+  act(() => { neighbourRenderer = create(renderer!.root.findByType(MediaTouchPager).props.next); });
+  const instance = neighbourRenderer!.root.findByProps({ uri: next.meta.url }).props.instance;
+  expect(useAttachment).toHaveBeenLastCalledWith(next.meta, { autoLoad: false });
+  act(() => { renderer!.root.findByType(MediaTouchPager).props.onPage(1); });
+  act(() => { neighbourRenderer!.update(renderer!.root.findByType(MediaTouchPager).props.children); });
+  expect(neighbourRenderer!.root.findByProps({ uri: next.meta.url }).props.instance).toBe(instance);
+  expect(useAttachment).toHaveBeenLastCalledWith(next.meta, { autoLoad: true });
+  act(() => neighbourRenderer!.unmount());
+});
+
+it.each([
+  { thumbhash: 'download-preview', blurhash: undefined },
+  { thumbhash: undefined, blurhash: 'fallback-preview' },
+])('retains $thumbhash / $blurhash from download completion until native display', (hashes) => {
+  mockLoaded = true;
+  mockItems = [{ ...focus, meta: { ...focus.meta, ...hashes, dim: '1600x900' } } as ConversationMediaItem];
+  const element = <MediaPager conversationKey="chat" focusMessageId="focus" focusOrderAt={2}
+    focusUrl={focusUrl} showGrid onClose={jest.fn()} />;
+  act(() => { renderer = create(element); });
+  expect(renderer!.root.findByType(MediaImagePlaceholder).props).toMatchObject({ ...hashes, aspectRatio: 16 / 9 });
+
+  jest.mocked(useAttachment).mockReturnValue({ state: { status: 'ready', localUri: 'file:///downloaded.jpg' } } as ReturnType<typeof useAttachment>);
+  act(() => { renderer!.update(<MediaPager {...element.props} />); });
+  const readyImage = renderer!.root.findByType('image');
+  expect(readyImage.props).toMatchObject({ ...hashes, uri: 'file:///downloaded.jpg', aspectRatio: 16 / 9 });
+  expect(readyImage.props.decodedImage).toBeUndefined();
+
+  // Exercise the real image component with the props produced by the ready transition.
+  const { ZoomableImage: RealZoomableImage } = jest.requireActual('@/components/common/ZoomableImage') as typeof import('@/components/common/ZoomableImage');
+  let displayRenderer!: ReactTestRenderer;
+  try {
+    act(() => { displayRenderer = create(<RealZoomableImage {...readyImage.props as ComponentProps<typeof RealZoomableImage>} />); });
+    const placeholder = displayRenderer.root.findByType(MediaImagePlaceholder);
+    act(() => { placeholder.findByType(View).props.onLayout({ nativeEvent: { layout: { width: 390, height: 844 } } }); });
+    const hashImage = displayRenderer.root.findAllByType(Image).find((image) => image.props.placeholder);
+    expect(hashImage?.props.placeholder).toEqual(hashes.thumbhash ? { thumbhash: hashes.thumbhash } : { blurhash: hashes.blurhash });
+    expect(hashImage?.props.style).toEqual({ width: 390, height: 219.375 });
+    const fullImage = displayRenderer.root.findAllByType(Image).find((image) => image.props.source?.uri === 'file:///downloaded.jpg')!;
+    act(() => { fullImage.props.onDisplay(); });
+    expect(displayRenderer.root.findAllByType(MediaImagePlaceholder)).toHaveLength(0);
+  } finally {
+    act(() => displayRenderer?.unmount());
+  }
+});

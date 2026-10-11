@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+import type { ImageRef } from 'expo-image';
 import { router } from 'expo-router';
 import { ChatRound as MessageCircle } from '@solar-icons/react-native/category/messages/Linear/ChatRound';
 import { GalleryWide as Images } from '@solar-icons/react-native/category/video/Linear/GalleryWide';
@@ -28,6 +28,8 @@ import { MediaVideoPage } from '@/components/media/MediaVideoPage';
 import { MediaTouchPager } from './MediaTouchPager';
 import { MediaChromeProvider, MediaTopChrome } from './MediaChrome';
 import { MediaDismissSurface } from '@/components/media/MediaDismissSurface';
+import { MediaImagePlaceholder } from '@/components/common/MediaImagePlaceholder';
+import { useCachedMediaImages } from '@/hooks/use-cached-media-images';
 import { useAttachment } from '@/hooks/use-attachment';
 import {
   type ConversationMediaItem,
@@ -232,25 +234,36 @@ function MediaPagerContent({
     if (index >= pages.length - 1 - EDGE && hasMoreNewer) loadNewer();
   }
 
+  const cachedImages = useCachedMediaImages(
+    ready ? items[currentIndex - 1] : undefined,
+    currentItem,
+    ready ? items[currentIndex + 1] : undefined,
+  );
+
   function renderPage(item: MediaPageItem, active: boolean) {
     if (item.isVideo) {
+      if (!active && !IS_ELECTRON) return <MediaPagePreview item={item} />;
       return (
         <MediaDismissSurface active={active} backdrop={backdrop} onRequestClose={() => requestClose()}>
           <MediaVideoPage item={item} active={active} />
         </MediaDismissSurface>
       );
     }
-    return active ? (
+    if (!active && IS_ELECTRON) return null;
+    return (
       <MediaImagePage
+        active={active}
         preview={item.mediaKey === focusMediaKey ? preview : undefined}
-        imageRef={imageRef}
-        onScaleChange={setImageScale}
+        decodedImage={cachedImages.get(item.mediaKey) ?? undefined}
+        cachePending={!IS_ELECTRON && !cachedImages.has(item.mediaKey)}
+        imageRef={active ? imageRef : undefined}
+        onScaleChange={active ? setImageScale : undefined}
         item={item}
         onRequestClose={() => requestClose()}
         onZoomedChange={setZoomed}
         onDragProgress={(p) => { backdrop.value = 1 - p * 0.6; }}
       />
-    ) : null;
+    );
   }
 
   const selectedPage = ready ? currentIndex : 0;
@@ -280,8 +293,10 @@ function MediaPagerContent({
             height={pageHeight}
             pageKey={touchPage.mediaKey}
             enabled={!zoomed && !isClosing}
-            previous={selectedPage > 0 ? <MediaPagePreview item={pages[selectedPage - 1]} /> : undefined}
-            next={selectedPage < pages.length - 1 ? <MediaPagePreview item={pages[selectedPage + 1]} /> : undefined}
+            previousKey={pages[selectedPage - 1]?.mediaKey}
+            nextKey={pages[selectedPage + 1]?.mediaKey}
+            previous={selectedPage > 0 ? renderPage(pages[selectedPage - 1], false) : undefined}
+            next={selectedPage < pages.length - 1 ? renderPage(pages[selectedPage + 1], false) : undefined}
             onPage={(step) => selectPage(selectedPage + step)}
           >
             {renderPage(touchPage, true)}
@@ -365,17 +380,20 @@ function MediaPagerContent({
 }
 
 /** Neighbours never allocate players or fetch full attachments just for paging. */
-function MediaPagePreview({ item }: { item: MediaPageItem }) {
+function MediaPagePreview({ item, showPlaceholder = true }: { item: MediaPageItem; showPlaceholder?: boolean }) {
   const c = useThemeColors();
   const thumbhash = item.source === 'preview' ? undefined : item.meta.thumbhash;
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: c.lightboxBackdrop }]}>
-      {thumbhash ? <Image placeholder={{ thumbhash }} placeholderContentFit="contain" style={StyleSheet.absoluteFill} /> : null}
+      {showPlaceholder ? (
+        <MediaImagePlaceholder thumbhash={thumbhash} aspectRatio={mediaAspectRatio(item)} />
+      ) : null}
     </View>
   );
 }
 
 type ImagePageProps = {
+  decodedImage?: ImageRef;
   imageRef?: Ref<ZoomableImageHandle>;
   onScaleChange?: (scale: number) => void;
   onRequestClose: () => void;
@@ -384,36 +402,50 @@ type ImagePageProps = {
 };
 
 /** Retain the decoded preview; resolve other attachments only when needed. */
-function MediaImagePage({ item, preview, imageRef, ...imageProps }: ImagePageProps & {
+function MediaImagePage({ item, preview, active, cachePending, imageRef, ...imageProps }: ImagePageProps & {
   item: MediaPageItem;
   preview?: MediaViewerPreview;
+  cachePending: boolean;
+  active: boolean;
 }) {
+  const [visited, setVisited] = useState(active);
+  if (active && !visited) setVisited(true);
+  if (!active && !visited && !imageProps.decodedImage) {
+    return <MediaPagePreview item={item} showPlaceholder={!cachePending} />;
+  }
   if (!preview && item.source === 'attachment') {
-    return <AttachmentMediaImagePage {...imageProps} imageRef={imageRef} meta={item.meta} />;
+    return <AttachmentMediaImagePage {...imageProps} active={active} imageRef={imageRef} meta={item.meta} />;
   }
   const image = preview ?? (item.source === 'embedded' ? {
     uri: item.meta.url,
     cacheKey: item.meta.sha256 ?? item.meta.url,
-    thumbhash: item.meta.thumbhash,
-    blurhash: item.meta.blurhash,
+    thumbhash: cachePending ? undefined : item.meta.thumbhash,
+    blurhash: cachePending ? undefined : item.meta.blurhash,
   } : undefined);
-  return image ? <ZoomableImage {...imageProps} {...image} ref={imageRef} dismissAxis="vertical" /> : null;
+  return image ? <ZoomableImage interactionEnabled={active} {...imageProps} {...image} aspectRatio={mediaAspectRatio(item)} ref={imageRef} dismissAxis="vertical" /> : null;
 }
 
-function AttachmentMediaImagePage({ meta, imageRef, ...imageProps }: ImagePageProps & {
+function AttachmentMediaImagePage({ meta, active, imageRef, ...imageProps }: ImagePageProps & {
   meta: FileAttachmentMeta;
+  active: boolean;
 }) {
   const { t } = useTranslation();
   const c = useThemeColors();
-  const { state, pause, resume, retry, reveal } = useAttachment(meta);
+  // A later cache fill must not recycle an image already displaying its local URI.
+  const [preparedImage] = useState(imageProps.decodedImage);
+  const { state, pause, resume, retry, reveal } = useAttachment(meta, { autoLoad: active });
 
-  if (state.status === 'ready') {
+  if (state.status === 'ready' || preparedImage) {
     return (
       <ZoomableImage
+        interactionEnabled={active}
         ref={imageRef}
         {...imageProps}
-        uri={state.localUri}
+        decodedImage={preparedImage}
         thumbhash={meta.thumbhash}
+        blurhash={meta.blurhash}
+        uri={preparedImage ? meta.url : state.status === 'ready' ? state.localUri : meta.url}
+        aspectRatio={attachmentAspectRatio(meta)}
         dismissAxis="vertical"
       />
     );
@@ -444,13 +476,8 @@ function AttachmentMediaImagePage({ meta, imageRef, ...imageProps }: ImagePagePr
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      {meta.thumbhash ? (
-        <Image
-          placeholder={{ thumbhash: meta.thumbhash }}
-          placeholderContentFit="contain"
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-        />
+      {state.status !== 'checking' ? (
+        <MediaImagePlaceholder thumbhash={meta.thumbhash} blurhash={meta.blurhash} aspectRatio={attachmentAspectRatio(meta)} />
       ) : null}
       {state.status === 'loading' ? (
         <IconButton
@@ -462,4 +489,18 @@ function AttachmentMediaImagePage({ meta, imageRef, ...imageProps }: ImagePagePr
       ) : <ActivityIndicator color={c.onOverlay} />}
     </View>
   );
+}
+
+function attachmentAspectRatio(meta: FileAttachmentMeta): number | undefined {
+  const match = meta.dim?.match(/^(\d+)x(\d+)$/);
+  if (!match) return undefined;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  return width > 0 && height > 0 ? width / height : undefined;
+}
+
+function mediaAspectRatio(item: MediaPageItem): number | undefined {
+  if (item.source === 'preview') return undefined;
+  if (item.source === 'attachment') return attachmentAspectRatio(item.meta);
+  return item.meta.width && item.meta.height ? item.meta.width / item.meta.height : undefined;
 }

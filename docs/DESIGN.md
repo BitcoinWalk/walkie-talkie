@@ -475,6 +475,10 @@ Playback chrome shares the media action styling and stays clear of window safe a
 Top and bottom media actions align to the same horizontal gutters.
 Scrubbing previews the video frame, retains touch ownership outside the rail,
 and restores the preceding playback intent when released.
+Full-screen image neighbours display cached images without starting downloads.
+Cached image surfaces remain mounted when they become the selected page.
+Undownloaded images use previews fitted to the media's declared aspect ratio;
+previews fill that rectangle rather than the viewport.
 Full-screen media viewers use opacity-only entrance and dismissal. Dismissal
 finishes before the viewer is removed or a context action navigates elsewhere;
 Reduce Motion is respected.
