@@ -105,3 +105,18 @@ it('preserves both drafts across tab switches and saves only the selected list',
   expect(activePanel().findByType(AppButton).props.disabled).toBe(false);
   expect(activePanel().findByType(SortableUrlList).props.value).toEqual(['wss://draft-dm.example']);
 });
+
+it.each(['light', 'dark'] as const)('prefills only the message-relay input without adding or saving in %s mode', async (scheme) => {
+  mockScheme = scheme;
+  activeMode = 'dm';
+  await act(async () => {
+    renderer = create(<RelaySettingsScreen initialDmRelay="wss://relay.psstpsst.chat/" />);
+  });
+  expect(activePanel().findByType(AppInput).props.value).toBe('wss://relay.psstpsst.chat/');
+  expect(activePanel().findByType(SortableUrlList).props.value).toEqual(['wss://dm.example']);
+  expect(saveAndPublishDmRelays).not.toHaveBeenCalled();
+  await selectTab('write');
+  expect(activePanel().findByType(AppInput).props.value).toBe('');
+  await selectTab('dm');
+  expect(activePanel().findByType(AppInput).props.value).toBe('wss://relay.psstpsst.chat/');
+});

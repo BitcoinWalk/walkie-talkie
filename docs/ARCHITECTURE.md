@@ -305,9 +305,31 @@ Message chronology uses the authenticated `(order_at, id)` cursor. A larger
 where the lexicographically smaller event ID is newer. Pagination, unread
 watermarks, conversation heads, notifications, and media views share this rule.
 
-Mobile local notifications and badges use the project-owned native notification
-module behind the platform ports; no remote push SDK is linked. Notification
+Mobile notifications and badges use the project-owned native notification
+module behind the platform ports. iOS APNs registration requires explicit
+notification consent; relay mutations use the account identity signer and durable
+registration/revocation state. Its notification extension runs the shared
+TypeScript receiver and notification policy in an independent JavaScriptCore
+runtime. Mobile notification
 cleanup must preserve Android's foreground-service notification.
+
+APNs event resolution attributes gift wraps to `wss://relay.psstpsst.chat/`.
+ID references use its fixed HTTPS event endpoint, with durable processed-ID checks
+before fetching. Transport resolution never substitutes for shared intake validation
+or final deduplication. WebSocket, history, recovery and APNs use the same
+gift-wrap validation/decryption/storage code with explicit receiving-account,
+key and runtime context. Notification eligibility and preview construction are
+shared across live/recovery delivery and the extension; UI account selection
+never selects the owner of an APNs message.
+
+The iOS app and extension share an App Group database in WAL mode, serialize
+writers before reading their transaction snapshots, and share only messaging
+credentials through Keychain after the first device unlock. Independent receivers
+check durable account ownership inside writes, including account removal. External
+writes invalidate bounded foreground caches and live queries. A successful insert
+owns notification eligibility; duplicate envelopes or rumor IDs never produce a
+second alert attempt. Missing keys and failed decryption remain retryable after
+key reload, with bounded failure deduplication within a receive session.
 
 On macOS, an in-process Node-API bridge queries and requests notification
 authorization asynchronously for the app's own identity. Capability probes must
@@ -344,10 +366,9 @@ path. It skips redundant reads only after history backfill completes in an
 uninterrupted live session whose DM and own-metadata subscriptions have received wire EOSE
 and whose sockets have recent inbound traffic. Otherwise it immediately presents
 its result because a cold task cannot
-assume the resident native clock is running. iOS performs the periodic background
-poll without a central push server. The iOS expiration signal cancels active and
-queued relay queries so an exhausted execution window releases its network work
-promptly and does not degrade future scheduling. Electron uses a persisted
+assume the resident native clock is running. iOS has no periodic background
+worker: APNs invokes the notification extension, which uses the shared gift-wrap
+intake and notification policy. Opening the app resumes normal relay sync. Electron uses a persisted
 main-process timer while the application remains running; notification presence
 requires the window to be both visible and focused, and transient desktop
 delivery failures do not change the user's preference. A routed conversation

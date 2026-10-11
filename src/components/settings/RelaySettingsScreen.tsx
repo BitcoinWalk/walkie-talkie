@@ -29,12 +29,12 @@ import { spacing, uiDensity, useThemeColors } from '@/theme';
 
 type RelayMode = 'dm' | 'write';
 
-export function RelaySettingsScreen() {
+export function RelaySettingsScreen({ initialDmRelay = '' }: { initialDmRelay?: string }) {
   const accountPubkey = useActiveAccount((s) => s.activePubkey);
-  return <RelaySettingsTabs key={accountPubkey} accountPubkey={accountPubkey} />;
+  return <RelaySettingsTabs key={accountPubkey} accountPubkey={accountPubkey} initialDmRelay={initialDmRelay} />;
 }
 
-function RelaySettingsTabs({ accountPubkey }: { accountPubkey: string | null }) {
+function RelaySettingsTabs({ accountPubkey, initialDmRelay }: { accountPubkey: string | null; initialDmRelay: string }) {
   const { t } = useTranslation();
   const c = useThemeColors();
   const titleClearance = useScreenHeaderClearance();
@@ -62,7 +62,7 @@ function RelaySettingsTabs({ accountPubkey }: { accountPubkey: string | null }) 
         {scrolled && <View style={{ position: 'absolute', bottom: 0, start: 0, end: 0, height: StyleSheet.hairlineWidth, backgroundColor: c.border }} />}
       </View>
       <View testID="relay-panel-dm" style={{ flex: 1, display: mode === 'dm' ? 'flex' : 'none' }}>
-        <RelaySettingsForm mode="dm" accountPubkey={accountPubkey} scrollProps={dmScroll.scrollProps} />
+        <RelaySettingsForm mode="dm" accountPubkey={accountPubkey} initialRelay={initialDmRelay} scrollProps={dmScroll.scrollProps} />
       </View>
       {visitedWrite && (
         <View testID="relay-panel-write" style={{ flex: 1, display: mode === 'write' ? 'flex' : 'none' }}>
@@ -74,7 +74,8 @@ function RelaySettingsTabs({ accountPubkey }: { accountPubkey: string | null }) 
   );
 }
 
-function RelaySettingsForm({ mode, accountPubkey, scrollProps }: {
+function RelaySettingsForm({ mode, accountPubkey, scrollProps, initialRelay = '' }: {
+  initialRelay?: string;
   mode: RelayMode;
   accountPubkey: string | null;
   scrollProps: ReturnType<typeof useScrolled>['scrollProps'];
@@ -84,7 +85,7 @@ function RelaySettingsForm({ mode, accountPubkey, scrollProps }: {
 
   const [relays, setRelays] = useState<string[]>([]);
   const [original, setOriginal] = useState<string[]>([]);
-  const [newRelay, setNewRelay] = useState('');
+  const [newRelay, setNewRelay] = useState(initialRelay);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadedAccountPubkey, setLoadedAccountPubkey] = useState<string | null>(null);

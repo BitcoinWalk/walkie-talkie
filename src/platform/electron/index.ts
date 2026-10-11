@@ -24,6 +24,12 @@ export function createElectronAdapters(): PlatformAdapters {
     listener({ isConnected: navigator.onLine });
 
   return {
+    pushNotifications: {
+      isAvailable: () => false,
+      getDevice: async () => null,
+      unregister: async () => {},
+      addTokenChangedListener: () => () => {},
+    },
     screenOrientation: { setVideoActive: async () => {} },
     bundledNotices: electronBundledNoticesAdapter,
     appUpdate: {

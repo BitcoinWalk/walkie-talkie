@@ -8,6 +8,8 @@
 import {
   DEFAULT_DND_WINDOW,
   getDndWindow,
+  getNotificationsEnabled,
+  setNotificationsEnabled,
   isDndActiveNow,
   isMinuteInDndWindow,
   setDndWindow,
@@ -15,6 +17,8 @@ import {
 } from '../notification-prefs';
 
 let mockStoredValue: string | null = null;
+let mockIsIos = true;
+jest.mock('@/lib/platform', () => ({ get IS_IOS() { return mockIsIos; } }));
 
 jest.mock('@/services/preferences/device-preferences.service', () => ({
   getDevicePreference: jest.fn(async () => mockStoredValue),
@@ -29,6 +33,23 @@ function makeWindow(overrides: Partial<DndWindow> = {}): DndWindow {
 
 beforeEach(() => {
   mockStoredValue = null;
+  mockIsIos = true;
+});
+
+describe('notification consent', () => {
+  it('defaults iOS to disabled and requires a stored explicit opt-in', async () => {
+    await expect(getNotificationsEnabled()).resolves.toBe(false);
+    mockStoredValue = 'unexpected';
+    await expect(getNotificationsEnabled()).resolves.toBe(false);
+    await setNotificationsEnabled(true);
+    await expect(getNotificationsEnabled()).resolves.toBe(true);
+    await setNotificationsEnabled(false);
+    await expect(getNotificationsEnabled()).resolves.toBe(false);
+  });
+  it('preserves the default for other platforms', async () => {
+    mockIsIos = false;
+    await expect(getNotificationsEnabled()).resolves.toBe(true);
+  });
 });
 
 describe('isMinuteInDndWindow', () => {

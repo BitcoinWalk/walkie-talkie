@@ -1,8 +1,9 @@
 import { observedPeerKeyService } from '../observed-peer-key.service';
 
 const mockGet = jest.fn(async () => undefined);
-const mockOnConflictDoUpdate = jest.fn(async () => {});
-const mockValues = jest.fn(() => ({ onConflictDoUpdate: mockOnConflictDoUpdate }));
+let mockStoredRow: unknown;
+const mockOnConflictDoUpdate = jest.fn(() => ({ returning: () => ({ get: async () => mockStoredRow }) }));
+const mockValues = jest.fn((row) => { mockStoredRow = row; return { onConflictDoUpdate: mockOnConflictDoUpdate }; });
 const mockUpdateWhere = jest.fn(async () => {});
 
 jest.mock('@/db/client', () => ({

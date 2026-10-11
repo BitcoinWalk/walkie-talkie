@@ -1,6 +1,6 @@
 {
-  "reviewed": "2026-10-09",
-  "lockfileSha256": "27d9a720159b334fc1f5426ab063e226e6af71939d9f0a53676c963547aaaf29",
+  "reviewed": "2026-10-11",
+  "lockfileSha256": "f39abc9180e27fce2b69bfa4dbee66230a67f5c61114910bff1e892f44a7d76f",
   "scope": "All locked non-development npm packages on all platforms, plus the shipped Electron runtime. Includes build utilities; not an exact binary inventory.",
   "packages": [
     {
@@ -5576,6 +5576,20 @@
         {
           "source": "LICENSE",
           "sha256": "631987b7616a325a5b97566c232418481ddf7dbb5ecadefb991e791876cc2599"
+        }
+      ]
+    },
+    {
+      "name": "expo-application",
+      "version": "57.0.3",
+      "license": "MIT",
+      "integrity": "sha512-t/CxeLio0NjY9/cOak1tQp62/hAUjzJxmhR4rVUR7K5bb9YoEtfl1ZekTn+Iuh+dYOMYzF0l72ODMSmY3CR1NA==",
+      "repository": "https://github.com/expo/expo.git",
+      "homepage": "https://docs.expo.dev/versions/latest/sdk/application/",
+      "licenseFiles": [
+        {
+          "source": "LICENSE",
+          "sha256": "fb3ca4a837f5779e83cef89b78253a8949cfb9429c340309f62d0465ec6610b4"
         }
       ]
     },

@@ -11,6 +11,7 @@ import {
 import { KIND_DM_RELAY_LIST, KIND_RELAY_LIST_METADATA } from '../crypto/nip17-gift-wrap';
 import { prepareConfiguration, publishConfiguration } from './configuration-publish.service';
 import { loadAccountDmRelays } from './local-relay-settings';
+import { pushRegistrationService } from '../notifications/push-registration.service';
 import { fetchReplaceable, parseRelayListMetadata, peerMetaRelays } from './relay-router';
 import {
   ensureReplaceableFresh,
@@ -107,6 +108,7 @@ export async function applyOwnDmRelayListEvent(
         .run();
     }
   });
+  void pushRegistrationService.reconcile();
   return true;
 }
 
@@ -353,6 +355,7 @@ export async function saveAndPublishDmRelays(opts: {
     }
   });
 
+  void pushRegistrationService.reconcile();
   await publishConfiguration(opts.accountPubkey, opts.signer, {
     kind: KIND_DM_RELAY_LIST,
     content: '',

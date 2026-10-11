@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, gt, lt, or } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { observedPeerEncryptionKeys } from '@/db/schema';
@@ -23,6 +23,8 @@ class ObservedPeerKeyService {
   private cache = new Map<string, ObservedPeerKey | null>();
   private writes = new Map<string, Promise<void>>();
   private listeners = new Set<(peerPubkey: string) => void>();
+
+  invalidateCache(): void { this.cache.clear(); }
 
   async resolve(peerPubkey: string): Promise<ObservedPeerKey | null> {
     if (this.cache.has(peerPubkey)) return this.cache.get(peerPubkey) ?? null;
@@ -97,11 +99,16 @@ class ObservedPeerKeyService {
         observation.announcementCheckedAt ?? existing?.announcementCheckedAt ?? null,
       observedAt: Math.floor(Date.now() / 1000),
     };
-    await db
+    const persisted = await db
       .insert(observedPeerEncryptionKeys)
       .values(row)
       .onConflictDoUpdate({
         target: observedPeerEncryptionKeys.peerPubkey,
+        setWhere: or(
+          lt(observedPeerEncryptionKeys.evidenceCreatedAt, row.evidenceCreatedAt),
+          and(eq(observedPeerEncryptionKeys.evidenceCreatedAt, row.evidenceCreatedAt),
+            gt(observedPeerEncryptionKeys.evidenceId, row.evidenceId)),
+        ),
         set: {
           encryptionPubkey: row.encryptionPubkey,
           source: row.source,
@@ -110,8 +117,13 @@ class ObservedPeerKeyService {
           announcementCheckedAt: row.announcementCheckedAt,
           observedAt: row.observedAt,
         },
-      });
-    this.cache.set(key, row);
+      }).returning().get();
+    if (!persisted) {
+      this.cache.delete(key);
+      await this.resolve(key);
+      return;
+    }
+    this.cache.set(key, persisted);
     if (!keyChanged) return;
     for (const listener of this.listeners) {
       try {

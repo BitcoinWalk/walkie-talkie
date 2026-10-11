@@ -46,6 +46,7 @@ import {
 } from '../crypto/nip17-gift-wrap';
 import { nextRumorTimestamp, type RumorTimestamp } from './rumor-clock';
 import { buildSigner } from '../account/account.service';
+import { canReceiveForAccount } from '../account/account-receive-guard';
 import {
   recordAttachmentMedia,
   recordEmbeddedMedia,
@@ -135,7 +136,16 @@ const GIFT_WRAP_SEEN_MAX_AGE_MS = 60_000;
 /** The read watermark as an `(order_at, id)` cursor — the same key the message
  * list uses. Legacy messages share a second-floor `order_at` and tie on id. */
 type ReadCursor = { orderAt: number; id: string };
-type RumorIntake = 'live' | 'recovery' | 'history' | 'archive' | 'local';
+export type RumorIntake = 'live' | 'recovery' | 'history' | 'archive' | 'local';
+
+export type GiftWrapReceiveContext = {
+  accountPubkey: string;
+  encryptionKeys: EncryptionKeypair[];
+  sourceRelays: string[];
+  userPresent: boolean;
+  activeConversation: { accountPubkey: string; conversationKey: string } | null;
+  isCurrent(): boolean;
+};
 
 /** The newer of two cursors, or whichever is non-null. */
 function maxCursor(a: ReadCursor | null, b: ReadCursor | null): ReadCursor | null {
@@ -220,7 +230,7 @@ export type DmServiceListener = {
   onNewMessage?: (rumor: Rumor) => void;
 };
 
-class DmService {
+export class DmService {
   private accountPubkey: string | null = null;
   /** The account's encryption keys, newest-first (`[0]` = current). Loaded from
    * SecureStore on init. Encrypt/announce with `[0]`; decrypt tries the whole
@@ -252,6 +262,8 @@ class DmService {
   private encryptionKeyChangedListeners = new Set<(newPubkey: string) => void>();
   /** Tracks which conversation the user is currently looking at, so incoming
    * messages for it don't bump unreadCount. */
+  private independentReceiver = false;
+  private receivePresence: boolean | undefined;
   private activeConversation: { accountPubkey: string; conversationKey: string } | null = null;
   /** Incoming gift wraps are processed through this queue rather than all at
    * once. On (re)connect a relay replays the whole history matching the
@@ -265,6 +277,8 @@ class DmService {
     syncCursor: ReturnType<typeof peekSyncCursor>;
   }[] = [];
   private drainingGiftWraps = false;
+  /** Retry failures after key reload; bound repeated work within one receive session. */
+  private failedGiftWrapIds = new Set<string>();
   /** Gift-wrap jobs that have crossed an async boundary. Account removal waits
    * for this set after invalidating the session so no stale write can race the
    * deletion of that account's rows. */
@@ -523,6 +537,7 @@ class DmService {
     }
     this.giftWrapQueue = [];
     this.giftWrapSeenOn.clear();
+    this.failedGiftWrapIds.clear();
     this.rumorToGiftWrap.clear();
     this.signAuth = null;
     this.signSeal = null;
@@ -624,6 +639,7 @@ class DmService {
 
   setActiveConversation(accountPubkey: string, conversationKey: string): void {
     this.activeConversation = { accountPubkey, conversationKey };
+    void platform.pushNotifications?.setActiveConversation?.(this.activeConversation).catch(() => {});
   }
 
   /** Queue TTL-gated key and DM-relay refreshes without blocking conversation entry. */
@@ -705,6 +721,7 @@ class DmService {
 
   clearActiveConversation(): void {
     this.activeConversation = null;
+    void platform.pushNotifications?.setActiveConversation?.(null).catch(() => {});
   }
 
   /** Zero out unreadCount and advance the read cursor to the newest message. */
@@ -888,7 +905,7 @@ class DmService {
       this.activeConversation,
       accountPubkey,
       conversationKey,
-      !platform.notifications.shouldNotifyNow(),
+      this.receivePresence ?? !platform.notifications.shouldNotifyNow(),
     );
   }
 
@@ -1181,6 +1198,24 @@ class DmService {
     await relayMessageOutbox.enqueueResend(opts.accountPubkey, opts.rumorId);
   }
 
+  /** Receive an external envelope without starting or replacing a UI session. */
+  async receiveGiftWrap(
+    giftWrap: Event,
+    context: GiftWrapReceiveContext,
+    intake: RumorIntake = 'live',
+  ): Promise<Rumor[]> {
+    if (!context.isCurrent() || context.encryptionKeys.length === 0) return [];
+    const receiver = new DmService();
+    receiver.accountPubkey = context.accountPubkey;
+    receiver.encryptionKeys = context.encryptionKeys;
+    receiver.activeConversation = context.activeConversation;
+    receiver.receivePresence = context.userPresent;
+    receiver.independentReceiver = true;
+    for (const relay of context.sourceRelays) receiver.recordGiftWrapSeen(giftWrap.id, relay);
+    await loadBlockedIntoCache(context.accountPubkey);
+    return await receiver.processGiftWrapWithContext(giftWrap, intake, context) ?? [];
+  }
+
   private enqueueGiftWrap(
     giftWrap: Event,
     intake: RumorIntake,
@@ -1219,39 +1254,57 @@ class DmService {
    * processed** (dedup). NIP-44 + schnorr decryption is the expensive part, and
    * relays replay the same wraps on every connect; the id check is a cheap PK
    * lookup that avoids redoing it. Verified seals without an n tag are marked
-   * processed without decrypting their content. Envelopes that fail with every
-   * available key are also marked processed to avoid repeated replay work.
+   * processed without decrypting their content. Failed decryption stays retryable
+   * when another device has rotated to a key not yet synchronized locally.
    */
   private processGiftWrap(
     giftWrap: Event,
     intake: RumorIntake,
     syncCursor?: ReturnType<typeof peekSyncCursor>,
   ): Promise<Rumor[] | null> {
-    const task = this.processGiftWrapForCurrentSession(giftWrap, intake, syncCursor);
+    const accountPubkey = this.accountPubkey;
+    if (!accountPubkey) return Promise.resolve(null);
+    const epoch = this.syncEpoch;
+    const task = this.processGiftWrapWithContext(giftWrap, intake, {
+      accountPubkey,
+      encryptionKeys: this.encryptionKeys,
+      sourceRelays: Array.from(this.giftWrapSeenOn.get(giftWrap.id)?.relays ?? []),
+      userPresent: !platform.notifications.shouldNotifyNow(),
+      activeConversation: this.activeConversation,
+      isCurrent: () => this.syncEpoch === epoch && this.accountPubkey === accountPubkey,
+    }, syncCursor);
     this.inFlightGiftWrapTasks.add(task);
     const forget = () => this.inFlightGiftWrapTasks.delete(task);
     task.then(forget, forget);
     return task;
   }
 
-  private async processGiftWrapForCurrentSession(
+  private markProcessedGiftWrap(id: string, accountPubkey: string): Promise<void> {
+    return this.independentReceiver
+      ? markGiftWrapProcessed(id, accountPubkey, true)
+      : markGiftWrapProcessed(id, accountPubkey);
+  }
+
+  private async processGiftWrapWithContext(
     giftWrap: Event,
     intake: RumorIntake,
+    context: GiftWrapReceiveContext,
     syncCursor?: ReturnType<typeof peekSyncCursor>,
   ): Promise<Rumor[] | null> {
     const profile = createPerfSpan('dm.processGiftWrap', { kind: giftWrap.kind });
     let outcome = 'unknown';
     try {
-      const accountPubkey = this.accountPubkey;
-      const encryptionKeys = this.encryptionKeys;
-      const epoch = this.syncEpoch;
+      const { accountPubkey, encryptionKeys, isCurrent } = context;
       if (encryptionKeys.length === 0 || !accountPubkey) {
         outcome = 'not-ready';
         return null;
       }
-      const isCurrent = () => this.syncEpoch === epoch && this.accountPubkey === accountPubkey;
+      if (this.independentReceiver && !await canReceiveForAccount(accountPubkey)) {
+        outcome = 'account-unavailable';
+        return null;
+      }
       const alreadyProcessed = await profileAsync(profile, 'db.isProcessed', () =>
-        isGiftWrapProcessed(giftWrap.id),
+        isGiftWrapProcessed(giftWrap.id, accountPubkey),
       );
       if (!isCurrent()) {
         outcome = 'stale';
@@ -1259,6 +1312,14 @@ class DmService {
       }
       if (alreadyProcessed) {
         outcome = 'duplicate';
+        return null;
+      }
+      if (!giftWrap.tags?.some((tag) => tag[0] === 'p' && tag[1] === accountPubkey)) {
+        outcome = 'wrong-recipient';
+        return null;
+      }
+      if (this.failedGiftWrapIds.has(giftWrap.id)) {
+        outcome = 'failed-in-session';
         return null;
       }
       // Try keys newest-first: the current key (the common case, one attempt),
@@ -1270,18 +1331,27 @@ class DmService {
         outcome = 'stale';
         return null;
       }
+      if (unwrap.status === 'failed') {
+        // Missing or rotated keys are retryable; an unsuccessful decode is not completion.
+        this.failedGiftWrapIds.add(giftWrap.id);
+        if (this.failedGiftWrapIds.size > GIFT_WRAP_SEEN_LIMIT) {
+          this.failedGiftWrapIds.delete(this.failedGiftWrapIds.values().next().value!);
+        }
+        outcome = 'decrypt-failed';
+        return null;
+      }
       if (unwrap.status !== 'decrypted') {
         await profileAsync(profile, 'db.markProcessed', () =>
-          markGiftWrapProcessed(giftWrap.id, accountPubkey),
+          this.markProcessedGiftWrap(giftWrap.id, accountPubkey),
         );
-        outcome = unwrap.status === 'failed' ? 'decrypt-failed' : unwrap.reason;
+        outcome = unwrap.reason;
         return null;
       }
       const result = unwrap.value;
       let stored: Rumor[] | null = null;
       if (isRumorTooFarInFuture(result.rumor)) {
         await profileAsync(profile, 'db.markProcessed', () =>
-          markGiftWrapProcessed(giftWrap.id, accountPubkey),
+          this.markProcessedGiftWrap(giftWrap.id, accountPubkey),
         );
         outcome = 'future-rumor';
         return null;
@@ -1313,7 +1383,7 @@ class DmService {
         entry.rumorId = result.rumor.id;
         this.rumorToGiftWrap.set(result.rumor.id!, giftWrap.id);
       }
-      const sourceRelays = entry ? Array.from(entry.relays) : [];
+      const sourceRelays = entry ? Array.from(entry.relays) : context.sourceRelays;
       const groupId = firstGroupId(result.rumor.tags);
       if (groupId) {
         const conversationKey = groupConversationKey(groupId);
@@ -1324,6 +1394,7 @@ class DmService {
           intake,
           active: this.isConversationActive(accountPubkey, conversationKey),
           senderBlocked: blocked,
+          checkAccountOwnership: this.independentReceiver,
           syncCursor,
         });
         if (groupResult.handled) {
@@ -1342,7 +1413,7 @@ class DmService {
           }
           if (!isCurrent()) return null;
           await profileAsync(profile, 'db.markProcessed', () =>
-            markGiftWrapProcessed(giftWrap.id, accountPubkey),
+            this.markProcessedGiftWrap(giftWrap.id, accountPubkey),
           );
           outcome = stored ? 'stored-group' : 'group-dropped-or-pending';
           return stored;
@@ -1354,7 +1425,7 @@ class DmService {
       // re-attempt decryption on every relay replay.
       if (blocked) {
         await profileAsync(profile, 'db.markProcessed', () =>
-          markGiftWrapProcessed(giftWrap.id, accountPubkey),
+          this.markProcessedGiftWrap(giftWrap.id, accountPubkey),
         );
         outcome = 'blocked';
         return null;
@@ -1378,7 +1449,7 @@ class DmService {
       }
       if (!isCurrent()) return null;
       await profileAsync(profile, 'db.markProcessed', () =>
-        markGiftWrapProcessed(giftWrap.id, accountPubkey),
+        this.markProcessedGiftWrap(giftWrap.id, accountPubkey),
       );
       outcome = stored ? 'stored' : 'duplicate-or-unsupported';
       // The freshly-stored rumor (or null when re-seen/blocked/undecryptable) lets
@@ -1903,6 +1974,7 @@ class DmService {
 
     const stored = await profileAsync(profile, 'db.storeTransaction', () =>
       db.transaction(async (tx) => {
+        if (this.independentReceiver && !await canReceiveForAccount(accountPubkey, tx)) return false;
         const inserted = await profileAsync(profile, 'db.insertMessage', () =>
           tx
             .insert(messages)

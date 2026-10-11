@@ -61,3 +61,6 @@ example
 # local editor and agent data
 /.claude/
 /.vscode/
+
+# Compiled independent notification processor
+/ios-notification-extension/processor.js

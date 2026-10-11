@@ -12,11 +12,21 @@
  *
  * All methods are async-first — see the module note in `secure-storage.ts`.
  */
+/** Identity is supplied only when the user opts into sender previews. */
+export type NotificationCommunication = {
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  conversationId: string;
+  groupName?: string;
+};
+
 export type NotificationPresentationContent = {
   title: string;
   subtitle?: string;
   body?: string;
   avatarUrl?: string;
+  communication?: NotificationCommunication;
   badgeCount: number;
 };
 

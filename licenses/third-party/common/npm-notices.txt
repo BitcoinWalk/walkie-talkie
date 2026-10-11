@@ -2973,6 +2973,13 @@ LICENSE
   Text: 631987b7616a325a5b97566c232418481ddf7dbb5ecadefb991e791876cc2599
 ========================================
 
+expo-application@57.0.3
+License: MIT
+Source: https://github.com/expo/expo.git
+LICENSE
+  Text: fb3ca4a837f5779e83cef89b78253a8949cfb9429c340309f62d0465ec6610b4
+========================================
+
 expo-asset@57.0.17
 License: MIT
 Source: https://github.com/expo/expo.git

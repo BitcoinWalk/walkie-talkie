@@ -24,10 +24,14 @@ jest.mock('@/services/preferences/device-preferences.service', () => ({
   setDevicePreference: jest.fn(),
 }));
 
+let mockIsIos = true;
+jest.mock('@/lib/platform', () => ({ get IS_IOS() { return mockIsIos; } }));
+
 const getPreference = jest.mocked(getDevicePreference);
 const setPreference = jest.mocked(setDevicePreference);
 
 beforeEach(() => {
+  mockIsIos = true;
   getPreference.mockReset();
   setPreference.mockReset();
 });
@@ -40,8 +44,15 @@ test('automatic encryption-key updates default to off, keeping the 30-day interv
   });
 });
 
-test('notifications default on and preserve an explicit disable', async () => {
+test.each([
+  ['iOS', true, false],
+  ['other platforms', false, true],
+] as const)('notifications use the %s default and preserve explicit choices', async (_platform, isIos, defaultEnabled) => {
+  mockIsIos = isIos;
   getPreference.mockResolvedValueOnce(null);
+  await expect(getNotificationsEnabled()).resolves.toBe(defaultEnabled);
+
+  getPreference.mockResolvedValueOnce('1');
   await expect(getNotificationsEnabled()).resolves.toBe(true);
 
   getPreference.mockResolvedValueOnce('0');

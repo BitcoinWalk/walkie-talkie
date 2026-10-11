@@ -4,6 +4,10 @@ import { DISCOVERY_RELAYS, normalizeRelayUrl } from '@/lib/nostr/relay-url';
 
 import { KIND_DM_RELAY_LIST, KIND_RELAY_LIST_METADATA } from '../../crypto/nip17-gift-wrap';
 
+jest.mock('../../notifications/push-registration.service', () => ({
+  pushRegistrationService: { reconcile: jest.fn(async () => {}) },
+}));
+
 type Row = {
   pubkey: string;
   kind: number;

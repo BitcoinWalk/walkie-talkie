@@ -8,7 +8,12 @@ module.exports = ({ config }) => {
     ...config,
     name: identity.name,
     scheme: identity.scheme,
-    ios: { ...config.ios, bundleIdentifier: identity.id },
+    ios: {
+      ...config.ios,
+      bundleIdentifier: identity.id,
+      // Xcode replaces this with the selected provisioning profile's signed value.
+      entitlements: { ...config.ios?.entitlements, 'aps-environment': 'development' },
+    },
     android: { ...config.android, package: identity.id },
   };
 };

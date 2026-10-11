@@ -33,6 +33,7 @@ import {
   recordAttachmentMedia,
   recordEmbeddedMedia,
 } from '@/services/files/media-index.service';
+import { canReceiveForAccount } from '@/services/account/account-receive-guard';
 import { getSyncCursor, type SyncCursor } from '@/services/dm/sync-store';
 import { mergeStoredMessageIntoTail } from '@/services/conversation/message-tail-cache';
 
@@ -51,6 +52,7 @@ export type ReceiveGroupRumorOptions = {
   intake: GroupRumorIntake;
   active: boolean;
   senderBlocked: boolean;
+  checkAccountOwnership?: boolean;
   /** Coverage snapshot captured when the envelope was first seen. */
   syncCursor?: SyncCursor | null;
 };
@@ -839,6 +841,9 @@ class GroupReceiveService {
     }
 
     const transactionResult = await db.transaction(async (tx) => {
+      if (options.checkAccountOwnership && !await canReceiveForAccount(accountPubkey, tx)) {
+        return { handled: true, stored: false, conversationKey, promoted: [] };
+      }
       const [conversation] = await tx
         .select()
         .from(conversations)

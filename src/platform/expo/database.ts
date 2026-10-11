@@ -1,6 +1,7 @@
-import { addDatabaseChangeListener, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import { addDatabaseChangeListener, defaultDatabaseDirectory, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 import { createAsyncDatabase } from '../create-async-database';
+import { loadLocalNotifications } from './local-notifications';
 import type {
   SqlBindValue,
   SqliteDriver,
@@ -11,7 +12,10 @@ import type {
 /** Wait through short writer contention from another Android runtime/inspector. */
 export const SQLITE_BUSY_TIMEOUT_MS = 5_000;
 
-const sqlitePromise = openDatabaseAsync('psstpsst.db', { enableChangeListener: true }).then(
+const sqlitePromise = (async () => {
+  const directory = await loadLocalNotifications()?.sharedDatabaseDirectoryAsync?.(defaultDatabaseDirectory);
+  return openDatabaseAsync('psstpsst.db', { enableChangeListener: true }, directory);
+})().then(
   async (sqlite) => {
     // WAL lets readers continue while a writer commits. `busy_timeout` covers
     // the remaining short writer/writer overlap from a headless task or the
@@ -25,14 +29,18 @@ const sqlitePromise = openDatabaseAsync('psstpsst.db', { enableChangeListener: t
   },
 );
 
-type DatabaseChangeListener = (event: { tableName?: string }) => void;
+type DatabaseChangeListener = (event: { tableName?: string; external?: boolean }) => void;
 
 const databaseChangeListeners = new Set<DatabaseChangeListener>();
+let sharedDatabaseSubscription: { remove(): void } | undefined;
 let nativeDatabaseChangeSubscription: ReturnType<typeof addDatabaseChangeListener> | null = null;
 
 function subscribeToDatabaseChanges(listener: DatabaseChangeListener): () => void {
   databaseChangeListeners.add(listener);
   if (!nativeDatabaseChangeSubscription) {
+    sharedDatabaseSubscription = loadLocalNotifications()?.addListener?.('onSharedDatabaseChanged', () => {
+      for (const current of databaseChangeListeners) current({ external: true });
+    });
     nativeDatabaseChangeSubscription = addDatabaseChangeListener((event) => {
       for (const current of databaseChangeListeners) current(event);
     });
@@ -43,6 +51,8 @@ function subscribeToDatabaseChanges(listener: DatabaseChangeListener): () => voi
     if (databaseChangeListeners.size > 0) return;
     nativeDatabaseChangeSubscription?.remove();
     nativeDatabaseChangeSubscription = null;
+    sharedDatabaseSubscription?.remove();
+    sharedDatabaseSubscription = undefined;
   };
 }
 
@@ -115,13 +125,17 @@ export const databaseAdapter: SqliteDriver = {
   transaction(task) {
     return serialized(async () => {
       const sqlite = await sqlitePromise;
-      let result: Awaited<ReturnType<typeof task>>;
-      // Web has no exclusive-transaction API. The adapter-wide queue prevents
-      // other operations from interleaving while this callback owns the handle.
-      await sqlite.withTransactionAsync(async () => {
-        result = await task(transactionExecutor(sqlite));
-      });
-      return result!;
+      // Reserve the writer before reading its snapshot: another process must
+      // not turn this transaction's later write into SQLITE_BUSY_SNAPSHOT.
+      await sqlite.execAsync('BEGIN IMMEDIATE');
+      try {
+        const result = await task(transactionExecutor(sqlite));
+        await sqlite.execAsync('COMMIT');
+        return result;
+      } catch (error) {
+        await sqlite.execAsync('ROLLBACK');
+        throw error;
+      }
     });
   },
 

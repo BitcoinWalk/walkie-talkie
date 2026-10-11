@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { platform } from '@/platform';
 import { notificationService } from '@/services/notifications/notification.service';
 
 /** Refresh OS authorization on foreground return, without polling or prompting. */
-export function useNotificationStatus() {
+export function useNotificationStatus(canToggle = true) {
+  const canToggleRef = useRef(canToggle);
+  useLayoutEffect(() => { canToggleRef.current = canToggle; }, [canToggle]);
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const mounted = useRef(false);
@@ -19,7 +21,7 @@ export function useNotificationStatus() {
     try {
       let status = await notificationService.getStatus();
       if (!mounted.current || current !== revision.current) return;
-      if (enableAfterSettings.current && status.granted) {
+      if (enableAfterSettings.current && status.granted && canToggleRef.current) {
         enableAfterSettings.current = false;
         working.current = true;
         setBusy(true);
@@ -53,7 +55,7 @@ export function useNotificationStatus() {
   }, [refresh, invalidate]);
 
   const toggle = useCallback(async (next: boolean) => {
-    if (working.current) return null;
+    if (working.current || !canToggleRef.current) return null;
     invalidate();
     enableAfterSettings.current = false;
     working.current = true;

@@ -36,7 +36,7 @@ const VALUE_MAX_WIDTH = '68%';
 export const ROW_CONTENT_INSET = ROW_PADDING_H + ICON_SLOT + ICON_GAP; // 60 mobile / 56 Electron
 
 type Variant = 'card' | 'plain' | 'embedded' | 'list';
-type TitleTone = 'default' | 'danger' | 'accent';
+type TitleTone = 'default' | 'muted' | 'danger' | 'accent';
 type ValueTone = 'default' | 'muted' | 'success' | 'warning' | 'danger';
 type ValuePlacement = 'trailing' | 'below';
 type PreserveColumn = 'title' | 'value';
@@ -48,6 +48,7 @@ type Props = {
   icon?: React.ReactNode;
   title: string;
   subtitle?: string;
+  subtitleTone?: ValueTone;
   /** Lets a registered supporting description wrap instead of truncating. */
   subtitleMultiline?: boolean;
   titleTone?: TitleTone;
@@ -102,6 +103,7 @@ export function ListRow({
   icon,
   title,
   subtitle,
+  subtitleTone = 'muted',
   subtitleMultiline = false,
   titleTone = 'default',
   value,
@@ -124,7 +126,7 @@ export function ListRow({
   const grouped = useContext(ListGroupContext);
   const [hoverAccessoryVisible, setHoverAccessoryVisible] = useState(false);
 
-  const titleColor = { default: c.text, danger: c.danger, accent: c.accent }[titleTone];
+  const titleColor = { default: c.text, muted: c.textMuted, danger: c.danger, accent: c.accent }[titleTone];
   const valueColor = {
     default: c.text,
     muted: c.textMuted,
@@ -261,7 +263,7 @@ export function ListRow({
               ) : hasSubtitle ? (
                 <AppText
                   variant="caption"
-                  tone="muted"
+                  tone={subtitleTone}
                   numberOfLines={subtitleMultiline ? undefined : 1}
                 >
                   {subtitle}

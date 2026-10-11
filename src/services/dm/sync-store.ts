@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
+import { canReceiveForAccount } from '../account/account-receive-guard';
 import { processedGiftWraps, processedSyncRequests, syncCursors } from '@/db/schema';
 
 /** Durable paging frontiers belong to one account and one normalized relay.
@@ -151,11 +152,13 @@ export function setBackwardUntil(accountPubkey: string, relayUrl: string, until:
 }
 
 /** True if this gift-wrap id was already unwrapped (so we can skip decryption). */
-export async function isGiftWrapProcessed(id: string): Promise<boolean> {
+export async function isGiftWrapProcessed(id: string, accountPubkey?: string): Promise<boolean> {
   const [row] = await db
     .select({ id: processedGiftWraps.id })
     .from(processedGiftWraps)
-    .where(eq(processedGiftWraps.id, id))
+    .where(accountPubkey
+      ? and(eq(processedGiftWraps.id, id), eq(processedGiftWraps.accountPubkey, accountPubkey))
+      : eq(processedGiftWraps.id, id))
     .limit(1);
   return !!row;
 }
@@ -177,11 +180,18 @@ export async function getProcessedGiftWrapIds(ids: string[]): Promise<Set<string
 export async function markGiftWrapProcessed(
   id: string,
   accountPubkey: string,
+  checkAccountOwnership = false,
 ): Promise<void> {
-  await db
-    .insert(processedGiftWraps)
-    .values({ id, accountPubkey, processedAt: Math.floor(Date.now() / 1000) })
-    .onConflictDoNothing();
+  const persist = async (tx: typeof db) => {
+    await tx.insert(processedGiftWraps)
+      .values({ id, accountPubkey, processedAt: Math.floor(Date.now() / 1000) })
+      .onConflictDoNothing();
+  };
+  if (checkAccountOwnership) {
+    await db.transaction(async (tx) => {
+      if (await canReceiveForAccount(accountPubkey, tx)) await persist(tx);
+    });
+  } else await persist(db);
 }
 
 /** True if this kind-4454 key-sync request id was already handled — sent,

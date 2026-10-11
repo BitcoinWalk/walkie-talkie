@@ -1,5 +1,14 @@
 import type { Rumor } from '@/db/schema/types';
 
+jest.mock('@/services/conversation/message-tail-cache', () => ({ invalidateAllWarmedMessageTails: jest.fn() }));
+jest.mock('@/services/dm/observed-peer-key.service', () => ({ observedPeerKeyService: { invalidateCache: jest.fn() } }));
+
+jest.mock('../push-registration.service', () => ({
+  pushRegistrationService: {
+    setEnabled: jest.fn(), reconcile: jest.fn(async () => {}),
+  },
+}));
+
 /**
  * Funnel tests for the notification service: one counting path shared by the
  * live `onNewMessage` hook and the background poll, with rumor-id dedup,
@@ -183,7 +192,7 @@ function rumor(id: string, overrides: Partial<Rumor> = {}): Rumor {
 }
 
 async function drainMicrotasks(): Promise<void> {
-  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+  for (let i = 0; i < 16; i += 1) await Promise.resolve();
 }
 
 async function flushAggregation(): Promise<void> {
@@ -334,6 +343,10 @@ describe('notificationService funnel', () => {
       subtitle: 'notifications.new_messages:2',
       body: 'new',
       avatarUrl: 'https://example.com/newer.png',
+      communication: expect.objectContaining({
+        senderName: 'Alice newer',
+        recipientId: 'account-pubkey',
+      }),
       badgeCount: 7,
     });
   });

@@ -4,6 +4,7 @@ import {
   getEventHash,
   nip44,
   verifyEvent,
+  validateEvent,
   type Event,
   type EventTemplate,
 } from 'nostr-tools';
@@ -244,7 +245,9 @@ async function unwrapGiftWrapAttempt(
     // claims author `rumor.pubkey`. They MUST match — otherwise someone
     // re-sealed another author's rumor under their own signature. This binding
     // is exactly what signing the seal with the encryption key could not give.
-    if (seal.pubkey !== rumor.pubkey) return { status: 'failed' };
+    if (!validateEvent(rumor) || !Number.isSafeInteger(rumor.created_at) || rumor.created_at < 0 ||
+      !Number.isSafeInteger(rumor.kind) || rumor.kind < 0 ||
+      seal.pubkey !== rumor.pubkey || rumor.id !== getEventHash(rumor)) return { status: 'failed' };
 
     return {
       status: 'decrypted',

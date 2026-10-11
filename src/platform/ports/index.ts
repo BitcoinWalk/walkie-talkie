@@ -23,6 +23,7 @@ import type { MediaLibraryPort } from './media-library';
 import type { NetworkStatePort } from './network-state';
 import type { NoisePort } from './noise';
 import type { NotificationsPort } from './notifications';
+import type { PushNotificationsPort } from './push-notifications';
 import type { ProximityTransportPort } from './proximity-transport';
 import type { SecureStoragePort } from './secure-storage';
 import type { SharingPort } from './sharing';
@@ -95,6 +96,7 @@ export type {
   NoiseSession,
 } from './noise';
 export type { NotificationsPort } from './notifications';
+export type { PushDevice, PushNotificationsPort } from './push-notifications';
 export type {
   ProximityTransportPort,
   ProximityTransportSubscription,
@@ -112,6 +114,7 @@ export type { ZipArchivePort, ZipArchiveSubscription } from './zip-archive';
  * (`platform/expo/`) is the default, a future desktop shell provides its own.
  */
 export interface PlatformAdapters {
+  pushNotifications: PushNotificationsPort;
   bundledNotices: BundledNoticesPort;
   appUpdate: AppUpdatePort;
   confirmationDialog: ConfirmationDialogPort;

@@ -7,14 +7,12 @@ import { MessagingKeySyncRequiredError, receiveSessionStore } from '@/services/d
 import { getNotificationsEnabled } from './notification-prefs';
 
 /**
- * Background poll for new messages. One periodic task on both platforms
- * (WorkManager on Android, BGTaskScheduler on iOS — behind the `backgroundTask`
- * platform port, which tolerates the native modules being absent). When the OS
- * grants a window, it refreshes receive metadata and pages the recent gift-wrap window, stores new
- * messages, and posts one aggregated privacy-configured notification. Best-effort
- * + delayed by design: it recovers Android after the resident process is gone
- * and is the primary background path on iOS. It runs only when the system
- * schedules it (~15 min minimum, opportunistic on iOS).
+ * Periodic recovery poll on Android (WorkManager) and desktop (main-process timer).
+ * iOS has no periodic worker and receives background messages through APNs.
+ * When scheduled, this task refreshes receive metadata, pages recent gift wraps,
+ * stores new messages, and posts one aggregated privacy-configured notification.
+ * Android recovery is best-effort after the resident process exits, with a
+ * minimum interval of 15 minutes; the OS determines the actual cadence.
  */
 export const BACKGROUND_POLL_TASK = 'psstpsst-background-poll';
 /** Floor only — the OS decides actual cadence (15 min is the platform minimum). */

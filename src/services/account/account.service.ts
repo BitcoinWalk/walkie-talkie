@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import type { BunkerPointer } from 'nostr-tools/nip46';
 
@@ -36,7 +36,6 @@ import { deleteAccountAttachments } from '../files/file-attachment.service';
 import { deletePendingAttachmentFile } from '../files/pending-attachment-file.service';
 import { deleteAccountNearbyFileData } from '../files/nearby-file-upload.service';
 import {
-  createSigner,
   removeIdentityPrivkey,
   removeNip46BunkerSecret,
   removeNip46ClientKey,
@@ -52,17 +51,15 @@ import {
   walletBalanceVisiblePreferenceKey,
 } from '../preferences/device-preferences.service';
 import { removeAccountWalletSecrets } from '../wallet/wallet-credentials.service';
-import type { Signer } from '../signer/signer.interface';
 import { removeProximityIdentity } from '../proximity/proximity-identity.service';
+import { pushRegistrationService } from '../notifications/push-registration.service';
+
+import { accountRemovalPreferenceKey } from './account-receive-guard';
 
 const ACTIVE_ACCOUNT_KEY = 'active_account_pubkey';
 
-export async function listAccounts() {
-  // Manual order (ascending) — stable across switches, so the list never
-  // reshuffles under the user's thumb. See {@link reorderAccounts}.
-  const rows = await db.select().from(accounts).orderBy(asc(accounts.sortOrder));
-  return Promise.all(rows.map(protectNip46BunkerSecret));
-}
+// Preserve the public account API while low-level consumers bypass lifecycle hooks.
+export { listAccounts, getAccount, migrateNip46BunkerSecrets, buildSigner } from './account-access';
 
 /**
  * Persist a new account order (the pubkeys in the desired top-to-bottom order),
@@ -90,52 +87,6 @@ export async function clearActiveAccountPubkey(): Promise<void> {
   await deleteDevicePreference(ACTIVE_ACCOUNT_KEY, ACTIVE_ACCOUNT_KEY);
 }
 
-export async function getAccount(pubkey: string) {
-  const rows = await db.select().from(accounts).where(eq(accounts.pubkey, pubkey)).limit(1);
-  return rows[0] ? protectNip46BunkerSecret(rows[0]) : null;
-}
-
-/** Upgrade every legacy remote-account row at startup, including inactive
- * accounts the user may not switch to during this session. */
-export async function migrateNip46BunkerSecrets(): Promise<void> {
-  const rows = await db.select().from(accounts).where(eq(accounts.signerType, 'nip46'));
-  for (const account of rows) await protectNip46BunkerSecret(account);
-}
-
-/** Move a legacy BunkerPointer secret out of signer_payload before returning the
- * account row. New rows are already sanitized; this path upgrades existing
- * installs lazily without ever leaving the only copy of the secret in flight. */
-async function protectNip46BunkerSecret(account: typeof accounts.$inferSelect) {
-  if (account.signerType !== 'nip46' || !account.signerPayload) return account;
-  let pointer: BunkerPointer;
-  try {
-    pointer = JSON.parse(account.signerPayload) as BunkerPointer;
-  } catch {
-    return account;
-  }
-  if (pointer.secret == null) return account;
-
-  await storeNip46BunkerSecret(account.pubkey, pointer.secret);
-  const signerPayload = JSON.stringify({ ...pointer, secret: null } satisfies BunkerPointer);
-  await db.update(accounts).set({ signerPayload }).where(eq(accounts.pubkey, account.pubkey));
-  return { ...account, signerPayload };
-}
-
-/**
- * Resolve the active signer for an account in one call — looks up the stored
- * account row and constructs the matching signer. Throws if the account is
- * unknown. Use this instead of repeating getAccount + createSigner.
- */
-export async function buildSigner(accountPubkey: string): Promise<Signer> {
-  const account = await getAccount(accountPubkey);
-  if (!account) throw new Error('Account not found');
-  return createSigner({
-    accountPubkey,
-    signerType: account.signerType,
-    signerPayload: account.signerPayload,
-  });
-}
-
 export async function addAccountFromNsec(nsec: string): Promise<{ pubkey: string }> {
   const privkey = nsecToPrivkey(nsec);
   const pubkey = getPublicKey(privkey);
@@ -145,6 +96,7 @@ export async function addAccountFromNsec(nsec: string): Promise<{ pubkey: string
     .values({ pubkey, signerType: 'nsec', addedAt: now, sortOrder: now })
     .onConflictDoNothing();
   await storeIdentityPrivkey(pubkey, bytesToHex(privkey));
+  pushRegistrationService.accountAdded(pubkey);
   return { pubkey };
 }
 
@@ -174,6 +126,7 @@ export async function persistGeneratedAccount(privkeyHex: string): Promise<{ pub
     .values({ pubkey, signerType: 'generated', localSetupPending: true, addedAt: now, sortOrder: now })
     .onConflictDoNothing();
   await storeIdentityPrivkey(pubkey, privkeyHex);
+  pushRegistrationService.accountAdded(pubkey);
   return { pubkey };
 }
 
@@ -208,6 +161,7 @@ export async function addRemoteAccount(opts: {
     .onConflictDoNothing();
   await storeNip46ClientKey(opts.pubkey, opts.clientSecretKeyHex);
   await storeNip46BunkerSecret(opts.pubkey, opts.pointer.secret);
+  pushRegistrationService.accountAdded(opts.pubkey);
   return { pubkey: opts.pubkey };
 }
 
@@ -263,6 +217,10 @@ async function deleteAccountData(pubkey: string): Promise<void> {
 }
 
 export async function removeAccount(pubkey: string): Promise<void> {
+  // Revoke while identity signing is still possible. Offline failure preserves
+  // the account and a durable pending revocation for a later retry.
+  await pushRegistrationService.revokeAccount(pubkey);
+  await setDevicePreference(accountRemovalPreferenceKey(pubkey), '1');
   // Wallet rows are about to cascade with the account, so enumerate and remove
   // their per-wallet SecureStore credentials while the ids still exist.
   await removeAccountWalletSecrets(pubkey);
@@ -281,6 +239,7 @@ export async function removeAccount(pubkey: string): Promise<void> {
   await clearAccountKeyMaterial(pubkey);
   await removeProximityIdentity(pubkey);
   await removeKeyRotationInterval(pubkey);
+  await deleteDevicePreference(accountRemovalPreferenceKey(pubkey));
   await deleteDevicePreference(
     walletBalanceVisiblePreferenceKey(pubkey),
     legacyWalletBalanceVisiblePreferenceKey(pubkey),

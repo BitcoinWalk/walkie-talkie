@@ -1,10 +1,13 @@
 import { Bell } from '@solar-icons/react-native/category/notifications/Linear/Bell';
 import { ChatRoundUnread } from '@solar-icons/react-native/category/messages/Linear/ChatRoundUnread';
 import { MoonSleep } from '@solar-icons/react-native/category/weather/Linear/MoonSleep';
+import { ServerSquare } from '@solar-icons/react-native/category/devices/Linear/ServerSquare';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 
+import { DirectionalChevron } from '@/components/common/DirectionalChevron';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
 import { ListGroup } from '@/components/common/ListGroup';
@@ -13,6 +16,8 @@ import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/Scre
 import { formatMinutes, TimeOfDayPicker } from '@/components/common/TimeOfDayPicker';
 import { Toggle } from '@/components/common/Toggle';
 import { DESKTOP_OS, IS_ANDROID, IS_ELECTRON, IS_IOS } from '@/lib/platform';
+import { useApnsRelayEligibility } from '@/hooks/use-apns-relay-eligibility';
+import { APNS_RELAY_URL } from '@/services/notifications/push-api';
 import { useNotificationStatus } from '@/hooks/use-notification-status';
 import { platform } from '@/platform';
 import { unreadCountService } from '@/services/conversation/unread-count.service';
@@ -42,7 +47,10 @@ export default function NotificationsSettings() {
   const { t, i18n } = useTranslation();
   const c = useThemeColors();
   const titleClearance = useScreenHeaderClearance();
-  const { enabled, busy, toggle, openSettings } = useNotificationStatus();
+  const relayEligibility = useApnsRelayEligibility();
+  const requiresRelaySettings = IS_IOS && relayEligibility.resolved && !relayEligibility.eligible;
+  const { enabled, busy, toggle, openSettings } = useNotificationStatus(relayEligibility.eligible);
+  const notificationControlDisabled = busy || !relayEligibility.eligible;
   const unreadIndicators = useUnreadIndicatorPreference();
   const [savingUnreadIndicators, setSavingUnreadIndicators] = useState(false);
   const [contentPreferences, setContentPreferences] =
@@ -77,7 +85,7 @@ export default function NotificationsSettings() {
   }, []);
 
   async function onToggle(next: boolean) {
-    if (busy) return;
+    if (busy || !relayEligibility.eligible) return;
     try {
       const status = await toggle(next);
       if (next && status && !status.granted) {
@@ -184,10 +192,26 @@ export default function NotificationsSettings() {
         <View style={{ gap: spacing.sm }}>
           <ListGroup>
             <ListRow
-              icon={<Bell size={22} color={c.text} />}
+              icon={<Bell size={22} color={notificationControlDisabled ? c.textMuted : c.text} />}
               title={t('notifications.enable_label')}
-              trailing={<Toggle value={enabled} onValueChange={onToggle} disabled={busy} />}
+              titleTone={notificationControlDisabled ? 'muted' : 'default'}
+              trailing={
+                <Toggle value={enabled} onValueChange={onToggle} disabled={notificationControlDisabled} />
+              }
             />
+            {requiresRelaySettings && (
+              <ListRow
+                icon={<ServerSquare size={22} color={c.text} />}
+                title={t('notifications.relay_settings_action')}
+                subtitle={t('notifications.required_relay_note', { relay: 'relay.psstpsst.chat' })}
+                subtitleTone="danger"
+                subtitleMultiline
+                trailing={<DirectionalChevron size={18} color={c.textMuted} />}
+                onPress={() => router.push({
+                  pathname: '/relays', params: { addDmRelay: APNS_RELAY_URL },
+                })}
+              />
+            )}
           </ListGroup>
           {IS_ELECTRON && DESKTOP_OS !== 'darwin' && (
             <AppText variant="caption" tone="muted" style={{ paddingHorizontal: spacing.xs }}>

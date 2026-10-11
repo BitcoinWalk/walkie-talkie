@@ -133,3 +133,24 @@ it('reports rejected delivery and treats badges and cleanup as best effort', asy
   await expect(notifications.dismissAll()).resolves.toBeUndefined();
   await expect(unreadIndicator.setCount(7)).resolves.toBe(false);
 });
+
+it('passes opt-in sender identity to communication notifications while retaining older-build fallback', async () => {
+  const communication = { senderId: 'sender', senderName: 'Alice', recipientId: 'self', conversationId: 'self:sender' };
+  mockGetCachePath.mockResolvedValue('/cache/alice.png');
+  mockNative!.presentCommunicationAsync = jest.fn(async () => true);
+  await expect(notifications.present({ ...content, avatarUrl: 'https://images.example/alice.png', communication })).resolves.toBe(true);
+  expect(mockNative!.presentCommunicationAsync).toHaveBeenCalledWith(
+    content.title, null, content.body, '/cache/alice.png', content.badgeCount, JSON.stringify(communication),
+  );
+  expect(mockNative!.presentAsync).not.toHaveBeenCalled();
+  mockNative!.presentCommunicationAsync = undefined;
+  await notifications.present({ ...content, communication });
+  expect(mockNative!.presentAsync).toHaveBeenCalledTimes(1);
+});
+
+it('does not use communication notifications when sender previews are disabled', async () => {
+  mockNative!.presentCommunicationAsync = jest.fn(async () => true);
+  await notifications.present(content);
+  expect(mockNative!.presentCommunicationAsync).not.toHaveBeenCalled();
+  expect(mockPrefetch).not.toHaveBeenCalled();
+});

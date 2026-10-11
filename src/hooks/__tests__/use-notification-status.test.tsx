@@ -30,10 +30,11 @@ jest.mock('@/platform', () => ({
 }));
 
 describe('notification settings authorization', () => {
+  let canToggle = true;
   let renderer: ReactTestRenderer;
   let result: ReturnType<typeof useNotificationStatus>;
   function Harness() {
-    result = useNotificationStatus();
+    result = useNotificationStatus(canToggle);
     return null;
   }
   async function mount() {
@@ -43,6 +44,7 @@ describe('notification settings authorization', () => {
     await act(async () => { mockListeners.forEach(listener => listener()); });
   }
   beforeEach(() => {
+    canToggle = true;
     jest.clearAllMocks();
     mockGranted = false;
     mockEnabled = true;
@@ -104,4 +106,26 @@ describe('notification settings authorization', () => {
     await act(async () => { complete({ enabled: true, granted: true }); });
     expect(result.enabled).toBe(false);
   });
+  it('preserves the enabled preference when a removed relay disables both toggle directions', async () => {
+    mockGranted = true;
+    await mount();
+    canToggle = false;
+    await act(async () => { renderer.update(<Harness />); });
+    expect(result.enabled).toBe(true);
+    await act(async () => { await result.toggle(false); await result.toggle(true); });
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect(mockEnable).not.toHaveBeenCalled();
+    expect(result.enabled).toBe(true);
+  });
+
+  it('does not finish enabling from system settings after the prerequisite disappears', async () => {
+    await mount();
+    await act(async () => { await result.openSettings(); });
+    canToggle = false;
+    mockGranted = true;
+    await act(async () => { renderer.update(<Harness />); });
+    await returnToApp();
+    expect(mockEnable).not.toHaveBeenCalled();
+  });
+
 });

@@ -2,8 +2,9 @@ import {
   getDevicePreference,
   setDevicePreference,
 } from '@/services/preferences/device-preferences.service';
+import { IS_IOS } from '@/lib/platform';
 
-/** Device-level notification preference (not per-account). On until disabled. */
+/** Device-level preference. iOS requires explicit consent before APNs registration. */
 const ENABLED_KEY = 'notifications.enabled';
 const BATTERY_OPTIMIZATION_PROMPTED_KEY = 'notifications.batteryOptimizationPrompted';
 const CONTENT_PREFERENCES_KEY = 'notifications.contentPreferences';
@@ -45,7 +46,8 @@ export const DEFAULT_NOTIFICATION_CONTENT_PREFERENCES: NotificationContentPrefer
 /** Small persistence wrapper so the background task can read the preference without
  * pulling in the notification service / dm service at module load. */
 export async function getNotificationsEnabled(): Promise<boolean> {
-  return (await getDevicePreference(ENABLED_KEY, ENABLED_KEY)) !== '0';
+  const stored = await getDevicePreference(ENABLED_KEY, ENABLED_KEY);
+  return IS_IOS ? stored === '1' : stored !== '0';
 }
 
 export async function setNotificationsEnabled(enabled: boolean): Promise<void> {

@@ -1,6 +1,6 @@
 /**
- * Port for the periodic background task (WorkManager on Android, BGTaskScheduler
- * on iOS, a main-process timer on desktop). The poll's business logic stays in
+ * Port for the periodic background task (WorkManager on Android,
+ * a main-process timer on desktop; unavailable on iOS). The poll's business logic stays in
  * `services/notifications/background-task.ts`; this port handles defining and
  * (un)registering the OS-level task.
  *

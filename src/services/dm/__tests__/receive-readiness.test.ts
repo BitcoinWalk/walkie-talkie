@@ -38,6 +38,7 @@ jest.mock('@/platform', () => ({ platform: {
     },
   },
   notifications: {
+    shouldNotifyNow: () => mockAppState !== 'active',
     addUserReturnedListener: (listener: () => void) => {
       mockUserReturnedListeners.add(listener);
       return () => mockUserReturnedListeners.delete(listener);
@@ -175,7 +176,7 @@ it('stops immediately on an unknown key, even if its timestamp predates this lau
   rotate();
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(dmService.getAccountPubkey()).toBeNull();
-  live().onEvent({ id: 'late', kind: 1059 } as Event, 'wss://fresh.example');
+  live().onEvent({ id: 'late', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
   await flush();
   expect(unwrapGiftWrapWithKeys).not.toHaveBeenCalled();
 });
@@ -190,7 +191,7 @@ it('does not mark an in-flight failed decryption processed after rotation', asyn
   await dmService.init(options);
   const decrypting = deferred<GiftWrapUnwrapOutcome>();
   jest.mocked(unwrapGiftWrapWithKeys).mockReturnValueOnce(decrypting.promise);
-  live().onEvent({ id: 'in-flight', kind: 1059 } as Event, 'wss://fresh.example');
+  live().onEvent({ id: 'in-flight', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
   await flush();
   expect(unwrapGiftWrapWithKeys).toHaveBeenCalledTimes(1);
   rotate();
@@ -218,8 +219,8 @@ it('checks an already-processed backfill page in one batch', async () => {
   mockAppState = 'active';
   jest.mocked(getRelaySyncCursor).mockResolvedValue({ forwardSince: 1, backwardUntil: 0 });
   const page = [
-    { id: 'seen-1', kind: 1059, created_at: 3 },
-    { id: 'seen-2', kind: 1059, created_at: 2 },
+    { id: 'seen-1', tags: [['p', self]], kind: 1059, created_at: 3 },
+    { id: 'seen-2', tags: [['p', self]], kind: 1059, created_at: 2 },
   ] as Event[];
   mockProcessedIds.add('seen-1');
   mockProcessedIds.add('seen-2');
@@ -248,8 +249,8 @@ it.each([24, 48])('backfills a new wrap backdated %i hours before the previous c
   const cutoff = previousCutoff + 4 * 24 * 60 * 60;
   const clock = jest.spyOn(Date, 'now').mockReturnValue(cutoff * 1000);
   const completed = deferred<void>();
-  const missing = { id: 'backdated-wrap', kind: 1059, created_at: previousCutoff - hours * 60 * 60 } as Event;
-  const seen = { id: 'seen-boundary', kind: 1059, created_at: previousCutoff } as Event;
+  const missing = { id: 'backdated-wrap', tags: [['p', self]], kind: 1059, created_at: previousCutoff - hours * 60 * 60 } as Event;
+  const seen = { id: 'seen-boundary', tags: [['p', self]], kind: 1059, created_at: previousCutoff } as Event;
   mockProcessedIds.add(seen.id);
   jest.mocked(getRelaySyncCursor).mockResolvedValue({ forwardSince: previousCutoff, backwardUntil: 0 });
   jest.mocked(setForwardSince).mockImplementationOnce(async () => { completed.resolve(); });
@@ -284,7 +285,7 @@ it('a background poll leaves the live account and subscriptions intact', async (
 it('pages recent notification messages without reading or advancing history cursors', async () => {
   const now = Math.floor(Date.now() / 1000);
   const events = Array.from({ length: 450 }, (_, i) => ({
-    id: `poll-${i}`, kind: 1059, created_at: now - i,
+    id: `poll-${i}`, tags: [['p', self]], kind: 1059, created_at: now - i,
   } as Event));
   jest.mocked(relayPool.query).mockImplementation(async (opts) => {
     const page = events.filter((event) => event.created_at <= opts.filter!.until!)
@@ -295,7 +296,7 @@ it('pages recent notification messages without reading or advancing history curs
     return page;
   });
   await dmService.pollForNotifications(self);
-  expect(markGiftWrapProcessed).toHaveBeenCalledTimes(450);
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
   expect(unwrapGiftWrapWithKeys).toHaveBeenCalledTimes(450);
   expect(getRelaySyncCursor).not.toHaveBeenCalled();
   expect(setForwardSince).not.toHaveBeenCalled();
@@ -312,7 +313,7 @@ it('watches key rotation during a cold poll and discards the outstanding message
   expect(live().filter).toEqual({ kinds: [10044], authors: [self], limit: 1 });
   live().onEvent(announcement(newKey, 20), 'wss://fresh.example');
   expect(jest.mocked(relayPool.query).mock.calls[0][0].abort?.aborted).toBe(true);
-  pending.resolve([{ id: 'stale', kind: 1059 } as Event]);
+  pending.resolve([{ id: 'stale', tags: [['p', self]], kind: 1059 } as Event]);
   await expect(polling).rejects.toBeInstanceOf(MessagingKeySyncRequiredError);
   expect(markGiftWrapProcessed).not.toHaveBeenCalled();
   expect(receiveSessionStore.getState().status).toBe('key-required');
@@ -334,13 +335,13 @@ it('ignores an old or same-key announcement during a cold poll', async () => {
 });
 
 
-it('marks failed decryption processed and skips replay even after receiving a new key', async () => {
-  const event = { id: 'undecryptable-wrap', kind: 1059 } as Event;
+it('keeps failed decryption retryable after receiving a new key', async () => {
+  const event = { id: 'undecryptable-wrap', tags: [['p', self]], kind: 1059 } as Event;
   await dmService.init(options);
   live().onEvent(event, 'wss://fresh.example');
   await flush();
   expect(unwrapGiftWrapWithKeys).toHaveBeenCalledTimes(1);
-  expect(markGiftWrapProcessed).toHaveBeenCalledWith(event.id, self);
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
 
   rotate();
   resolveMetadata.mockResolvedValue(metadata(newKey));
@@ -351,8 +352,8 @@ it('marks failed decryption processed and skips replay even after receiving a ne
   await dmService.init(options);
   live().onEvent(event, 'wss://fresh.example');
   await flush();
-  expect(unwrapGiftWrapWithKeys).toHaveBeenCalledTimes(1);
-  expect(markGiftWrapProcessed).toHaveBeenCalledTimes(1);
+  expect(unwrapGiftWrapWithKeys).toHaveBeenCalledTimes(2);
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
 });
 
 it('reports key sync when an announcement races the opening of self-event subscriptions', async () => {
@@ -370,7 +371,7 @@ it('cancels a cold poll query when a new session takes over', async () => {
   const queryOptions = jest.mocked(relayPool.query).mock.calls[0][0];
   dmService.destroy();
   expect(queryOptions.abort?.aborted).toBe(true);
-  pending.resolve([{ id: 'late-poll', kind: 1059 } as Event]);
+  pending.resolve([{ id: 'late-poll', tags: [['p', self]], kind: 1059 } as Event]);
   expect(await polling).toEqual([]);
   expect(unwrapGiftWrapWithKeys).not.toHaveBeenCalled();
 });
@@ -381,7 +382,7 @@ it('marks an authenticated seal without an n tag processed without storing a mes
   jest.mocked(unwrapGiftWrapWithKeys).mockResolvedValueOnce({
     status: 'unsupported', reason: 'missing-encryption-key-tag',
   });
-  live().onEvent({ id: 'ordinary-nip17', kind: 1059 } as Event, 'wss://fresh.example');
+  live().onEvent({ id: 'ordinary-nip17', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
   await flush();
   expect(markGiftWrapProcessed).toHaveBeenCalledWith('ordinary-nip17', self);
 });
@@ -390,7 +391,7 @@ it('does not persist an unsupported result from a receiver invalidated by rotati
   await dmService.init(options);
   const decrypting = deferred<GiftWrapUnwrapOutcome>();
   jest.mocked(unwrapGiftWrapWithKeys).mockReturnValueOnce(decrypting.promise);
-  live().onEvent({ id: 'stale-ordinary', kind: 1059 } as Event, 'wss://fresh.example');
+  live().onEvent({ id: 'stale-ordinary', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
   await flush();
   rotate();
   decrypting.resolve({ status: 'unsupported', reason: 'missing-encryption-key-tag' });
@@ -513,7 +514,7 @@ it('lets a foreground history pass continue paging after backgrounding', async (
   const cutoff = first.filter!.until!;
   changeAppState('background');
   expect(first.abort?.aborted).toBe(false);
-  page.resolve([{ id: 'history-page', kind: 1059, created_at: cutoff - 10 } as Event]);
+  page.resolve([{ id: 'history-page', tags: [['p', self]], kind: 1059, created_at: cutoff - 10 } as Event]);
   await flush();
   expect(relayPool.query).toHaveBeenCalledTimes(2);
   expect(jest.mocked(relayPool.query).mock.calls[1][0].filter?.until).toBe(cutoff - 10);
@@ -661,7 +662,7 @@ it.each(['timeout', 'connection-failed', 'auth-failed'])('retries only the relay
     const healthy = 'wss://healthy.example';
     resolveMetadata.mockResolvedValue({ ...metadata(), dmRelays: [broken, healthy] });
     jest.mocked(getRelaySyncCursor).mockResolvedValue({ forwardSince: 1, backwardUntil: 0 });
-    const alreadySeen = { id: 'old-replica-event', kind: 1059, created_at: 1 } as Event;
+    const alreadySeen = { id: 'old-replica-event', tags: [['p', self]], kind: 1059, created_at: 1 } as Event;
     mockProcessedIds.add(alreadySeen.id);
     let recovered = false;
     jest.mocked(relayPool.query).mockImplementation(async opts => {
@@ -694,7 +695,7 @@ it('expands a full boundary second before advancing the relay cursor', async () 
   const clock = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
   try {
     jest.mocked(getRelaySyncCursor).mockResolvedValue({ forwardSince: 1, backwardUntil: 0 });
-    const events = Array.from({ length: 201 }, (_, i) => ({ id: `boundary-${i}`, kind: 1059, created_at: 1000 } as Event));
+    const events = Array.from({ length: 201 }, (_, i) => ({ id: `boundary-${i}`, tags: [['p', self]], kind: 1059, created_at: 1000 } as Event));
     for (const event of events) mockProcessedIds.add(event.id);
     jest.mocked(relayPool.query).mockImplementation(async opts => {
       const page = opts.filter!.until! < 1000 ? [] : events.slice(0, opts.filter!.limit!);
@@ -724,11 +725,11 @@ it('resumes deep history from the last wire-confirmed page after an interrupted 
       })
       .mockImplementationOnce(async opts => {
         opts.onComplete?.({ eosed: true, status: 'complete', relays: [{ url: relay, status: 'eose', received: 1 }] });
-        return [{ id: 'confirmed-page', kind: 1059, created_at: 900 } as Event];
+        return [{ id: 'confirmed-page', tags: [['p', self]], kind: 1059, created_at: 900 } as Event];
       })
       .mockImplementationOnce(async opts => {
         opts.onComplete?.({ eosed: true, status: 'complete', relays: [{ url: relay, status: 'eose', received: 1, reason: 'query timed out' }] });
-        return [{ id: 'partial-page', kind: 1059, created_at: 800 } as Event];
+        return [{ id: 'partial-page', tags: [['p', self]], kind: 1059, created_at: 800 } as Event];
       });
     await dmService.init(options);
     await flush();

@@ -3,7 +3,29 @@ import UIKit
 import UserNotifications
 
 public final class LocalNotificationsAppDelegateSubscriber: ExpoAppDelegateSubscriber {
+  public func applicationDidBecomeActive(_ application: UIApplication) {
+    SharedNotificationContext.setUserPresent(true)
+  }
+
+  public func applicationWillResignActive(_ application: UIApplication) {
+    SharedNotificationContext.setUserPresent(false)
+  }
+
+  public func applicationDidEnterBackground(_ application: UIApplication) {
+    SharedNotificationContext.setUserPresent(false)
+  }
+
+  public func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    PushRegistration.shared.receive(deviceToken)
+  }
+
+  public func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    PushRegistration.shared.fail(error)
+  }
+
   public func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+    SharedNotificationContext.startMainProcess()
+    SharedNotificationContext.setUserPresent(application.applicationState == .active)
     UNUserNotificationCenter.current().delegate = LocalNotificationDelegate.shared
     return true
   }

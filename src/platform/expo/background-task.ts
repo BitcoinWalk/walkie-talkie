@@ -14,16 +14,19 @@ type BackgroundTaskModule = typeof import('expo-background-task');
 let TaskManager: TaskManagerModule | null = null;
 let BackgroundTask: BackgroundTaskModule | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  TaskManager = require('expo-task-manager') as TaskManagerModule;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  BackgroundTask = require('expo-background-task') as BackgroundTaskModule;
+  if (!IS_IOS) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    TaskManager = require('expo-task-manager') as TaskManagerModule;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    BackgroundTask = require('expo-background-task') as BackgroundTaskModule;
+  }
 } catch {
   TaskManager = null;
   BackgroundTask = null;
 }
 
-/** Periodic background task backed by `expo-task-manager` + `expo-background-task`. */
+/** iOS uses APNs; its adapter never loads or registers periodic task modules.
+ * Periodic background task backed by `expo-task-manager` + `expo-background-task`. */
 export const backgroundTaskAdapter: BackgroundTaskPort = (() => {
   /** Names passed to `defineTasks`; [0] is current, the rest legacy aliases. */
   let taskNames: string[] = [];
@@ -35,23 +38,11 @@ export const backgroundTaskAdapter: BackgroundTaskPort = (() => {
       const BG = BackgroundTask;
       const wrapped = async () => {
         const controller = new AbortController();
-        let expirationSubscription: { remove(): void } | null = null;
-        if (IS_IOS) {
-          try {
-            expirationSubscription = BG.addExpirationListener(() => {
-              controller.abort(new Error('Background task execution expired'));
-            });
-          } catch {
-            // Older native builds may not expose the expiration event.
-          }
-        }
         try {
           await run({ signal: controller.signal });
           return BG.BackgroundTaskResult.Success;
         } catch {
           return BG.BackgroundTaskResult.Failed;
-        } finally {
-          expirationSubscription?.remove();
         }
       };
       // Define at module scope of the caller's bootstrap so the OS can invoke it

@@ -5,15 +5,16 @@ import { IS_DEVELOPMENT_BUILD } from '@/lib/environment';
 import { platform } from '@/platform';
 import { getActiveAccountPubkey } from '@/services/account/account.service';
 import { getMainInboxUnreadCount } from '@/services/conversation/unread-count.service';
+import { invalidateAllWarmedMessageTails } from '@/services/conversation/message-tail-cache';
+import { observedPeerKeyService } from '@/services/dm/observed-peer-key.service';
 import { dmService } from '@/services/dm/dm.service';
 import { receiveSessionStore } from '@/services/dm/receive-session';
 import { retryUnreadIndicator } from '@/services/unread-indicator.service';
 import { isMessageOrderNewer, messageOrderAt } from '@/lib/nostr/message-order';
-import { firstGroupId } from '@/lib/nostr/group-messaging';
 
 import { registerBackgroundPoll, unregisterBackgroundPoll } from './background-task';
-import { filterNotifiableMessages } from './notification-filter';
-import { getNotificationPreview } from './notification-preview';
+import { evaluateNotificationRumors, buildNotificationContent } from './notification-policy';
+import { pushRegistrationService } from './push-registration.service';
 import {
   DEFAULT_NOTIFICATION_CONTENT_PREFERENCES,
   getBatteryOptimizationPrompted,
@@ -67,8 +68,8 @@ type NotifyOptions = {
  * - **Live path:** the `onNewMessage` hook — the decrypt-and-store path only,
  *   never the backup importer — fires while the app is backgrounded but the JS
  *   runtime is still alive.
- * - **Background poll:** `background-task.ts` wakes periodically (OS task on
- *   mobile, main-process timer on desktop), runs `dmService.pollForNotifications`,
+ * - **Background poll:** `background-task.ts` wakes periodically (WorkManager on
+ *   Android, main-process timer on desktop; disabled on iOS), runs `dmService.pollForNotifications`,
  *   and hands the freshly-stored rumors here.
  *
  * The funnel dedups by rumor id, so a rumor that arrives twice (live listener
@@ -113,6 +114,11 @@ class NotificationService {
   async init(): Promise<void> {
     if (this.initialized) return;
     this.initialized = true;
+    platform.database?.addChangeListener((event) => {
+      if (!event.external) return;
+      invalidateAllWarmedMessageTails();
+      observedPeerKeyService.invalidateCache();
+    });
     receiveSessionStore.subscribe((next, previous) => {
       if (next.status === previous.status && next.accountPubkey === previous.accountPubkey) return;
       if (next.status !== 'ready') this.clearPendingState();
@@ -126,9 +132,22 @@ class NotificationService {
       getNotificationContentPreferences(),
     ]);
     this.enabled = enabled;
+    pushRegistrationService.setEnabled(enabled);
     this.contentPreferences = contentPreferences;
     this.contentPreferencesLoaded = true;
-    platform.notifications.addUserReturnedListener(() => this.resetPending());
+    platform.notifications.addUserReturnedListener(() => {
+      this.resetPending();
+      void pushRegistrationService.reconcile();
+    });
+    platform.pushNotifications?.addTokenChangedListener(() => {
+      void pushRegistrationService.reconcile();
+    });
+    if (platform.pushNotifications?.isAvailable()) {
+      platform.networkState.addStateListener((state) => {
+        if (state.isConnected === true) void pushRegistrationService.reconcile();
+      });
+      receiveSessionStore.subscribe(() => { void pushRegistrationService.reconcile(); });
+    }
 
     // Always listen for live messages (cheap; the funnel guards on `enabled`).
     dmService.addListener({
@@ -155,6 +174,7 @@ class NotificationService {
       await retryUnreadIndicator();
     }
     await this.syncBackgroundMessaging();
+    void pushRegistrationService.reconcile();
   }
 
   /** Native residency and periodic recovery share the receive-readiness gate.
@@ -245,7 +265,7 @@ class NotificationService {
     await this.enqueue(async () => {
       if (epoch !== this.notificationEpoch) return;
       const unseen = rumors.filter((rumor) => !this.processedIds.has(rumor.id));
-      const qualifying = await filterNotifiableMessages(unseen, accountPubkey);
+      const qualifying = await evaluateNotificationRumors(unseen, accountPubkey, !platform.notifications.shouldNotifyNow());
       if (epoch !== this.notificationEpoch || this.isReceiveBlocked(accountPubkey)) return;
       for (const rumor of unseen) this.processedIds.add(rumor.id);
       if (qualifying.length === 0) return;
@@ -388,37 +408,13 @@ class NotificationService {
     }
 
     const count = this.pendingCount;
-    const genericTitle =
-      count <= 1
-        ? this.latestPendingRumor && firstGroupId(this.latestPendingRumor.tags)
-          ? i18n.t('group.new_message')
-          : i18n.t('notifications.new_message')
-        : i18n.t('notifications.new_messages', { count });
     await this.ensureContentPreferencesLoaded();
-
     const accountPubkey = await getActiveAccountPubkey();
     const latestPendingRumor = this.latestPendingRumor;
-    const shouldResolvePreview =
-      latestPendingRumor !== null &&
-      (this.contentPreferences.showSender || this.contentPreferences.showMessageContent);
-    const preview = shouldResolvePreview && accountPubkey
-      ? await getNotificationPreview(latestPendingRumor, accountPubkey, {
-          includeIdentity: this.contentPreferences.showSender,
-        })
-      : null;
-    const title =
-      this.contentPreferences.showSender && preview?.displayName
-        ? preview.displayName
-        : genericTitle;
-    const subtitle = title !== genericTitle && count > 1 ? genericTitle : undefined;
-    const body = this.contentPreferences.showMessageContent
-      ? preview?.group && this.contentPreferences.showSender && preview.senderName && preview.messageContent
-        ? `${preview.senderName}: ${preview.messageContent}`
-        : preview?.messageContent ?? undefined
-      : i18n.t('notifications.open_to_view_message');
-    const avatarUrl = this.contentPreferences.showSender
-      ? preview?.avatarUrl ?? undefined
-      : undefined;
+    if (!accountPubkey || !latestPendingRumor) return;
+    const { title, subtitle, body, avatarUrl, communication } = await buildNotificationContent(
+      latestPendingRumor, count, accountPubkey, this.contentPreferences,
+    );
 
     // This app owns a single notification surface. Clearing first also removes
     // a stale aggregate left by a previous JS process, so replacement does not
@@ -437,6 +433,7 @@ class NotificationService {
       subtitle,
       body,
       avatarUrl,
+      communication,
       badgeCount,
     });
     // Presentation can fail transiently on desktop. Only persistently disable
@@ -461,10 +458,12 @@ class NotificationService {
 
   private async handlePermissionLoss(): Promise<void> {
     this.enabled = false;
+    pushRegistrationService.setEnabled(false);
     this.clearPendingState();
     await setNotificationsEnabled(false);
     await this.syncBackgroundMessaging();
     await platform.notifications.dismissAll();
+    void pushRegistrationService.reconcile();
   }
 
   // ---- Settings surface ----
@@ -509,14 +508,17 @@ class NotificationService {
     await this.requestBatteryOptimizationExemptionOnce();
     this.enabled = true;
     await setNotificationsEnabled(true);
+    pushRegistrationService.setEnabled(true);
     this.wireNative(); // set up handler/channel/tap listener now, no restart needed
     await retryUnreadIndicator();
     await this.syncBackgroundMessaging();
+    void pushRegistrationService.reconcile();
     return { enabled: true, granted: true };
   }
 
   async disable(): Promise<void> {
     this.enabled = false;
+    pushRegistrationService.setEnabled(false);
     await setNotificationsEnabled(false);
     this.clearPendingState();
     await this.enqueue(async () => {
@@ -524,6 +526,7 @@ class NotificationService {
       await this.syncBackgroundMessaging();
       await platform.notifications.dismissAll();
     });
+    void pushRegistrationService.reconcile();
   }
 }
 

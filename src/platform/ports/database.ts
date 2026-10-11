@@ -50,5 +50,5 @@ export interface SqliteDriver extends SqliteExecutor {
    * Subscribe to data changes — backs the live-query wrapper in
    * `db/use-live-query.ts`. Returns an unsubscribe function.
    */
-  addChangeListener(listener: (event: { tableName?: string }) => void): () => void;
+  addChangeListener(listener: (event: { tableName?: string; external?: boolean }) => void): () => void;
 }

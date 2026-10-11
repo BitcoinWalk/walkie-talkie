@@ -294,6 +294,12 @@ export function invalidateWarmedMessageTail(
   cache.delete(key);
 }
 
+/** Independent extension writes invalidate only the bounded warm windows. */
+export function invalidateAllWarmedMessageTails(): void {
+  for (const key of new Set([...cache.keys(), ...inFlight.keys()])) advanceGeneration(key);
+  cache.clear();
+}
+
 /** Rebuild one missing snapshot from SQLite. Navigation never awaits this work. */
 export async function warmMessageTail(
   accountPubkey: string,

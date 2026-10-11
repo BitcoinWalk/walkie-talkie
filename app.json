@@ -155,7 +155,6 @@
           "icon": "./assets/images/notification-icon.png"
         }
       ],
-      "expo-background-task",
       "./plugins/with-proximity-bluetooth",
       "./plugins/with-device-orientation-policy",
       "./plugins/with-pointer-hover",
@@ -170,7 +169,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      "./plugins/with-notification-extension"
     ],
     "experiments": {
       "typedRoutes": false,

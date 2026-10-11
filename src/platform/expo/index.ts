@@ -26,6 +26,7 @@ import { localizationAdapter } from './localization';
 import { mediaLibraryAdapter } from './media-library';
 import { networkStateAdapter } from './network-state';
 import { notificationsAdapter } from './notifications';
+import { pushNotificationsAdapter } from './push-notifications';
 import { secureStorageAdapter } from './secure-storage';
 import { sharingAdapter } from './sharing';
 import { urlOpenerAdapter } from './url-opener';
@@ -200,6 +201,7 @@ function lazyNoiseAdapter(): NoisePort {
 /** The default adapter set for the Expo runtime. */
 export function createExpoAdapters(): PlatformAdapters {
   return {
+    pushNotifications: pushNotificationsAdapter,
     screenOrientation: screenOrientationAdapter,
     bundledNotices: bundledNoticesAdapter,
     appUpdate: appUpdateAdapter,

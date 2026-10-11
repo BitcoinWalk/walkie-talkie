@@ -55,7 +55,7 @@ accent requires a light/dark pair and a localized name. Other semantic colours
 do not change with the accent.
 
 Use accent sparingly. It is not a page background or default icon colour. Use
-danger only when an action destroys or removes something. Use `notification`,
+danger for destructive actions and blocking prerequisites that require user action. Use `notification`,
 not danger, for unread state.
 
 Muted conversation unread counts and disconnected Nearby radar markers use the
@@ -610,6 +610,13 @@ where permission can be queried. Otherwise, keep visible guidance to enable
 notifications in system settings and explain that system permission cannot be checked.
 When the OS denies permission, explain how to enable it in system settings and
 refresh the control when the user returns.
+iOS notifications start disabled and require the user's notification toggle
+before registering the device for remote delivery. Its toggle is disabled unless
+the current account includes the APNs relay among its message relays; removing
+that relay preserves the preference. Prerequisite guidance and its settings action
+live in a standard navigation row below the notification toggle in the same group.
+Disabled notification controls use muted labels and icons; missing relay guidance
+uses the danger tone while its settings destination remains available.
 Disabling new-message indicators hides unread counts, dots, dividers, arrival
 banners, and manual read/unread actions without disabling system notifications.
 

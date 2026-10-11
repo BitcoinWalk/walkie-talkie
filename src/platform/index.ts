@@ -45,6 +45,8 @@ export type {
   NoticeDialogOptions,
   NativeDroppedFile,
   NotificationsPort,
+  PushDevice,
+  PushNotificationsPort,
   PlatformAdapters,
   ProximityTransportPort,
   ProximityTransportSubscription,

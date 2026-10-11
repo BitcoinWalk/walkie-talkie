@@ -61,6 +61,12 @@ export const notificationsAdapter: NotificationsPort = {
     const avatarPath = await cachedAvatarPath(content.avatarUrl);
     // Foreground return or account cleanup must win over in-flight image caching.
     if (generation !== epoch || AppState.currentState !== 'background') return true;
+    if (content.communication && native.presentCommunicationAsync) {
+      return native.presentCommunicationAsync(
+        content.title, content.subtitle ?? null, content.body ?? null,
+        avatarPath, content.badgeCount, JSON.stringify(content.communication),
+      );
+    }
     return native.presentAsync(
       content.title, content.subtitle ?? null, content.body ?? null,
       avatarPath, content.badgeCount,

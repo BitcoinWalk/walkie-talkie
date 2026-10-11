@@ -7,11 +7,12 @@ export function normalizeRelayUrl(url: string): string {
   return u.toString().replace(/\/$/, '');
 }
 
+/** Inbox defaults used when an account has no locally persisted DM relays. */
 export const DEFAULT_DM_RELAYS = [
+  'wss://relay.psstpsst.chat',
   'wss://nos.lol',
-  'wss://relay.primal.net',
   'wss://nip17.com',
-  'wss://offchain.pub',
+  'wss://relay.ditto.pub',
 ];
 
 /**

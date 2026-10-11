@@ -5,6 +5,9 @@
   "license": "MIT",
   "expo": {
     "autolinking": {
+      "ios": {
+        "exclude": ["expo-background-task", "expo-task-manager"]
+      },
       "android": {
         "buildFromSource": [
           ".*"
@@ -27,6 +30,7 @@
     "dayjs": "^1.11.21",
     "drizzle-orm": "^0.45.2",
     "expo": "~57.0.22",
+    "expo-application": "~57.0.3",
     "expo-asset": "~57.0.17",
     "expo-audio": "~57.0.5",
     "expo-background-task": "~57.0.17",
@@ -143,7 +147,8 @@
     "licenses:generate": "node scripts/generate-licenses.mjs",
     "licenses:refresh": "node scripts/generate-licenses.mjs --refresh",
     "licenses:check": "node scripts/generate-licenses.mjs --check",
-    "licenses:test": "node --test scripts/licenses/*.test.mjs"
+    "licenses:test": "node --test scripts/licenses/*.test.mjs",
+    "test:notification-extension": "node --test scripts/notification-extension/processor.test.mjs"
   },
   "jest": {
     "preset": "jest-expo",
