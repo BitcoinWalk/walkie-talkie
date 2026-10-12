@@ -1,0 +1,10 @@
+PsstPsst 26.10.5
+
+- Added brief feedback for common actions.
+- Reduced unnecessary Android permissions.
+- Improved relay address handling.
+- Fixed missing group chats when syncing message history.
+- Fixed relay and media server settings not saving reliably.
+- Fixed quiet-hours time selection and display.
+- Fixed image flicker when browsing photos.
+- Fixed input alignment and search boxes staying pinned while scrolling.

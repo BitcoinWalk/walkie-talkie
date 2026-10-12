@@ -449,6 +449,8 @@ changelog as the GitHub draft release notes.
 
 Changelog conventions:
 
+- Android Fastlane changelogs include only changes that affect Android users.
+  Omit iOS-only, Electron-only, and other platform-specific changes.
 - Write concise English for users, describing visible changes and benefits.
   Avoid implementation details, internal terminology, and commit-by-commit lists.
 - Order entries by type: additions, improvements, then fixes. Keep entries of
