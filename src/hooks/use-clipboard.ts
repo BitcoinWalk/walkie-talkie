@@ -2,14 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { platform } from '@/platform';
-import { showToast } from '@/stores/toast.store';
+import { showToast, type ToastTarget } from '@/stores/toast.store';
 
 const COPIED_DURATION_MS = 2_000;
 
 /** Shared clipboard actions; copied feedback belongs to the latest copy request. */
 export function useClipboard<Key extends string = string>({
   trackCopied = true,
-}: { trackCopied?: boolean } = {}) {
+  toastTarget,
+}: { trackCopied?: boolean; toastTarget?: ToastTarget } = {}) {
   const { t } = useTranslation();
   const [confirmation, setConfirmation] = useState<{ key: Key | null } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,20 +53,20 @@ export function useClipboard<Key extends string = string>({
     } catch {
       if (mounted.current && currentRequest === request.current) {
         resetCopied();
-        showToast(t('common.copy_failed'));
+        showToast(t('common.copy_failed'), toastTarget ? { target: toastTarget } : undefined);
       }
       return false;
     }
-  }, [clearTimer, resetCopied, t, trackCopied]);
+  }, [clearTimer, resetCopied, t, toastTarget, trackCopied]);
 
   const readText = useCallback(async (): Promise<string | null> => {
     try {
       return await platform.clipboard.readText();
     } catch {
-      showToast(t('common.paste_failed'));
+      showToast(t('common.paste_failed'), toastTarget ? { target: toastTarget } : undefined);
       return null;
     }
-  }, [t]);
+  }, [t, toastTarget]);
 
   return {
     copyText,

@@ -14,9 +14,13 @@ import { useTouchLayoutStore } from '@/stores/touch-layout.store';
 import { radius, spacing, useThemeColors } from '@/theme';
 import { wideLayout } from '@/theme/layout';
 
-export type PrimaryPaneProps = { windowWidth: number; children: ReactNode };
+export type PrimaryPaneProps = {
+  windowWidth: number;
+  children: ReactNode;
+  onWidthChange?: (width: number) => void;
+};
 
-export function PrimaryPane({ windowWidth, children }: PrimaryPaneProps) {
+export function PrimaryPane({ windowWidth, children, onWidthChange }: PrimaryPaneProps) {
   const c = useThemeColors();
   const { t } = useTranslation();
   const isRTL = useIsRTL();
@@ -87,7 +91,7 @@ export function PrimaryPane({ windowWidth, children }: PrimaryPaneProps) {
   }, [commitWidth, displayedWidth, paneWidth, windowWidth]);
 
   return (
-    <Animated.View style={[{
+    <Animated.View onLayout={(event) => onWidthChange?.(event.nativeEvent.layout.width)} style={[{
       flexShrink: 0,
       // The centered touch target extends into the detail pane. Keep this pane
       // above its later-rendered sibling so the grip remains fully visible and

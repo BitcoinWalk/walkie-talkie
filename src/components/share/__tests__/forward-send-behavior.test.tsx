@@ -44,7 +44,7 @@ jest.mock('@/stores/active-account.store', () => ({
 jest.mock('@/stores/backup-task.store', () => ({
   useBackupTaskStore: (select: (s: unknown) => unknown) => select({ status: 'idle', startImport: jest.fn() }),
 }));
-jest.mock('@/stores/toast.store', () => ({ showToast: (text: string) => mockToast(text) }));
+jest.mock('@/stores/toast.store', () => ({ showToast: (text: string, options: unknown) => mockToast(text, options) }));
 jest.mock('@/services/conversation/conversation-send.service', () => ({ conversationSendService: {
   forwardMessage: (opts: unknown) => mockForward(opts),
   sendMessage: (opts: unknown) => mockSend(opts),
@@ -117,7 +117,7 @@ it('keeps queue preparation failures as an exceptional notice', async () => {
   act(() => { renderer = create(<ForwardTargetScreen />); });
   confirm();
   await act(async () => { await jest.runAllTimersAsync(); });
-  expect(mockToast).toHaveBeenCalledWith('share.send_failed');
+  expect(mockToast).toHaveBeenCalledWith('share.send_failed', { target: 'detail' });
   expect(forwardNoticeStore.getState().notice?.targets).toEqual([target]);
 });
 

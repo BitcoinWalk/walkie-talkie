@@ -25,7 +25,7 @@ import { spacing, useThemeColors } from '@/theme';
 export default function AccountSettings() {
   const { scrolled, scrollProps } = useScrolled();
   const { t } = useTranslation();
-  const { copyText } = useClipboard({ trackCopied: false });
+  const { copyText } = useClipboard({ trackCopied: false, toastTarget: 'detail' });
   const c = useThemeColors();
   const titleClearance = useScreenHeaderClearance();
   const activePubkey = useActiveAccount((s) => s.activePubkey);

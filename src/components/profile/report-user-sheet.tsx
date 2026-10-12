@@ -42,7 +42,7 @@ export function ReportUserSheet({
     setType(null);
     if (!successToastPendingRef.current) return;
     successToastPendingRef.current = false;
-    showToast(t('report.success'));
+    showToast(t('report.success'), { target: 'detail' });
   }
 
   async function submit() {
@@ -53,7 +53,7 @@ export function ReportUserSheet({
       successToastPendingRef.current = true;
       close();
     } catch {
-      showToast(t('report.failed'));
+      showToast(t('report.failed'), { target: 'detail' });
     } finally {
       setSubmitting(false);
     }

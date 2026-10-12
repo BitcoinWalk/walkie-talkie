@@ -67,7 +67,7 @@ type DraftPicture = {
 export function ProfileView({ pubkey }: { pubkey: string }) {
   const { scrolled, scrollProps } = useScrolled();
   const { t } = useTranslation();
-  const { copyText, copiedKey: copiedField, resetCopied } = useClipboard<CopyField>();
+  const { copyText, copiedKey: copiedField, resetCopied } = useClipboard<CopyField>({ toastTarget: 'detail' });
   const c = useThemeColors();
   const profile = useProfile(pubkey);
   const titleClearance = useScreenHeaderClearance();
@@ -545,6 +545,7 @@ export function ProfileView({ pubkey }: { pubkey: string }) {
       />
 
       <NpubQrSheet
+        toastTarget="detail"
         visible={qrOpen}
         onClose={() => setQrOpen(false)}
         npub={npub}

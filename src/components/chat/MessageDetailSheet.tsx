@@ -453,7 +453,7 @@ export function MessageDetailSheet({
   onClose,
 }: Props) {
   const { t } = useTranslation();
-  const { copyText, copied, resetCopied } = useClipboard();
+  const { copyText, copied, resetCopied } = useClipboard({ toastTarget: 'detail' });
   const c = useThemeColors();
   const direction = useLanguageDirection();
   const visible = rumorId != null;

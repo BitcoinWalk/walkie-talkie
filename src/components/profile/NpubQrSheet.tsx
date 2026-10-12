@@ -15,6 +15,7 @@ import { useClipboard } from '@/hooks/use-clipboard';
 import { IS_ELECTRON } from '@/lib/platform';
 import { platform } from '@/platform';
 import { saveUriToLibrary } from '@/services/files/media-save.service';
+import type { ToastTarget } from '@/stores/toast.store';
 import { iconStrokeWidth } from '@/theme/icons';
 import { spacing, useThemeColors } from '@/theme';
 
@@ -39,6 +40,7 @@ type Props = {
   /** Public identity only — never a private petname. */
   name?: string | null;
   nip05?: string | null;
+  toastTarget?: ToastTarget;
 };
 
 /**
@@ -46,9 +48,9 @@ type Props = {
  * {@link NpubShareCard} and a Copy / Share / Save action row. Share and Save
  * capture its square export surface at print-friendly resolution.
  */
-export function NpubQrSheet({ visible, onClose, npub, name, nip05 }: Props) {
+export function NpubQrSheet({ visible, onClose, npub, name, nip05, toastTarget }: Props) {
   const { t } = useTranslation();
-  const { copyText, copied } = useClipboard();
+  const { copyText, copied } = useClipboard({ toastTarget });
   const c = useThemeColors();
   const cardRef = useRef<View>(null);
   const [busy, setBusy] = useState(false);

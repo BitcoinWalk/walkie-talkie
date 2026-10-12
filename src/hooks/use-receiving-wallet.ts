@@ -27,7 +27,7 @@ export function useReceivingWallet(accountPubkey: string | null) {
             await publishReceivingWalletAddress(accountPubkey, address);
             setPendingReceivingProfile({ address, previousEventId });
             setSettingReceivingWalletId(null);
-            showToast(t('wallet.receiving_wallet_set'));
+            showToast(t('wallet.receiving_wallet_set'), { target: 'detail' });
           } catch {
             void platform.confirmationDialog.notify({ title: t('wallet.receiving_wallet_failed'), okLabel: t('common.ok') });
             setSettingReceivingWalletId(null);

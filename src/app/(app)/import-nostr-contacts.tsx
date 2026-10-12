@@ -178,10 +178,10 @@ export default function ImportNostrContacts() {
     setImporting(true);
     try {
       const result = await importNostrFollowContacts(accountPubkey, Array.from(selected));
-      showToast(t('import_contacts.imported_count', { count: result.imported }));
+      showToast(t('import_contacts.imported_count', { count: result.imported }), { target: 'primary' });
       router.replace('/contacts');
     } catch {
-      showToast(t('import_contacts.failed'));
+      showToast(t('import_contacts.failed'), { target: 'detail' });
     } finally {
       setImporting(false);
     }

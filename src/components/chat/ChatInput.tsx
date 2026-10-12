@@ -858,6 +858,7 @@ export function ChatInput({
           : failure.kind === 'reason'
             ? failure.reason
             : t('composer.send_failed'),
+        { target: 'detail' },
       );
     } finally {
       setSending(false);

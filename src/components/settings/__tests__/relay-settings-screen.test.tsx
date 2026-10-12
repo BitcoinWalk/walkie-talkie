@@ -71,7 +71,7 @@ it.each(['light', 'dark'] as const)('edits publishing relays independently in %s
     accountPubkey: 'self', relays: ['wss://write.example/', 'wss://new.example/'],
   }));
   expect(saveAndPublishDmRelays).not.toHaveBeenCalled();
-  expect(showToast).toHaveBeenCalledWith('relays.save_success');
+  expect(showToast).toHaveBeenCalledWith('relays.save_success', { target: 'detail' });
 });
 
 it('keeps the draft and shows a save failure even when the input is empty', async () => {
@@ -81,7 +81,7 @@ it('keeps the draft and shows a save failure even when the input is empty', asyn
   await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
   expect(activePanel().findByType(AppInput).props.error).toBeUndefined();
   expect(activePanel().findAllByType(AppText).some((node) => node.props.children === 'relays.save_error')).toBe(true);
-  expect(showToast).toHaveBeenCalledWith('relays.save_error');
+  expect(showToast).toHaveBeenCalledWith('relays.save_error', { target: 'detail' });
   expect(activePanel().findByType(AppButton).props.disabled).toBe(false);
   expect(activePanel().findByType(SortableUrlList).props.value).toEqual(['wss://new.example/']);
 });
@@ -92,7 +92,7 @@ it('keeps message-relay edits on their independent save path', async () => {
   await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
   expect(saveAndPublishDmRelays).toHaveBeenCalled();
   expect(saveAndPublishWriteRelays).not.toHaveBeenCalled();
-  expect(showToast).toHaveBeenCalledWith('relays.save_success');
+  expect(showToast).toHaveBeenCalledWith('relays.save_success', { target: 'detail' });
 });
 
 it('shows saving until the save completes, then acknowledges success', async () => {
@@ -106,7 +106,7 @@ it('shows saving until the save completes, then acknowledges success', async () 
   expect(activePanel().findByType(AppButton).props.label).toBe('relays.save');
   expect(showToast).not.toHaveBeenCalled();
   await act(async () => { finish(); await pending; });
-  expect(showToast).toHaveBeenCalledWith('relays.save_success');
+  expect(showToast).toHaveBeenCalledWith('relays.save_success', { target: 'detail' });
   expect(activePanel().findByType(AppButton).props.loading).toBe(false);
   expect(activePanel().findByType(AppButton).props.disabled).toBe(true);
 });
@@ -116,14 +116,14 @@ it.each(['dm', 'write'] as const)('keeps a failed %s relay draft retryable and c
   await renderSettings(mode);
   act(() => { activePanel().findByType(SortableUrlList).props.onChange(['wss://new.example/']); });
   await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
-  expect(showToast).toHaveBeenLastCalledWith('relays.save_error');
+  expect(showToast).toHaveBeenLastCalledWith('relays.save_error', { target: 'detail' });
   expect(activePanel().findAllByType(AppText).some((node) => node.props.children === 'relays.save_error')).toBe(true);
   expect(activePanel().findByType(AppButton).props.disabled).toBe(false);
   expect(activePanel().findByType(AppButton).props.loading).toBe(false);
   expect(activePanel().findByType(AppButton).props.label).toBe('relays.save');
   expect(activePanel().findByType(SortableUrlList).props.value).toEqual(['wss://new.example/']);
   await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
-  expect(showToast).toHaveBeenLastCalledWith('relays.save_success');
+  expect(showToast).toHaveBeenLastCalledWith('relays.save_success', { target: 'detail' });
   expect(activePanel().findAllByType(AppText).some((node) => node.props.children === 'relays.save_error')).toBe(false);
 });
 

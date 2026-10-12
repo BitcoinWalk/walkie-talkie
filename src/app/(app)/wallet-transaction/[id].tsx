@@ -24,7 +24,7 @@ import { spacing, useThemeColors } from '@/theme';
 export default function WalletTransactionDetailScreen() {
   const { scrolled, scrollProps } = useScrolled();
   const { t } = useTranslation();
-  const { copyText, copiedKey: copiedField } = useClipboard();
+  const { copyText, copiedKey: copiedField } = useClipboard({ toastTarget: 'detail' });
   const c = useThemeColors();
   const titleClearance = useScreenHeaderClearance();
   const params = useLocalSearchParams<{ id: string | string[] }>();

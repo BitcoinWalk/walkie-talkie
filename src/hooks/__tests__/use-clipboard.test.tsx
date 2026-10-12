@@ -3,6 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { platform } from '@/platform';
 import { showToast } from '@/stores/toast.store';
+import type { ToastTarget } from '@/stores/toast.store';
 import { useClipboard } from '../use-clipboard';
 
 jest.mock('@/platform', () => ({ platform: { clipboard: {
@@ -14,8 +15,8 @@ jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockTranslate })
 
 let renderer: ReactTestRenderer;
 let clipboard: ReturnType<typeof useClipboard>;
-function Harness({ trackCopied = true }: { trackCopied?: boolean }) {
-  const actions = useClipboard({ trackCopied });
+function Harness({ trackCopied = true, toastTarget }: { trackCopied?: boolean; toastTarget?: ToastTarget }) {
+  const actions = useClipboard({ trackCopied, toastTarget });
   useEffect(() => { clipboard = actions; });
   return null;
 }
@@ -66,7 +67,7 @@ it.each(['synchronous', 'asynchronous'])('handles %s copy failures without false
   await expect(copy('private key')).resolves.toBe(false);
   expect(clipboard.copied).toBe(false);
   expect(showToast).toHaveBeenCalledTimes(1);
-  expect(showToast).toHaveBeenCalledWith('common.copy_failed');
+  expect(showToast).toHaveBeenCalledWith('common.copy_failed', undefined);
 });
 
 it('distinguishes an empty clipboard from a failed read', async () => {
@@ -75,7 +76,17 @@ it('distinguishes an empty clipboard from a failed read', async () => {
   expect(showToast).not.toHaveBeenCalled();
   jest.mocked(platform.clipboard.readText).mockRejectedValue(new Error('Permission denied'));
   await expect(clipboard.readText()).resolves.toBeNull();
-  expect(showToast).toHaveBeenCalledWith('common.paste_failed');
+  expect(showToast).toHaveBeenCalledWith('common.paste_failed', undefined);
+});
+
+it.each(['primary', 'detail'] as const)('scopes copy and paste errors to the %s pane', async (toastTarget) => {
+  act(() => { renderer.update(<Harness toastTarget={toastTarget} />); });
+  jest.mocked(platform.clipboard.writeText).mockRejectedValue(new Error('Clipboard unavailable'));
+  await expect(copy('public key')).resolves.toBe(false);
+  expect(showToast).toHaveBeenLastCalledWith('common.copy_failed', { target: toastTarget });
+  jest.mocked(platform.clipboard.readText).mockRejectedValue(new Error('Clipboard unavailable'));
+  await act(async () => { await clipboard.readText(); });
+  expect(showToast).toHaveBeenLastCalledWith('common.paste_failed', { target: toastTarget });
 });
 
 it('allows retrying after a failed copy', async () => {

@@ -109,12 +109,12 @@ function MediaServersForm({ accountPubkey }: { accountPubkey: string | null }) {
       await saveAndPublishMediaServers({ accountPubkey, signer, servers, abort: abort.signal });
       if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
       setOriginal(servers);
-      showToast(t('media_servers.save_success'));
+      showToast(t('media_servers.save_success'), { target: 'detail' });
     } catch {
       if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
       const message = t('media_servers.save_error');
       setSaveError(message);
-      showToast(message);
+      showToast(message, { target: 'detail' });
     } finally {
       saveAbort.current = null;
       setSaving(false);

@@ -49,7 +49,7 @@ jest.mock('@/services/nostr/report.service', () => ({
   reportUser: (...args: unknown[]) => mockReportUser(...args),
 }));
 jest.mock('@/stores/toast.store', () => ({
-  showToast: (message: string) => mockShowToast(message),
+  showToast: (message: string, options: unknown) => mockShowToast(message, options),
 }));
 jest.mock('@/theme', () => ({ spacing: { lg: 16 } }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -91,6 +91,6 @@ describe('ReportUserSheet', () => {
     expect(mockShowToast).not.toHaveBeenCalled();
 
     act(() => mockBottomSheet.mock.lastCall?.[0].onClosed?.());
-    expect(mockShowToast).toHaveBeenCalledWith('report.success');
+    expect(mockShowToast).toHaveBeenCalledWith('report.success', { target: 'detail' });
   });
 });

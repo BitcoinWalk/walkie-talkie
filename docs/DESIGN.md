@@ -364,6 +364,9 @@ this table records when to choose each primitive.
 | Brief success acknowledgement | `Toast` |
 
 Transient toasts remain visible above an active sheet or modal.
+Toasts scoped to a split-pane column sit at that column's bottom centre and
+follow its resized bounds. Unscoped toasts and single-pane layouts use the
+whole window's bottom centre.
 
 `AppButton` and `IconButton` are the only button primitives. A specialist
 interactive surface may use `InteractivePressable`, but it must not recreate a

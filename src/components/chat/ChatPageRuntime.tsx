@@ -520,7 +520,7 @@ export default function ChatPageRuntime() {
       proximityConnectionFailure === 'failed' &&
       previous !== 'failed'
     ) {
-      showToast(t('nearby.request_failed'));
+      showToast(t('nearby.request_failed'), { target: 'detail' });
     }
   }, [isProximity, liveDataReady, proximityConnectionFailure, t]);
 
@@ -653,11 +653,11 @@ export default function ChatPageRuntime() {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       if (!useProximityStore.getState().discoveries[conversationKey]?.signalFresh) return;
       const result = await proximityService.requestChat(accountPubkey, conversationKey);
-      if (result === 'declined') showToast(t('nearby.request_declined'));
-      if (result === 'timeout') showToast(t('nearby.request_timeout'));
-      if (result === 'failed') showToast(t('nearby.request_failed'));
+      if (result === 'declined') showToast(t('nearby.request_declined'), { target: 'detail' });
+      if (result === 'timeout') showToast(t('nearby.request_timeout'), { target: 'detail' });
+      if (result === 'failed') showToast(t('nearby.request_failed'), { target: 'detail' });
     } catch {
-      showToast(t('nearby.request_failed'));
+      showToast(t('nearby.request_failed'), { target: 'detail' });
     } finally {
       setManualReconnectPending(false);
     }
@@ -845,7 +845,7 @@ function ChatPageContent({
   const insets = useSafeAreaInsets();
   const composerClearance = bottomBarHeight + getBottomChromeInset(insets.bottom);
   const { t } = useTranslation();
-  const { copyText } = useClipboard({ trackCopied: false });
+  const { copyText } = useClipboard({ trackCopied: false, toastTarget: 'detail' });
   const c = useThemeColors();
   const attachmentLabels = useMemo(
     () => ({
@@ -1364,7 +1364,7 @@ function ChatPageContent({
     if (!isProximity || !accountPubkey || proximityHistoryReadOnly) return;
     void proximityService
       .recoverConnection(accountPubkey, conversationKey)
-      .catch(() => showToast(t('nearby.request_failed')));
+      .catch(() => showToast(t('nearby.request_failed'), { target: 'detail' }));
   }
 
   /** Chat and external shares use the same pending-bubble upload lifecycle. */
@@ -2048,8 +2048,8 @@ function ChatPageContent({
           })()
         : copyAttachment(attachment, { accountPubkey });
       void operation.then(
-        () => showToast(t('common.copied')),
-        () => showToast(t('attach.copy_failed')),
+        () => showToast(t('common.copied'), { target: 'detail' }),
+        () => showToast(t('attach.copy_failed'), { target: 'detail' }),
       ).finally(() => {
         if (!pendingId) return;
         setCopyingPendingCounts((counts) => {
@@ -2118,7 +2118,7 @@ function ChatPageContent({
     const operation = isProximity
       ? proximityService.resendMessage({ accountPubkey, peerPubkey: conversationKey, rumorId })
       : dmService.resendMessage({ accountPubkey, rumorId });
-    void operation.catch(() => showToast(t('delivery.failed')));
+    void operation.catch(() => showToast(t('delivery.failed'), { target: 'detail' }));
   }
 
   if (!accountPubkey) return null;

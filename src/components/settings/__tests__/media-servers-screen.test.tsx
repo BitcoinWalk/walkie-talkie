@@ -57,7 +57,7 @@ it.each(['light', 'dark'] as const)('keeps a failed draft retryable and reports 
   const backgrounds = renderer.root.findAllByType(View).map(node => StyleSheet.flatten(node.props.style)?.backgroundColor);
   expect(backgrounds).toContain(palette.background);
   await act(async () => { await saveButton().props.onPress(); });
-  expect(showToast).toHaveBeenLastCalledWith('media_servers.save_error');
+  expect(showToast).toHaveBeenLastCalledWith('media_servers.save_error', { target: 'detail' });
   expect(backSafely).not.toHaveBeenCalled();
   expect(renderer.root.findByType(SortableUrlList).props.value).toEqual(['https://new.example/']);
   expect(renderer.root.findByType(AppInput).props.error).toBeUndefined();
@@ -70,7 +70,7 @@ it.each(['light', 'dark'] as const)('keeps a failed draft retryable and reports 
   expect(saveAndPublishMediaServers).toHaveBeenLastCalledWith(expect.objectContaining({
     accountPubkey: 'self', servers: ['https://new.example/'], abort: expect.anything(),
   }));
-  expect(showToast).toHaveBeenLastCalledWith('media_servers.save_success');
+  expect(showToast).toHaveBeenLastCalledWith('media_servers.save_success', { target: 'detail' });
   expect(backSafely).not.toHaveBeenCalled();
   expect(saveButton().props.disabled).toBe(true);
   expect(renderer.root.findByType(SortableUrlList).props.value).toEqual(['https://new.example/']);
@@ -93,7 +93,7 @@ it('waits for confirmation without changing the save label and locks list editin
   expect(showToast).not.toHaveBeenCalled();
   expect(backSafely).not.toHaveBeenCalled();
   await act(async () => { finish(); await pending; });
-  expect(showToast).toHaveBeenCalledWith('media_servers.save_success');
+  expect(showToast).toHaveBeenCalledWith('media_servers.save_success', { target: 'detail' });
 });
 
 it('adds canonical HTTP URLs and rejects equivalent duplicates', async () => {

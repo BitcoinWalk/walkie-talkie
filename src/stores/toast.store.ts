@@ -1,11 +1,17 @@
 import { create } from 'zustand';
 
+/** Logical columns: primary is the list pane, detail is the content pane. */
+export type ToastTarget = 'primary' | 'detail';
+
+export type ToastOptions = { target?: ToastTarget };
+
 type State = {
   /** The toast text, or null when hidden. */
   message: string | null;
   /** Bumped on each `show` so re-showing the same text re-triggers the timer. */
   id: number;
-  show: (message: string) => void;
+  target: ToastTarget | null;
+  show: (message: string, options?: ToastOptions) => void;
   hide: () => void;
 };
 
@@ -17,11 +23,12 @@ type State = {
 export const useToastStore = create<State>((set, get) => ({
   message: null,
   id: 0,
-  show: (message) => set({ message, id: get().id + 1 }),
-  hide: () => set({ message: null }),
+  target: null,
+  show: (message, options) => set({ message, target: options?.target ?? null, id: get().id + 1 }),
+  hide: () => set({ message: null, target: null }),
 }));
 
 /** Imperative helper for non-component callers. */
-export function showToast(message: string) {
-  useToastStore.getState().show(message);
+export function showToast(message: string, options?: ToastOptions) {
+  useToastStore.getState().show(message, options);
 }

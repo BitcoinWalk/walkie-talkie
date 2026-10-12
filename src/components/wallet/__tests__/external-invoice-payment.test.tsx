@@ -145,6 +145,6 @@ describe('ExternalInvoicePayment', () => {
       await Promise.resolve();
     });
 
-    expect(showToast).toHaveBeenCalledWith('wallet.open_wallet_failed');
+    expect(showToast).toHaveBeenCalledWith('wallet.open_wallet_failed', { target: 'detail' });
   });
 });

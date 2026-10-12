@@ -161,12 +161,12 @@ function RelaySettingsForm({ mode, accountPubkey, scrollProps, initialRelay = ''
       if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
       dmService.refreshRelayConfiguration(accountPubkey);
       setOriginal(relays);
-      showToast(t('relays.save_success'));
+      showToast(t('relays.save_success'), { target: 'detail' });
     } catch {
       if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
       const message = t('relays.save_error');
       setSaveError(message);
-      showToast(message);
+      showToast(message, { target: 'detail' });
     } finally {
       saveAbort.current = null;
       setSaving(false);

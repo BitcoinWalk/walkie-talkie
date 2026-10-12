@@ -298,6 +298,7 @@ export function SettingsHub() {
       </ScrollView>
 
       <NpubQrSheet
+        toastTarget="primary"
         visible={qrOpen}
         onClose={() => setQrOpen(false)}
         npub={npub}

@@ -19,7 +19,7 @@ export function ExternalInvoicePayment({
   showPaymentRequest?: boolean;
 }) {
   const { t } = useTranslation();
-  const { copyText, copied } = useClipboard();
+  const { copyText, copied } = useClipboard({ toastTarget: 'detail' });
   const c = useThemeColors();
   const lightningUri = `lightning:${invoice}`;
 
@@ -29,7 +29,7 @@ export function ExternalInvoicePayment({
 
   async function openWalletApp() {
     const opened = await platform.urlOpener.openExternalUrl(lightningUri);
-    if (!opened) showToast(t('wallet.open_wallet_failed'));
+    if (!opened) showToast(t('wallet.open_wallet_failed'), { target: 'detail' });
   }
 
   return (

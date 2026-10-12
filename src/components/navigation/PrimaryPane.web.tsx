@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useIsRTL } from '@/i18n/direction';
@@ -8,7 +8,7 @@ import { useThemeColors } from '@/theme';
 import { wideLayout } from '@/theme/layout';
 import type { PrimaryPaneProps } from './PrimaryPane';
 
-export function PrimaryPane({ windowWidth, children }: PrimaryPaneProps) {
+export function PrimaryPane({ windowWidth, children, onWidthChange }: PrimaryPaneProps) {
   const c = useThemeColors();
   const { t } = useTranslation();
   const isRTL = useIsRTL();
@@ -20,6 +20,10 @@ export function PrimaryPane({ windowWidth, children }: PrimaryPaneProps) {
   const pendingWidth = useRef(requestedWidth);
   const width = clampDesktopPrimaryPaneWidth(windowWidth, requestedWidth);
   const maximum = clampDesktopPrimaryPaneWidth(windowWidth, windowWidth);
+
+  useLayoutEffect(() => {
+    onWidthChange?.(width);
+  }, [onWidthChange, width]);
 
   useEffect(() => () => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);

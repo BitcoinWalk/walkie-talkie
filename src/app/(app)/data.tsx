@@ -250,7 +250,7 @@ export default function DataSettings() {
     try {
       await deleteAccountArchive(archive);
       setDeletedArchiveName(archive.name);
-      showToast(t('backup.archive_deleted'));
+      showToast(t('backup.archive_deleted'), { target: 'detail' });
     } catch (error) {
       console.error('[backup] Delete failed', error);
       void platform.confirmationDialog.notify({ title: t('backup.delete_failed'), okLabel: t('common.ok') });
@@ -268,7 +268,7 @@ export default function DataSettings() {
           if (!activePubkey || busy) return;
           if (files.length !== 1) {
             discardTemporaryComposerFiles(files);
-            showToast(t('backup.drop_single'));
+            showToast(t('backup.drop_single'), { target: 'detail' });
             return;
           }
           closeOpenSwipeable();

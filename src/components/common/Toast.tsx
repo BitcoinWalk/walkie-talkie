@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Reanimated, {
   cancelAnimation,
   Easing,
@@ -13,7 +13,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { AppText } from '@/components/common/AppText';
+import { useIsRTL } from '@/i18n/direction';
 import { toastKeyboardTranslateY } from '@/lib/layout/toast-keyboard-position';
+import { toastPaneInsets } from '@/lib/layout/toast-pane-position';
+import { isWideLayoutSize } from '@/lib/layout/wide-layout';
+import { usePaneLayoutStore } from '@/stores/pane-layout.store';
 import { useToastStore } from '@/stores/toast.store';
 import { contentWidth, radius, spacing, useThemeColors } from '@/theme';
 
@@ -34,8 +38,8 @@ function hideToastIfCurrent(id: number) {
 }
 
 /**
- * The single global toast (rendered once at the root). A centered `surface`
- * capsule near the bottom that fades + lifts in, holds briefly, then fades out.
+ * The shared toast host. Centers in the window or a requested logical pane,
+ * fades + lifts in, holds briefly, then fades out.
  * Driven by `toast.store`; `pointerEvents="none"` so it never blocks taps.
  */
 export function Toast({ managesLifetime = true }: Props = {}) {
@@ -43,6 +47,14 @@ export function Toast({ managesLifetime = true }: Props = {}) {
   const insets = useSafeAreaInsets();
   const message = useToastStore((s) => s.message);
   const id = useToastStore((s) => s.id);
+  const target = useToastStore((s) => s.target);
+  const { width, height } = useWindowDimensions();
+  const isRTL = useIsRTL();
+  // Divider updates only render a host that is displaying a scoped message.
+  const primaryWidth = usePaneLayoutStore((s) => message && target ? s.primaryWidth : null);
+  const paneInsets = toastPaneInsets(
+    target, width, isWideLayoutSize(width, height) ? primaryWidth : null, isRTL,
+  );
   const keyboard = useReanimatedKeyboardAnimation();
   const visibility = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(
@@ -100,8 +112,7 @@ export function Toast({ managesLifetime = true }: Props = {}) {
       style={[
         {
           position: 'absolute',
-          left: 0,
-          right: 0,
+          ...paneInsets,
           bottom: insets.bottom + 80,
           zIndex: 1,
           alignItems: 'center',

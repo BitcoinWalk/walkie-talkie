@@ -42,7 +42,7 @@ import { spacing, useThemeColors } from '@/theme';
 
 export default function WalletInvoiceScreen() {
   const { t } = useTranslation();
-  const { copyText, copiedKey: copiedField } = useClipboard();
+  const { copyText, copiedKey: copiedField } = useClipboard({ toastTarget: 'detail' });
   const insets = useSafeAreaInsets();
   const titleClearance = useScreenHeaderClearance();
   const params = useLocalSearchParams<{

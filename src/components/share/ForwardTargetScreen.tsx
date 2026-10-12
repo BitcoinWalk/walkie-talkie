@@ -70,7 +70,7 @@ export function ForwardTargetScreen() {
       } else if (targets.length > 1) {
         openSharedConversation(targets[0]);
       } else {
-        showToast(t('share.sending'));
+        showToast(t('share.sending'), { target: 'detail' });
         leaveForward();
       }
 
@@ -92,7 +92,7 @@ export function ForwardTargetScreen() {
               } catch {
                 if (!failureShown) {
                   failureShown = true;
-                  showToast(t('share.send_failed'));
+                  showToast(t('share.send_failed'), { target: 'detail' });
                 }
               }
               await new Promise<void>((resolve) => setTimeout(resolve, 0));

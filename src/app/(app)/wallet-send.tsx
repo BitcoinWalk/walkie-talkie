@@ -69,7 +69,7 @@ class ProfilePaymentError extends Error {
 
 export default function WalletSendScreen() {
   const { t } = useTranslation();
-  const { readText } = useClipboard();
+  const { readText } = useClipboard({ toastTarget: 'detail' });
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
   const titleClearance = useScreenHeaderClearance();

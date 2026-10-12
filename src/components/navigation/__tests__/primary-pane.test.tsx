@@ -25,8 +25,10 @@ it('resizes without rendering content again, clamps on shrink, and supports RTL 
   const contentRender = jest.fn();
   function Content() { contentRender(); return <span />; }
   const child = <Content />;
+  const onWidthChange = jest.fn();
   let renderer!: ReactTestRenderer;
-  act(() => { renderer = create(<PrimaryPane windowWidth={1000}>{child}</PrimaryPane>); });
+  act(() => { renderer = create(<PrimaryPane windowWidth={1000} onWidthChange={onWidthChange}>{child}</PrimaryPane>); });
+  expect(onWidthChange).toHaveBeenLastCalledWith(320);
   const divider = () => renderer.root.findByProps({ role: 'separator' });
   const shell = () => renderer.root.findAllByType('div')[0];
   const target = {
@@ -39,6 +41,7 @@ it('resizes without rendering content again, clamps on shrink, and supports RTL 
   act(() => { divider().props.onPointerDown(pointer(320)); });
   act(() => { divider().props.onPointerMove(pointer(460)); jest.runOnlyPendingTimers(); });
   expect(divider().props['aria-valuenow']).toBe(460);
+  expect(onWidthChange).toHaveBeenLastCalledWith(460);
   expect(trySetDevicePreference).not.toHaveBeenCalled();
   expect(contentRender).toHaveBeenCalledTimes(1);
   act(() => { divider().props.onPointerUp(pointer(460)); jest.runOnlyPendingTimers(); });

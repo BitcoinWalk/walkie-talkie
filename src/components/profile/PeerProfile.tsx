@@ -74,7 +74,7 @@ import Users from 'lucide-react-native/icons/users';
 export function PeerProfile({ pubkey }: { pubkey: string }) {
   const { scrolled, scrollProps } = useScrolled();
   const { t } = useTranslation();
-  const { copyText, copiedKey } = useClipboard<'npub' | 'nip05' | 'lightning'>();
+  const { copyText, copiedKey } = useClipboard<'npub' | 'nip05' | 'lightning'>({ toastTarget: 'detail' });
   const c = useThemeColors();
   const accountPubkey = useActiveAccount((s) => s.activePubkey) ?? '';
   const startForwardDraft = useForwardDraftStore((state) => state.start);
@@ -532,6 +532,7 @@ export function PeerProfile({ pubkey }: { pubkey: string }) {
       />
 
       <NpubQrSheet
+        toastTarget="detail"
         visible={qrOpen}
         onClose={() => setQrOpen(false)}
         npub={npub}

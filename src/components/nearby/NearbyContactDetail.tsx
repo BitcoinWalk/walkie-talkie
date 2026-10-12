@@ -65,7 +65,7 @@ function statusLabel(status: NearbyConnectionStatus): string {
 /** Local-only identity details for an authenticated Nearby Messaging peer. */
 export function NearbyContactDetail({ pubkey, fallbackName }: Props) {
   const { t } = useTranslation();
-  const { copyText, copied } = useClipboard();
+  const { copyText, copied } = useClipboard({ toastTarget: 'detail' });
   const c = useThemeColors();
   const accountPubkey = useActiveAccount((state) => state.activePubkey) ?? '';
   const runtimePeer = useProximityStore((state) => state.peers[pubkey]);
@@ -173,11 +173,11 @@ export function NearbyContactDetail({ pubkey, fallbackName }: Props) {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       if (!useProximityStore.getState().discoveries[pubkey]?.signalFresh) return;
       const result = await proximityService.requestChat(accountPubkey, pubkey);
-      if (result === 'declined') showToast(t('nearby.request_declined'));
-      if (result === 'timeout') showToast(t('nearby.request_timeout'));
-      if (result === 'failed') showToast(t('nearby.request_failed'));
+      if (result === 'declined') showToast(t('nearby.request_declined'), { target: 'detail' });
+      if (result === 'timeout') showToast(t('nearby.request_timeout'), { target: 'detail' });
+      if (result === 'failed') showToast(t('nearby.request_failed'), { target: 'detail' });
     } catch {
-      showToast(t('nearby.request_failed'));
+      showToast(t('nearby.request_failed'), { target: 'detail' });
     } finally {
       setConnectAttemptPending(false);
     }

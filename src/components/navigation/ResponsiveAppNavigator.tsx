@@ -21,6 +21,7 @@ import {
 } from '@/components/navigation/responsive-stack-router';
 import { getPendingWideTransitionEndRouteKey } from '@/components/navigation/wide-transition';
 import { isWideLayoutSize } from '@/lib/layout/wide-layout';
+import { setRenderedPrimaryPaneWidth } from '@/stores/pane-layout.store';
 import { spacing, useThemeColors } from '@/theme';
 
 type Props = {
@@ -97,6 +98,8 @@ function WideNavigatorView({ width }: { width: number }) {
   const primarySafeEdge = isRTL ? 'right' : 'left';
   const detailSafeEdge = isRTL ? 'left' : 'right';
 
+  useEffect(() => () => setRenderedPrimaryPaneWidth(null), []);
+
   // Wide panes do not slide over one another. Still publish an entering
   // transition completion on the next task so screens can reuse the app-wide
   // post-transition focus and deferred-render hooks. The navigation context can
@@ -131,7 +134,7 @@ function WideNavigatorView({ width }: { width: number }) {
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.background }}>
       <AppScreenHorizontalSafeArea edges={[primarySafeEdge]}>
-        <PrimaryPane windowWidth={width}>
+        <PrimaryPane windowWidth={width} onWidthChange={setRenderedPrimaryPaneWidth}>
           {primaryDescriptor?.render()}
         </PrimaryPane>
       </AppScreenHorizontalSafeArea>

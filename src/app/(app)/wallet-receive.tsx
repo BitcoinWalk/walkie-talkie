@@ -59,7 +59,7 @@ type ReceiveSource =
 
 export default function WalletReceiveScreen() {
   const { t } = useTranslation();
-  const { copyText, copied } = useClipboard();
+  const { copyText, copied } = useClipboard({ toastTarget: 'detail' });
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
   const titleClearance = useScreenHeaderClearance();
@@ -226,7 +226,7 @@ export default function WalletReceiveScreen() {
             content: parsedInvoice.invoice,
             extraTags: invoiceMessageTags(description),
           });
-          showToast(t('wallet.invoice_sent'));
+          showToast(t('wallet.invoice_sent'), { target: 'detail' });
           backSafely();
         } catch {
           void platform.confirmationDialog.notify({ title: t('wallet.invoice_send_failed'), okLabel: t('common.ok') });
