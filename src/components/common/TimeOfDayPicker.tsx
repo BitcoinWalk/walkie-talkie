@@ -1,3 +1,4 @@
+import { Host } from '@expo/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -39,9 +40,11 @@ export function dateToMinutes(date: Date): number {
 }
 
 export function formatMinutes(minutes: number, locale: string | undefined): string {
-  return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(
-    minutesToDate(minutes),
-  );
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(minutesToDate(minutes));
 }
 
 type Props = {
@@ -61,7 +64,7 @@ type Props = {
  * `InputDialog` with an HH:MM field on Electron.
  */
 export function TimeOfDayPicker({ visible, onClose, title, initialMinutes, onConfirm }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const c = useThemeColors();
   const colorScheme = useEffectiveColorScheme();
   const [draftDate, setDraftDate] = useState(() => minutesToDate(initialMinutes));
@@ -125,20 +128,18 @@ export function TimeOfDayPicker({ visible, onClose, title, initialMinutes, onCon
 
   if (IS_ANDROID && compose) {
     if (!visible) return null;
-    const hourCycle = new Intl.DateTimeFormat(i18n.resolvedLanguage, {
-      hour: 'numeric',
-    }).resolvedOptions().hourCycle;
-
     return (
-      <compose.TimePickerDialog
-        initialDate={minutesToDate(initialMinutes).toISOString()}
-        is24Hour={hourCycle === 'h23' || hourCycle === 'h24'}
-        confirmButtonLabel={t('common.ok')}
-        dismissButtonLabel={t('common.cancel')}
-        color={c.accent}
-        onDateSelected={confirmDate}
-        onDismissRequest={onClose}
-      />
+      <Host matchContents colorScheme={colorScheme} seedColor={c.accent}>
+        <compose.TimePickerDialog
+          initialDate={minutesToDate(initialMinutes).toISOString()}
+          is24Hour
+          confirmButtonLabel={t('common.ok')}
+          dismissButtonLabel={t('common.cancel')}
+          color={c.accent}
+          onDateSelected={confirmDate}
+          onDismissRequest={onClose}
+        />
+      </Host>
     );
   }
 
@@ -148,9 +149,9 @@ export function TimeOfDayPicker({ visible, onClose, title, initialMinutes, onCon
         visible={visible}
         onClose={onClose}
         title={title}
-        contentStyle={{ gap: spacing.lg }}
+        contentStyle={{ paddingTop: spacing.lg, gap: spacing.sm }}
       >
-        <swiftUI.Host
+        <Host
           matchContents
           colorScheme={colorScheme}
           style={{ alignSelf: 'center' }}
@@ -161,7 +162,7 @@ export function TimeOfDayPicker({ visible, onClose, title, initialMinutes, onCon
             onDateChange={setDraftDate}
             modifiers={[swiftUIModifiers.datePickerStyle('wheel')]}
           />
-        </swiftUI.Host>
+        </Host>
         <ActionRow
           layout="vertical"
           confirm={{ label: t('common.ok'), onPress: () => confirmDate(draftDate) }}
