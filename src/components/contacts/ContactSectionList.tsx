@@ -46,6 +46,8 @@ type Props = {
   /** Forwarded so a host header can show its bottom hairline once scrolled
    * (see `useScrolled`). The throttle is set internally. */
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** Lets the host dismiss an empty search overlay when list dragging begins. */
+  onScrollBeginDrag?: () => void;
   /** Space after the final row, including any overlaid bottom chrome. */
   contentBottomInset?: number;
   /** Multi-select mode: when set, each row shows a selection dot reflecting
@@ -69,6 +71,7 @@ export const ContactSectionList = forwardRef<ContactSectionListHandle, Props>(fu
     onSelect,
     ListHeaderComponent,
     onScroll,
+    onScrollBeginDrag,
     contentBottomInset = spacing.lg,
     selectedPubkeys,
     selectProgress,
@@ -226,6 +229,7 @@ export const ContactSectionList = forwardRef<ContactSectionListHandle, Props>(fu
         stickySectionHeadersEnabled
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        onScrollBeginDrag={onScrollBeginDrag}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListHeaderComponent={

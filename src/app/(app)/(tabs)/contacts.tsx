@@ -173,6 +173,7 @@ export default function Contacts() {
               entries={entries}
               onSelect={openChat}
               onScroll={scrollProps.onScroll}
+              onScrollBeginDrag={exitSearch}
               // Inactive search affordance at the top of the list (visible at rest);
               // tapping it opens the real (autofocused) search.
               ListHeaderComponent={
@@ -180,7 +181,6 @@ export default function Contacts() {
                   <View
                     style={{
                       paddingHorizontal: SEARCH_BAR_SCREEN_GUTTER,
-                      paddingTop: spacing.sm,
                       paddingBottom: spacing.sm,
                     }}
                   >

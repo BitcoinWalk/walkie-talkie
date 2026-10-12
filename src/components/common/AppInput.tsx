@@ -1,5 +1,5 @@
 import { forwardRef, type ReactNode, useState } from 'react';
-import { TextInput, type TextInputProps, View } from 'react-native';
+import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 
 import { radius, spacing, typography, uiDensity, useThemeColors } from '@/theme';
 
@@ -49,6 +49,7 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
   const multiline = rest.multiline ?? false;
   const currentValue = value ?? uncontrolledValue;
   const showTruncatedPlaceholder = !multiline && placeholder != null && currentValue.length === 0;
+  const textAlign = StyleSheet.flatten(style)?.textAlign;
 
   const input = (
     <View
@@ -66,57 +67,69 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
         alignItems: multiline ? 'flex-start' : 'center',
       }}
     >
-      {showTruncatedPlaceholder ? (
-        <View
-          pointerEvents="none"
-          importantForAccessibility="no-hide-descendants"
-          style={{
-            position: 'absolute',
-            insetBlock: 0,
-            insetInline: uiDensity.inputHorizontalPadding,
-            justifyContent: 'center',
+      <View style={{ flex: 1, minWidth: 0, flexDirection: 'row' }}>
+        {showTruncatedPlaceholder ? (
+          <View
+            pointerEvents="none"
+            importantForAccessibility="no-hide-descendants"
+            style={{
+              position: 'absolute',
+              insetBlock: 0,
+              insetInline: 0,
+              justifyContent: 'center',
+            }}
+          >
+            <AppText
+              variant="body"
+              tone="muted"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={textAlign == null ? undefined : { textAlign }}
+            >
+              {placeholder}
+            </AppText>
+          </View>
+        ) : null}
+        <TextInput
+          ref={ref}
+          placeholderTextColor={c.textMuted}
+          {...rest}
+          value={value}
+          defaultValue={defaultValue}
+          placeholder={multiline ? placeholder : undefined}
+          multiline={multiline}
+          numberOfLines={multiline ? rest.numberOfLines : 1}
+          accessibilityLabel={accessibilityLabel ?? label ?? placeholder}
+          onChangeText={(nextValue) => {
+            setUncontrolledValue(nextValue);
+            onChangeText?.(nextValue);
           }}
-        >
-          <AppText variant="body" tone="muted" numberOfLines={1} ellipsizeMode="tail">
-            {placeholder}
-          </AppText>
-        </View>
-      ) : null}
-      <TextInput
-        ref={ref}
-        placeholderTextColor={c.textMuted}
-        {...rest}
-        value={value}
-        defaultValue={defaultValue}
-        placeholder={multiline ? placeholder : undefined}
-        multiline={multiline}
-        numberOfLines={multiline ? rest.numberOfLines : 1}
-        accessibilityLabel={accessibilityLabel ?? label ?? placeholder}
-        onChangeText={(nextValue) => {
-          setUncontrolledValue(nextValue);
-          onChangeText?.(nextValue);
-        }}
-        onFocus={(e) => {
-          setFocused(true);
-          onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setFocused(false);
-          onBlur?.(e);
-        }}
-        style={[
-          {
-            color: c.text,
-            fontSize: typography.body.fontSize,
-            lineHeight: typography.body.fontFamily ? typography.body.lineHeight : undefined,
-            fontFamily: typography.body.fontFamily,
-            flex: 1,
-            paddingVertical: 0,
-            textAlignVertical: multiline ? 'top' : 'center',
-          },
-          style,
-        ]}
-      />
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
+          style={[
+            {
+              color: c.text,
+              fontSize: typography.body.fontSize,
+              lineHeight: typography.body.fontFamily ? typography.body.lineHeight : undefined,
+              fontFamily: typography.body.fontFamily,
+              flex: 1,
+              paddingVertical: 0,
+              // The shell owns the inset; native padding would offset the caret
+              // from the separately rendered single-line placeholder.
+              paddingStart: 0,
+              paddingEnd: 0,
+              textAlignVertical: multiline ? 'top' : 'center',
+            },
+            style,
+          ]}
+        />
+      </View>
       {inputTrailingAccessory ? (
         <View style={{ flexShrink: 0 }}>{inputTrailingAccessory}</View>
       ) : null}

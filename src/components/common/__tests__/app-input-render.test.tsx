@@ -120,4 +120,43 @@ describe('AppInput field chrome', () => {
       placeholder: 'A multiline placeholder',
     });
   });
+
+  it('aligns a centered placeholder with the editable text', () => {
+    act(() => {
+      renderer = create(
+        <AppInput placeholder="22:00" style={[{ textAlign: 'center' }]} />,
+      );
+    });
+
+    expect(StyleSheet.flatten(renderer!.root.findByType(AppText).props.style)).toMatchObject({
+      textAlign: 'center',
+    });
+    expect(StyleSheet.flatten(renderer!.root.findByType(TextInput).props.style)).toMatchObject({
+      textAlign: 'center',
+      paddingStart: 0,
+      paddingEnd: 0,
+    });
+  });
+
+  it('bounds the placeholder to the editable area before an inline action', () => {
+    act(() => {
+      renderer = create(
+        <AppInput
+          placeholder="A long placeholder"
+          inputTrailingAccessory={<View testID="input-action" />}
+        />,
+      );
+    });
+
+    const editableArea = renderer!.root.findAllByType(View).find(
+      (view) => StyleSheet.flatten(view.props.style)?.minWidth === 0,
+    )!;
+    const placeholder = editableArea.findByType(AppText);
+
+    expect(editableArea.findAllByType(TextInput)).toHaveLength(1);
+    expect(editableArea.findAllByProps({ testID: 'input-action' })).toHaveLength(0);
+    expect(StyleSheet.flatten(placeholder.parent?.props.style)).toMatchObject({
+      insetInline: 0,
+    });
+  });
 });

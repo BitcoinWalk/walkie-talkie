@@ -1,5 +1,7 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
+
+import { useEmptySearchScroll } from '@/hooks/use-empty-search-scroll';
 
 import { isSearchActivationShortcut } from '@/components/search/search-shortcut';
 
@@ -34,6 +36,7 @@ export function SearchTransition({
 }: Props) {
   const [progress] = useState(() => new Animated.Value(contentActive ? 1 : 0));
   const [keepActiveMounted, setKeepActiveMounted] = useState(contentActive);
+  const restingSurface = useRef<View>(null);
 
   // React retries this component before committing its children, so activating
   // the overlay records that it must survive a later closing render without
@@ -55,6 +58,8 @@ export function SearchTransition({
   useEffect(() => {
     if (!focused && active) onCancel();
   }, [active, focused, onCancel]);
+
+  useEmptySearchScroll(restingSurface, focused && active && !contentActive, onCancel);
 
   useEffect(() => {
     if (!focused || typeof document === 'undefined') return;
@@ -78,6 +83,7 @@ export function SearchTransition({
   return (
     <View style={styles.root}>
       <Animated.View
+        ref={restingSurface}
         pointerEvents={contentActive ? 'none' : 'auto'}
         style={[
           StyleSheet.absoluteFill,

@@ -396,6 +396,8 @@ glyph; solid danger fills remain reserved for prominent destructive actions.
 Use `ActionRow` for action groups so order, role, spacing, and RTL behaviour do
 not drift. `AppInput` owns its field label above the control and its supporting
 text below it; an error replaces the description in the same slot.
+Input placeholders share the caret and entered text's alignment and content
+area, excluding inline actions.
 
 Reuse an existing component before creating another. If a new reusable visual
 concept is genuinely needed, add or extend the shared component and record the
@@ -564,6 +566,8 @@ replace the standard header.
 Search fields keep the same geometry when focused. Focusing an empty search
 keeps the resting content visible; search results replace it only after the
 query contains non-whitespace text.
+Dragging a tab's resting list during an empty search exits search mode so its
+search field scrolls with the list.
 
 Only one native modal may be presented at a time. Close the current modal and
 start the next action from `onClosed`. Do not coordinate modal sequencing with

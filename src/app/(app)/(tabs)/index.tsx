@@ -453,7 +453,10 @@ function RealConversations() {
               // onPress and the footer Pressable). An empty focused search also
               // yields focus as soon as the resting inbox starts scrolling.
               onScrollBeginDrag={() => {
-                Keyboard.dismiss();
+                // The resting list accepts touches only while the query is empty.
+                // Exit explicitly: dismissing Android's keyboard does not blur
+                // its input or remove the fixed search chrome.
+                closeSearch();
                 closeOpenSwipeable();
               }}
               // Inactive search affordance at the top of the list (visible at rest);
