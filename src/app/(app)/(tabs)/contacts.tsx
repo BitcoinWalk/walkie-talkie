@@ -194,6 +194,7 @@ export default function Contacts() {
                   </View>
                   <View
                     style={{
+                      paddingTop: spacing.sm,
                       paddingBottom: spacing.sm,
                     }}
                   >
