@@ -24,7 +24,7 @@ import { AppScreen } from '@/components/common/AppScreen';
 import { BottomSheet } from '@/components/common/BottomSheet';
 import { backSafely } from '@/lib/navigation';
 import { useClipboard } from '@/hooks/use-clipboard';
-import { IS_ELECTRON } from '@/lib/platform';
+import { IS_ELECTRON, IS_IOS } from '@/lib/platform';
 import { Avatar } from '@/components/common/Avatar';
 import { ListGroup } from '@/components/common/ListGroup';
 import { ListRow } from '@/components/common/ListRow';
@@ -142,13 +142,16 @@ export function ProfileView({ pubkey }: { pubkey: string }) {
   }
 
   async function pickFromLibrary() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      await platform.confirmationDialog.notify({
-        title: t('profile_edit.photo_permission'),
-        okLabel: t('common.ok'),
-      });
-      return;
+    // Preserve iOS photo editing access without requesting Android library access.
+    if (IS_IOS) {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        await platform.confirmationDialog.notify({
+          title: t('profile_edit.photo_permission'),
+          okLabel: t('common.ok'),
+        });
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],

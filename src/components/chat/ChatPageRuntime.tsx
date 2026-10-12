@@ -92,7 +92,7 @@ import { useCustomEmojis } from '@/hooks/use-custom-emojis';
 import { useWallets } from '@/hooks/use-wallets';
 import { useClipboard } from '@/hooks/use-clipboard';
 import type { ImageSendQuality } from '@/lib/attachments/image-quality';
-import { IS_ELECTRON } from '@/lib/platform';
+import { IS_ELECTRON, IS_IOS } from '@/lib/platform';
 import {
   parseConversationRouteParams,
   routeHexIdParam,
@@ -1669,13 +1669,16 @@ function ChatPageContent({
   }
 
   async function pickFromLibrary() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      await platform.confirmationDialog.notify({
-        title: t('attach.library_permission'),
-        okLabel: t('common.ok'),
-      });
-      return;
+    // Android's system picker needs no library grant; iOS needs one for original videos.
+    if (IS_IOS) {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        await platform.confirmationDialog.notify({
+          title: t('attach.library_permission'),
+          okLabel: t('common.ok'),
+        });
+        return;
+      }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: supportedMediaTypes,
