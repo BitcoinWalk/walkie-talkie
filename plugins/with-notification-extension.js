@@ -39,9 +39,13 @@ module.exports = function withNotificationExtension(config) {
     return mod;
   });
   config = withInfoPlist(config, (mod) => {
-    // Remove periodic-worker capabilities left by older prebuilds.
+    // iOS uses APNs instead of periodic workers; remove their generated capabilities.
     if (Array.isArray(mod.modResults.UIBackgroundModes)) {
-      mod.modResults.UIBackgroundModes = mod.modResults.UIBackgroundModes.filter((mode) => mode !== 'processing');
+      const modes = mod.modResults.UIBackgroundModes.filter(
+        (mode) => mode !== 'fetch' && mode !== 'processing',
+      );
+      if (modes.length) mod.modResults.UIBackgroundModes = modes;
+      else delete mod.modResults.UIBackgroundModes;
     }
     if (Array.isArray(mod.modResults.BGTaskSchedulerPermittedIdentifiers)) {
       const identifiers = mod.modResults.BGTaskSchedulerPermittedIdentifiers.filter(

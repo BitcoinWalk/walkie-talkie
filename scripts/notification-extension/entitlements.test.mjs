@@ -7,9 +7,32 @@ const require = createRequire(import.meta.url);
 const { compileModsAsync } = require('expo/config-plugins');
 const withNotificationExtension = require('../../plugins/with-notification-extension');
 const identities = require('../../config/app-identities.json');
+const withExpoVideo = require('expo-video/app.plugin').default;
+const appConfig = require('../../app.json').expo;
+const videoOptions = appConfig.plugins.find((plugin) => plugin[0] === 'expo-video')[1];
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 for (const { id } of Object.values(identities)) {
+  test(`${id}: removes unused background modes while preserving remote notifications`, async () => {
+    const config = {
+      name: 'PsstPsst', slug: 'psstpsst',
+      ios: {
+        bundleIdentifier: id,
+        infoPlist: {
+          UIBackgroundModes: ['fetch', 'processing', 'audio', 'remote-notification'],
+          BGTaskSchedulerPermittedIdentifiers: ['com.expo.modules.backgroundtask.processing'],
+        },
+      },
+    };
+    const result = await compileModsAsync(
+      withNotificationExtension(withExpoVideo(config, videoOptions)),
+      { projectRoot, platforms: ['ios'], introspect: true, ignoreExistingNativeFiles: true },
+    );
+    const infoPlist = result._internal.modResults.ios.infoPlist;
+    assert.deepEqual(infoPlist.UIBackgroundModes, ['remote-notification']);
+    assert.equal(infoPlist.BGTaskSchedulerPermittedIdentifiers, undefined);
+  });
+
   const privateGroup = `$(AppIdentifierPrefix)${id}`;
   const sharedGroup = `${privateGroup}.notifications`;
   for (const [scenario, existingGroups] of [
