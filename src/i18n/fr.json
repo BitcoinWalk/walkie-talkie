@@ -752,13 +752,14 @@
     "write_title": "Relais de publication",
     "write_subtitle": "Publiez ici votre profil, vos contacts, votre liste de blocage et vos réglages pour synchroniser vos appareils. Les messages utilisent leurs propres relais. Les relais de lecture définis dans d’autres apps sont conservés.",
     "write_empty_warning": "Ajoutez au moins un relais pour publier vos réglages.",
-    "write_save_error": "Impossible d’enregistrer les relais de façon sûre. Vérifiez votre connexion et réessayez.",
     "title": "Relais de messages",
     "subtitle": "Ces relais reçoivent vos messages entrants.",
     "add_label": "Ajouter un relais",
     "duplicate": "Ce relais figure déjà dans votre liste.",
     "empty_warning": "Vous devez disposer d'au moins un relais pour recevoir des messages.",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "save_success": "Paramètres des relais publiés.",
+    "save_error": "Impossible d’enregistrer les paramètres des relais. Réessayez."
   },
   "media_servers": {
     "title": "Serveurs multimédias",
@@ -767,7 +768,9 @@
     "recommended_label": "Recommandé",
     "duplicate": "Ce serveur figure déjà dans votre liste.",
     "empty_warning": "Vous devez disposer d'au moins un serveur pour envoyer des photos, des messages vocaux et des fichiers.",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "save_success": "Paramètres des serveurs multimédias publiés.",
+    "save_error": "Impossible d’enregistrer les paramètres des serveurs multimédias. Réessayez."
   },
   "secure_storage": {
     "setup_title": "Protéger votre application",

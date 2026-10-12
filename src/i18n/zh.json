@@ -748,13 +748,14 @@
     "write_title": "发布中继",
     "write_subtitle": "用于发布个人资料、通讯录、黑名单等设置，并在设备间同步。消息通过消息中继收发。在其他应用中设置的读取中继会保留。",
     "write_empty_warning": "请至少添加一个中继来发布设置。",
-    "write_save_error": "未能安全保存发布中继，请检查网络连接后重试。",
     "title": "消息中继",
     "subtitle": "这些中继用于接收发给你的消息。",
     "add_label": "添加中继",
     "duplicate": "该中继已在列表中",
     "empty_warning": "至少保留一个中继才能收到消息",
-    "save": "保存"
+    "save": "保存",
+    "save_success": "中继配置已发布。",
+    "save_error": "无法保存中继配置，请重试。"
   },
   "media_servers": {
     "title": "媒体服务器",
@@ -763,7 +764,9 @@
     "recommended_label": "推荐",
     "duplicate": "该服务器已在列表中",
     "empty_warning": "至少保留一个服务器才能发送图片、语音和文件",
-    "save": "保存"
+    "save": "保存",
+    "save_success": "媒体服务器配置已发布。",
+    "save_error": "无法保存媒体服务器配置，请重试。"
   },
   "secure_storage": {
     "setup_title": "保护应用数据",

@@ -89,6 +89,7 @@ export async function enqueueConfigurationEvent(event: Event, commit?: Configura
 
 const signingJobs = new Map<string, Promise<unknown>>();
 const preparationJobs = new Map<string, Promise<unknown>>();
+const confirmedSignedAt = new Map<string, number>();
 
 /** Serialize snapshot reads and encryption too, so a slow older encryption
  * cannot enqueue stale list contents after a newer edit. Yield before crypto. */
@@ -130,6 +131,79 @@ export function publishConfiguration(
     });
     if (event.pubkey !== accountPubkey) throw new Error('Configuration signer does not match the account.');
     if (!(await enqueueConfigurationEvent(event, commit, expectedPreviousEventId))) throw new Error('Configuration was superseded while signing.');
+    return event;
+  });
+  signingJobs.set(id, job);
+  const clear = () => { if (signingJobs.get(id) === job) signingJobs.delete(id); };
+  void job.then(clear, clear);
+  return job;
+}
+
+/** Manual routing edits await a bounded publish attempt. Local configuration only
+ * commits after quorum; failed attempts never enter the background outbox. */
+export function publishConfigurationAndWait(
+  accountPubkey: string,
+  signer: Signer,
+  template: EventTemplate,
+  commit?: ConfigurationCommit,
+  expectedPreviousEventId?: string | null,
+  abort?: AbortSignal,
+): Promise<Event> {
+  if (template.kind !== 10002 && template.kind !== 10050 && template.kind !== 10063) {
+    return Promise.reject(new Error('Only relay and media-server settings use confirmed publication.'));
+  }
+  const key = coordinate(accountPubkey, template);
+  const id = JSON.stringify(key);
+  const checkCurrent = () => {
+    if (abort?.aborted) throw new Error('Settings publication was cancelled.');
+  };
+  const previous = signingJobs.get(id) ?? Promise.resolve();
+  const job = previous.catch(() => {}).then(async () => {
+    checkCurrent();
+    if (platform.appState.currentState() === 'active') await new Promise(resolve => setTimeout(resolve, 0));
+    const [pending, cached] = await Promise.all([readPending(key), readCached(key)]);
+    checkCurrent();
+    const timestamp = Math.max(template.created_at, Math.floor(Date.now() / 1000),
+      (pending?.event.created_at ?? 0) + 1, (cached?.created_at ?? 0) + 1,
+      (confirmedSignedAt.get(id) ?? 0) + 1);
+    confirmedSignedAt.set(id, timestamp);
+    const event = await signer.signEvent({ ...template, created_at: timestamp });
+    if (event.pubkey !== accountPubkey) throw new Error('Configuration signer does not match the account.');
+    const checkBase = async (tx: Database) => {
+      checkCurrent();
+      const current = await readCached(key, tx);
+      if ((current && newer(current, event)) ||
+        (expectedPreviousEventId !== undefined && (current?.id ?? null) !== expectedPreviousEventId && current?.id !== event.id)) {
+        throw new Error('Configuration changed while saving. Please try again.');
+      }
+      const outstanding = await readPending(key, tx);
+      if (outstanding && newer(outstanding.event, event)) {
+        throw new Error('Configuration was superseded while publishing.');
+      }
+    };
+    await db.transaction(checkBase);
+    const targets = await configurationPublishRelays(event);
+    checkCurrent();
+    const results = await relayPool.publishEvent({ relays: targets, event, signer, timeoutMs: PUBLISH_TIMEOUT_MS, abort });
+    checkCurrent();
+    const acknowledgements = new Set(results.filter(result => result.outcome.ok).map(result => normalizeRelayUrl(result.url)));
+    const normalizedTargets = normalizeRelayUrls(targets);
+    if (normalizedTargets.filter(url => acknowledgements.has(url)).length < configurationPublishQuorum(normalizedTargets.length)) {
+      throw new Error('Settings did not receive enough publication acknowledgements. Please try again.');
+    }
+    await db.transaction(async tx => {
+      await checkBase(tx);
+      const now = Math.floor(Date.now() / 1000);
+      await tx.insert(replaceableEvents).values({
+        pubkey: event.pubkey, kind: key.kind, dTag: key.dTag, event, createdAt: event.created_at, fetchedAt: now,
+      }).onConflictDoUpdate({
+        target: [replaceableEvents.pubkey, replaceableEvents.kind, replaceableEvents.dTag],
+        set: { event, createdAt: event.created_at, fetchedAt: now },
+      });
+      await commit?.(event, tx);
+      await tx.delete(configurationOutbox).where(slot(key));
+    });
+    invalidateReplaceableEvent({ pubkey: event.pubkey, kind: key.kind, dTag: key.dTag });
     return event;
   });
   signingJobs.set(id, job);

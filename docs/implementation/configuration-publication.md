@@ -1,6 +1,7 @@
 # Configuration Publication Implementation
 
 Configuration saves hand signed events to `configuration-publish.service.ts`.
+Manual relay and media-server edits use its confirmed-publication path instead of the outbox.
 The SQLite transaction stores both the replaceable cache and a pending outbox
 row before relay delivery starts. Private-list actions (contacts with saved
 groups, mute, and block) complete once plaintext and their durable revision are
@@ -54,6 +55,16 @@ the merged event's base ID atomically, rejecting concurrent changes rather
 than overwriting them. Local account creation advertises write-only defaults.
 Unknown relay markers are preserved verbatim but do not grant read or write
 membership in routing or the editor. An absent or empty marker grants both roles.
+
+Manual relay and Blossom server-list editors await a bounded publish attempt and require the same
+strict-majority acknowledgement rule. Write declarations reach their previous
+and newly selected write relays plus discovery. Signing and publication must
+finish before the local cache and inbox/server rows commit together. Failed attempts
+leave the form dirty and retryable, without creating a background job or unsigned
+intent record. Retries use increasing event timestamps within the session so an
+earlier partially published edit cannot win over a later edit. A concurrent newer
+cached declaration rejects the handoff; an echo of the exact submitted event is
+accepted. Account setup and repair of initial declarations retain the outbox path.
 
 The active account's worker processes at most four events per batch and reads
 only the earliest indexed deadlines. Connection and publish attempts have bounded

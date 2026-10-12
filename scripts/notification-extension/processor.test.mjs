@@ -26,9 +26,12 @@ before(async () => {
 });
 after(async () => rm(directory, { recursive: true, force: true }));
 
-test('normalizes relay URLs identically through the notification URL bridge', async () => {
+test('normalizes relay and Blossom URLs identically through the notification URL bridge', async () => {
   const bundle = await build({
-    entryPoints: ['src/lib/nostr/relay-url.ts'], bundle: true, write: false,
+    stdin: {
+      contents: "export { normalizeRelayUrl } from './src/lib/nostr/relay-url'; export { normalizeBlossomUrl } from './src/lib/nostr/blossom-url';",
+      resolveDir: resolve('.'), loader: 'ts',
+    }, bundle: true, write: false,
     format: 'iife', globalName: 'RelayUrls',
   });
   const context = createContext({
@@ -46,6 +49,13 @@ test('normalizes relay URLs identically through the notification URL bridge', as
     ['wss://relay.example/?token=a/b/', 'wss://relay.example/?token=a%2Fb%2F'],
   ]) {
     assert.equal(context.RelayUrls.normalizeRelayUrl(input), expected);
+  }
+  for (const [input, expected] of [
+    ['HTTPS://MEDIA.example:443', 'https://media.example/'],
+    ['https://media.example//api///?z=2&a=1#fragment', 'https://media.example/api?a=1&z=2'],
+    ['127.0.0.1:80', 'http://127.0.0.1/'],
+  ]) {
+    assert.equal(context.RelayUrls.normalizeBlossomUrl(input), expected);
   }
 });
 

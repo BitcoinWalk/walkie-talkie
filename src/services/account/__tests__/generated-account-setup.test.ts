@@ -5,7 +5,7 @@ import type { Event } from 'nostr-tools';
 import { initializeGeneratedAccount } from '../generated-account-setup';
 import { completeGeneratedAccountSetup } from '../account.service';
 import { generateEncryptionKeypair, publishEncryptionKeyAnnouncement } from '../../dm/encryption-key.service';
-import { saveAndPublishDmRelays } from '../../relay/relay-list.service';
+import { queueInitialDmRelays } from '../../relay/relay-list.service';
 import { configurationPublishRelays } from '../../relay/relay-router';
 
 const mockEvents = new Map<number, Event>();
@@ -37,7 +37,7 @@ jest.mock('../../dm/encryption-key.service', () => ({
 }));
 jest.mock('../../relay/relay-list.service', () => ({
   loadAccountDmRelays: async () => ['wss://local.example'],
-  saveAndPublishDmRelays: jest.fn(async () => {
+  queueInitialDmRelays: jest.fn(async () => {
     mockEvents.set(10050, mockEvent(10050));
   }),
 }));
@@ -78,11 +78,11 @@ it('persists the first local key and both relay declarations before completing s
     accountPubkey: 'self', dmRelays: ['wss://local.example'], announcement: mockEvents.get(10044),
   });
   expect(jest.mocked(completeGeneratedAccountSetup).mock.invocationCallOrder[0])
-    .toBeGreaterThan(jest.mocked(saveAndPublishDmRelays).mock.invocationCallOrder[0]);
+    .toBeGreaterThan(jest.mocked(queueInitialDmRelays).mock.invocationCallOrder[0]);
 });
 
 it('reuses a persisted key and declaration after interrupted relay-list persistence', async () => {
-  jest.mocked(saveAndPublishDmRelays).mockRejectedValueOnce(new Error('storage unavailable'));
+  jest.mocked(queueInitialDmRelays).mockRejectedValueOnce(new Error('storage unavailable'));
   await expect(initializeGeneratedAccount('self', new AbortController().signal)).rejects.toThrow('storage unavailable');
   const key = mockKeys[0];
   expect(mockAccount.localSetupPending).toBe(true);
@@ -100,7 +100,7 @@ it('preserves existing read/write relays when setup still needs a DM declaration
   await initializeGeneratedAccount('self', new AbortController().signal);
   expect(mockEvents.get(10002)).toBe(metadata);
   expect(mockEvents.has(10050)).toBe(true);
-  expect(saveAndPublishDmRelays).toHaveBeenCalledTimes(1);
+  expect(queueInitialDmRelays).toHaveBeenCalledTimes(1);
 });
 
 it('initializes missing read/write relays without republishing an existing DM declaration', async () => {
@@ -109,7 +109,7 @@ it('initializes missing read/write relays without republishing an existing DM de
   await initializeGeneratedAccount('self', new AbortController().signal);
   expect(mockEvents.get(10050)).toBe(inbox);
   expect(mockEvents.has(10002)).toBe(true);
-  expect(saveAndPublishDmRelays).not.toHaveBeenCalled();
+  expect(queueInitialDmRelays).not.toHaveBeenCalled();
 });
 
 it('finishes an interrupted completion without re-signing persisted declarations', async () => {
@@ -120,7 +120,7 @@ it('finishes an interrupted completion without re-signing persisted declarations
   expect(mockEvents.get(10044)).toBe(announcement);
   expect(generateEncryptionKeypair).toHaveBeenCalledTimes(1);
   expect(publishEncryptionKeyAnnouncement).toHaveBeenCalledTimes(1);
-  expect(saveAndPublishDmRelays).toHaveBeenCalledTimes(1);
+  expect(queueInitialDmRelays).toHaveBeenCalledTimes(1);
 });
 
 it.each(['nsec', 'nip46'])('rejects imported %s accounts even if marked pending', async (signerType) => {

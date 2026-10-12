@@ -183,6 +183,8 @@ metadata, persistence-read, and transport boundaries. Equivalent addresses use
 one identity for routing, connection reuse, delivery tracking, and sync cursors;
 signed incoming events retain their original tags.
 Canonical addresses use URL serialization, including `/` for the root path.
+Blossom server addresses follow the relay path/query normalization rules and
+return HTTP(S) URL serialization verbatim; legacy stored addresses normalize on read.
 
 Bounded queries wait for every target relay to settle before merging results.
 EOSE means a REQ ended: a wire EOSE, deadline (even without events), or relay
@@ -202,12 +204,18 @@ repeat network work.
 
 Configuration publication is a durable, account-scoped outbox, separate from
 message delivery. A signed snapshot and its cache commit before asynchronous
-network delivery; saving never waits for relay acknowledgements. Only the newest
+network delivery; these saves do not wait for relay acknowledgements. Only the newest
 snapshot per author/kind/`d` coordinate remains pending. Each attempt resolves
 current routing and retries unacknowledged targets; a strict majority of those
 targets completes publication. Account activation and foreground/network recovery
 resume pending work independently of messaging readiness. See
 [configuration publication](implementation/configuration-publication.md).
+
+Manual DM, write-relay, and Blossom server-list edits instead wait for a bounded publication attempt
+and a strict majority of the deduplicated targets to acknowledge the event.
+Their local configuration commits after confirmation; failed edits remain in
+the form for an explicit retry and never become background publication jobs.
+Initial account setup still uses the durable configuration outbox.
 
 ## 6. Message lifecycle
 

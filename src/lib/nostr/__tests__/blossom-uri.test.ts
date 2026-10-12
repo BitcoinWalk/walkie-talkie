@@ -10,7 +10,7 @@ describe('BUD-10 Blossom URI', () => {
     ]);
 
     expect(uri).toBe(
-      `blossom:${HASH}.bin?xs=https%3A%2F%2Fone.example&xs=https%3A%2F%2Ftwo.example%2Fpath`,
+      `blossom:${HASH}.bin?xs=https%3A%2F%2Fone.example%2F&xs=https%3A%2F%2Ftwo.example%2Fpath`,
     );
     expect(uri).not.toContain('as=');
     expect(uri).not.toContain('sz=');
@@ -25,7 +25,7 @@ describe('BUD-10 Blossom URI', () => {
     expect(parseBlossomUri(uri)).toEqual({
       sha256: HASH,
       extension: '.bin',
-      servers: ['https://media.example'],
+      servers: ['https://media.example/'],
       authors: ['cd'.repeat(32)],
       size: 99,
     });
@@ -33,7 +33,7 @@ describe('BUD-10 Blossom URI', () => {
 
   it('resolves a scheme-less xs hint with HTTPS preference and HTTP fallback', () => {
     const parsed = parseBlossomUri(`blossom:${HASH}.bin?xs=media.example`)!;
-    expect(parsed.servers).toEqual(['https://media.example', 'http://media.example']);
+    expect(parsed.servers).toEqual(['https://media.example/', 'http://media.example/']);
     expect(blossomDownloadUrls(parsed)).toEqual([
       `https://media.example/${HASH}.bin`,
       `http://media.example/${HASH}.bin`,

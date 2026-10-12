@@ -748,13 +748,14 @@
     "write_title": "Veröffentlichungs-Relays",
     "write_subtitle": "Veröffentliche hier Profil, Kontakte, Sperrliste und weitere Einstellungen zur Synchronisierung deiner Geräte. Nachrichten nutzen deine Nachrichten-Relays. Lese-Relays anderer Apps bleiben erhalten.",
     "write_empty_warning": "Füge mindestens ein Relay zum Veröffentlichen deiner Einstellungen hinzu.",
-    "write_save_error": "Die Relays konnten nicht sicher gespeichert werden. Prüfe deine Verbindung und versuche es erneut.",
     "title": "Nachrichten-Relays",
     "subtitle": "Diese Relays empfangen deine eingehenden Nachrichten.",
     "add_label": "Relay hinzufügen",
     "duplicate": "Dieses Relay ist bereits in deiner Liste.",
     "empty_warning": "Du benötigst mindestens ein Relay, um Nachrichten zu empfangen.",
-    "save": "Speichern"
+    "save": "Speichern",
+    "save_success": "Relay-Einstellungen veröffentlicht.",
+    "save_error": "Die Relay-Einstellungen konnten nicht gespeichert werden. Versuche es erneut."
   },
   "media_servers": {
     "title": "Medienserver",
@@ -763,7 +764,9 @@
     "recommended_label": "Empfohlen",
     "duplicate": "Dieser Server ist bereits in deiner Liste.",
     "empty_warning": "Du benötigst mindestens einen Server, um Fotos, Sprachnachrichten und Dateien zu senden.",
-    "save": "Speichern"
+    "save": "Speichern",
+    "save_success": "Medienserver-Einstellungen veröffentlicht.",
+    "save_error": "Die Medienserver-Einstellungen konnten nicht gespeichert werden. Versuche es erneut."
   },
   "secure_storage": {
     "setup_title": "App schützen",

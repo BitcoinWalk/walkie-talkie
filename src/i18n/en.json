@@ -748,13 +748,14 @@
     "write_title": "Publishing relays",
     "write_subtitle": "Publish your profile, contacts, blocked list, and other settings here to sync across devices. Message delivery uses your message relays. Read relays set in other apps are preserved.",
     "write_empty_warning": "Add at least one relay to publish your settings.",
-    "write_save_error": "Could not safely save your publishing relays. Check your connection and try again.",
     "title": "Message relays",
     "subtitle": "These relays receive your incoming messages.",
     "add_label": "Add a relay",
     "duplicate": "This relay is already in your list.",
     "empty_warning": "You need at least one relay to receive messages.",
-    "save": "Save"
+    "save": "Save",
+    "save_success": "Relay settings published.",
+    "save_error": "Couldn't save your relay settings. Try again."
   },
   "media_servers": {
     "title": "Media servers",
@@ -763,7 +764,9 @@
     "recommended_label": "Recommended",
     "duplicate": "This server is already in your list.",
     "empty_warning": "You need at least one server to send photos, voice messages and files.",
-    "save": "Save"
+    "save": "Save",
+    "save_success": "Media server settings published.",
+    "save_error": "Couldn't save your media server settings. Try again."
   },
   "secure_storage": {
     "setup_title": "Protect your app",

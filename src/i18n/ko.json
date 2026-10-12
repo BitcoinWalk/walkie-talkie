@@ -748,13 +748,14 @@
     "write_title": "게시 릴레이",
     "write_subtitle": "프로필, 연락처, 차단 목록 등의 설정을 게시하고 기기 간에 동기화합니다. 메시지는 메시지 릴레이를 사용합니다. 다른 앱에서 설정한 읽기 릴레이는 유지됩니다.",
     "write_empty_warning": "설정을 게시할 릴레이를 하나 이상 추가하세요.",
-    "write_save_error": "게시 릴레이를 안전하게 저장하지 못했습니다. 연결을 확인하고 다시 시도하세요.",
     "title": "메시지 릴레이",
     "subtitle": "이 릴레이는 수신 메시지를 받습니다.",
     "add_label": "릴레이 추가",
     "duplicate": "이 릴레이는 이미 목록에 있습니다.",
     "empty_warning": "메시지를 받으려면 릴레이가 하나 이상 필요합니다.",
-    "save": "저장"
+    "save": "저장",
+    "save_success": "릴레이 설정을 게시했습니다.",
+    "save_error": "릴레이 설정을 저장하지 못했습니다. 다시 시도하세요."
   },
   "media_servers": {
     "title": "미디어 서버",
@@ -763,7 +764,9 @@
     "recommended_label": "권장",
     "duplicate": "이 서버는 이미 목록에 있습니다.",
     "empty_warning": "사진, 음성 메시지, 파일을 전송하려면 서버가 하나 이상 필요합니다.",
-    "save": "저장"
+    "save": "저장",
+    "save_success": "미디어 서버 설정을 게시했습니다.",
+    "save_error": "미디어 서버 설정을 저장하지 못했습니다. 다시 시도하세요."
   },
   "secure_storage": {
     "setup_title": "앱 보호",

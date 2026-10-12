@@ -275,6 +275,9 @@ top corners, without a separate rounded card.
 - Use haptics only for committed actions, destructive warnings, or a threshold
   crossing; never for routine navigation.
 
+Connection and media-server settings acknowledge successful saves in place and
+retain the form for further edits.
+
 Pointer hover reuses the pressed visual language. Framed controls and tappable
 surfaces retain their resting fill and composite `interactionOverlay` above it
 for both hover and press. The overlay darkens in light mode and lightens in dark

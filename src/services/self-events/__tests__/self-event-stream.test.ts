@@ -51,6 +51,8 @@ let mockAppState: 'active' | 'background' = 'active';
 
 const fakeSigner = { nip44Encrypt: jest.fn(), nip44Decrypt: jest.fn() };
 
+jest.mock('../../relay/configuration-publish.service', () => ({ canApplyConfigurationEvent: async () => true }));
+
 jest.mock('@/platform', () => ({
   platform: {
     appState: {

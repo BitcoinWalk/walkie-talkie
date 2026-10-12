@@ -752,13 +752,14 @@
     "write_title": "Relay di pubblicazione",
     "write_subtitle": "Pubblica qui profilo, contatti, elenco dei bloccati e altre impostazioni per sincronizzare i dispositivi. I messaggi usano i propri relay. I relay di lettura configurati in altre app vengono conservati.",
     "write_empty_warning": "Aggiungi almeno un relay per pubblicare le impostazioni.",
-    "write_save_error": "Impossibile salvare i relay in modo sicuro. Controlla la connessione e riprova.",
     "title": "Relay dei messaggi",
     "subtitle": "Questi relay ricevono i messaggi in arrivo.",
     "add_label": "Aggiungi relay",
     "duplicate": "Questo relay è già nell'elenco.",
     "empty_warning": "Serve almeno un relay per ricevere messaggi.",
-    "save": "Salva"
+    "save": "Salva",
+    "save_success": "Impostazioni dei relay pubblicate.",
+    "save_error": "Impossibile salvare le impostazioni dei relay. Riprova."
   },
   "media_servers": {
     "title": "Server multimediali",
@@ -767,7 +768,9 @@
     "recommended_label": "Consigliato",
     "duplicate": "Questo server è già nell'elenco.",
     "empty_warning": "Serve almeno un server per inviare foto, messaggi vocali e file.",
-    "save": "Salva"
+    "save": "Salva",
+    "save_success": "Impostazioni dei server multimediali pubblicate.",
+    "save_error": "Impossibile salvare le impostazioni dei server multimediali. Riprova."
   },
   "secure_storage": {
     "setup_title": "Proteggi l'app",

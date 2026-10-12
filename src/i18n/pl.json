@@ -756,13 +756,14 @@
     "write_title": "Przekaźniki publikacji",
     "write_subtitle": "Publikuj tu profil, kontakty, listę zablokowanych i inne ustawienia, aby synchronizować urządzenia. Wiadomości korzystają z własnych przekaźników. Przekaźniki odczytu ustawione w innych aplikacjach zostają zachowane.",
     "write_empty_warning": "Dodaj co najmniej jeden przekaźnik do publikowania ustawień.",
-    "write_save_error": "Nie udało się bezpiecznie zapisać przekaźników. Sprawdź połączenie i spróbuj ponownie.",
     "title": "Przekaźniki wiadomości",
     "subtitle": "Te przekaźniki odbierają przychodzące wiadomości.",
     "add_label": "Dodaj przekaźnik",
     "duplicate": "Ten przekaźnik jest już na liście.",
     "empty_warning": "Do odbierania wiadomości wymagany jest co najmniej jeden przekaźnik.",
-    "save": "Zapisz"
+    "save": "Zapisz",
+    "save_success": "Opublikowano ustawienia przekaźników.",
+    "save_error": "Nie udało się zapisać ustawień przekaźników. Spróbuj ponownie."
   },
   "media_servers": {
     "title": "Serwery multimediów",
@@ -771,7 +772,9 @@
     "recommended_label": "Zalecane",
     "duplicate": "Ten serwer jest już na liście.",
     "empty_warning": "Do wysyłania zdjęć, wiadomości głosowych i plików wymagany jest co najmniej jeden serwer.",
-    "save": "Zapisz"
+    "save": "Zapisz",
+    "save_success": "Opublikowano ustawienia serwerów multimediów.",
+    "save_error": "Nie udało się zapisać ustawień serwerów multimediów. Spróbuj ponownie."
   },
   "secure_storage": {
     "setup_title": "Chroń aplikację",

@@ -748,13 +748,14 @@
     "write_title": "Közzétételi relayek",
     "write_subtitle": "Itt teheted közzé profilodat, névjegyeidet, tiltólistádat és más beállításaidat az eszközök szinkronizálásához. Az üzenetek saját relayeket használnak. Más alkalmazások olvasási relayei megmaradnak.",
     "write_empty_warning": "Adj hozzá legalább egy relayt a beállítások közzétételéhez.",
-    "write_save_error": "A relayeket nem sikerült biztonságosan menteni. Ellenőrizd a kapcsolatot, majd próbáld újra.",
     "title": "Üzenet-relayek",
     "subtitle": "Ezek a relayek fogadják a bejövő üzeneteidet.",
     "add_label": "Relay hozzáadása",
     "duplicate": "Ez a relay már szerepel a listádon.",
     "empty_warning": "Az üzenetek fogadásához legalább egy relay szükséges.",
-    "save": "Mentés"
+    "save": "Mentés",
+    "save_success": "A relébeállítások közzétéve.",
+    "save_error": "Nem sikerült menteni a relébeállításokat. Próbáld újra."
   },
   "media_servers": {
     "title": "Médiaszerverek",
@@ -763,7 +764,9 @@
     "recommended_label": "Ajánlott",
     "duplicate": "Ez a szerver már szerepel a listádon.",
     "empty_warning": "Fényképek, hangüzenetek és fájlok küldéséhez legalább egy szerver szükséges.",
-    "save": "Mentés"
+    "save": "Mentés",
+    "save_success": "A médiaszerver-beállítások közzétéve.",
+    "save_error": "Nem sikerült menteni a médiaszerver-beállításokat. Próbáld újra."
   },
   "secure_storage": {
     "setup_title": "Az alkalmazás védelme",

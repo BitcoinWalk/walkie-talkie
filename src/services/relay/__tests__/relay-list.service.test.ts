@@ -30,8 +30,15 @@ let mockPeerMetaRelays: jest.Mock<Promise<string[]>, unknown[]>;
 let mockPublishEvent: jest.Mock<Promise<void>, unknown[]>;
 
 jest.mock('../configuration-publish.service', () => ({
+  canApplyConfigurationEvent: async () => true,
   prepareConfiguration: (_pubkey: string, _kind: number, _d: string, task: () => Promise<unknown>) => task(),
   publishConfiguration: async (_pubkey: string, signer: { signEvent: (template: unknown) => Promise<Event> }, template: unknown) => {
+    const event = await signer.signEvent(template);
+    await jest.requireActual('../replaceable-events.service').storeReplaceableEvent(event);
+    await mockPublishEvent(event);
+    return event;
+  },
+  publishConfigurationAndWait: async (_pubkey: string, signer: { signEvent: (template: unknown) => Promise<Event> }, template: unknown) => {
     const event = await signer.signEvent(template);
     await jest.requireActual('../replaceable-events.service').storeReplaceableEvent(event);
     await mockPublishEvent(event);
@@ -345,15 +352,17 @@ describe('relay-list service', () => {
     });
   });
 
-  describe('saveAndPublishWriteRelays', () => {
-    const signer = {
-      signEvent: jest.fn(async (template: Partial<Event>) => ({
-        ...template, id: 'signed-write-list', pubkey: 'self', sig: 'sig',
-      } as Event)),
-    } as never;
+  describe('background write relay preparation', () => {
+    async function prepareWriteRelays(opts: { accountPubkey: string; relays: string[] }): Promise<Event> {
+      const { prepareWriteRelayConfiguration } = jest.requireActual('../relay-configuration-template') as typeof import('../relay-configuration-template');
+      const { template } = await prepareWriteRelayConfiguration(opts.accountPubkey, opts.relays);
+      return { ...template, pubkey: opts.accountPubkey, id: 'prepared', sig: '' };
+    }
+    function parsePrepared(event: Event) {
+      return jest.requireActual('../relay-router').parseRelayListMetadata(event) as { read: string[]; write: string[] };
+    }
 
     it('refreshes and preserves remote read membership, extension tags, and content', async () => {
-      const service = loadService();
       const remote = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds() - 1, [
         ['r', 'wss://read.example/', 'read', 'extension'],
         ['r', 'wss://both.example/'],
@@ -365,8 +374,8 @@ describe('relay-list service', () => {
       ]);
       remote.content = 'extension content';
       mockFetchReplaceable.mockResolvedValue(remote);
-      const saved = await service.saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer,
+      const saved = await prepareWriteRelays({
+        accountPubkey: 'self',
         relays: ['wss://kept.example/', 'wss://NEW.example/', 'wss://new.example/'],
       });
       expect(saved.tags).toEqual([
@@ -379,17 +388,16 @@ describe('relay-list service', () => {
         ['r', 'wss://new.example/', 'write'],
       ]);
       expect(saved.content).toBe('extension content');
-      await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
+      expect(parsePrepared(saved).write).toEqual([
         'wss://kept.example/', 'wss://new.example/',
       ]);
-      await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
+      expect(parsePrepared(saved).read).toEqual([
         'wss://read.example/', 'wss://both.example/', 'wss://kept.example/', 'wss://empty-marker.example/',
       ]);
       expect(getRow('self', KIND_DM_RELAY_LIST)).toBeUndefined();
     });
 
     it('merges duplicate read/write tags by normalized URL and stays stable on repeated saves', async () => {
-      const service = loadService();
       const remote = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds() - 1, [
         ['r', 'wss://SHARED.example/', 'write'],
         ['r', 'wss://shared.example/', 'read'],
@@ -401,7 +409,7 @@ describe('relay-list service', () => {
       ]);
       mockFetchReplaceable.mockResolvedValueOnce(remote);
       const opts = {
-        accountPubkey: 'self', signer,
+        accountPubkey: 'self',
         relays: ['wss://shared.example/', 'wss://NEW.example/', 'wss://new.example/'],
       };
       const expected = [
@@ -410,18 +418,18 @@ describe('relay-list service', () => {
         ['r', 'wss://removed.example/', 'read'],
         ['r', 'wss://new.example/', 'write'],
       ];
-      expect((await service.saveAndPublishWriteRelays(opts)).tags).toEqual(expected);
-      expect((await service.saveAndPublishWriteRelays(opts)).tags).toEqual(expected);
-      await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
+      expect((await prepareWriteRelays(opts)).tags).toEqual(expected);
+      const saved = await prepareWriteRelays(opts);
+      expect(saved.tags).toEqual(expected);
+      expect(parsePrepared(saved).read).toEqual([
         'wss://shared.example/', 'wss://read.example/', 'wss://removed.example/',
       ]);
-      await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
+      expect(parsePrepared(saved).write).toEqual([
         'wss://shared.example/', 'wss://new.example/',
       ]);
     });
 
     it('preserves extension positions when read relays become shared relays', async () => {
-      const service = loadService();
       mockFetchReplaceable.mockResolvedValue(makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds() - 1, [
         ['r', 'wss://read.example/', 'read', 'extension'],
         ['r', 'wss://both.example/', '', 'both-extension'],
@@ -429,8 +437,8 @@ describe('relay-list service', () => {
         ['r', 'wss://future.example/', 'future-marker', 'future-extension'],
         ['client', 'other-app'],
       ]));
-      const saved = await service.saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://read.example/', 'wss://both.example/'],
+      const saved = await prepareWriteRelays({
+        accountPubkey: 'self', relays: ['wss://read.example/', 'wss://both.example/'],
       });
       expect(saved.tags).toEqual([
         ['r', 'wss://read.example/', '', 'extension'],
@@ -439,23 +447,22 @@ describe('relay-list service', () => {
         ['r', 'wss://future.example/', 'future-marker', 'future-extension'],
         ['client', 'other-app'],
       ]);
-      await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
+      expect(parsePrepared(saved).read).toEqual([
         'wss://read.example/', 'wss://both.example/',
       ]);
-      await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
+      expect(parsePrepared(saved).write).toEqual([
         'wss://read.example/', 'wss://both.example/',
       ]);
     });
 
     it('preserves cached read relays when the completed lookup returns no event', async () => {
-      const service = loadService();
       const cached = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds(), [
         ['r', 'wss://read.example/', 'read'], ['r', 'wss://old.example/', 'write'],
       ]);
       seedRow({ pubkey: 'self', kind: KIND_RELAY_LIST_METADATA, dTag: '',
         event: cached, createdAt: cached.created_at, fetchedAt: nowSeconds() });
-      const saved = await service.saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://new.example/'],
+      const saved = await prepareWriteRelays({
+        accountPubkey: 'self', relays: ['wss://new.example/'],
       });
       expect(saved.tags).toEqual([
         ['r', 'wss://read.example/', 'read'], ['r', 'wss://new.example/', 'write'],
@@ -464,24 +471,24 @@ describe('relay-list service', () => {
     });
 
     it('creates write-only metadata after a completed miss', async () => {
-      const saved = await loadService().saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://new.example/'],
+      const saved = await prepareWriteRelays({
+        accountPubkey: 'self', relays: ['wss://new.example/'],
       });
       expect(saved.tags).toEqual([['r', 'wss://new.example/', 'write']]);
     });
 
     it('does not publish when refreshing existing metadata fails', async () => {
       mockFetchReplaceable.mockRejectedValue(new Error('offline'));
-      await expect(loadService().saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://new.example/'],
+      await expect(prepareWriteRelays({
+        accountPubkey: 'self', relays: ['wss://new.example/'],
       })).rejects.toThrow('offline');
       expect(mockPublishEvent).not.toHaveBeenCalled();
       expect(getRow('self', KIND_RELAY_LIST_METADATA)).toBeUndefined();
     });
 
     it('rejects an empty write list before querying or publishing', async () => {
-      await expect(loadService().saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: [],
+      await expect(prepareWriteRelays({
+        accountPubkey: 'self', relays: [],
       })).rejects.toThrow('At least one');
       expect(mockFetchReplaceable).not.toHaveBeenCalled();
       expect(mockPublishEvent).not.toHaveBeenCalled();

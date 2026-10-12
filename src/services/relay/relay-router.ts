@@ -48,7 +48,8 @@ export async function configurationPublishRelays(event: Event): Promise<string[]
     event.kind === 10044 ? loadAccountDmRelays(event.pubkey) : Promise.resolve([]),
   ]);
   const write = metadata ? parseRelayListMetadata(metadata).write : [];
-  const urls = [...inbox, ...write, ...NORMALIZED_DISCOVERY];
+  const editedWrite = event.kind === KIND_RELAY_LIST_METADATA ? parseRelayListMetadata(event).write : [];
+  const urls = [...inbox, ...write, ...editedWrite, ...NORMALIZED_DISCOVERY];
   return Array.from(new Set(urls.map(normalizeRelayUrl)));
 }
 

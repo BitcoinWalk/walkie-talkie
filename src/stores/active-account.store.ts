@@ -38,7 +38,7 @@ import {
 import {
   loadAccountDmRelays,
   ownKeyAnnouncementRelays,
-  saveAndPublishDmRelays,
+  queueInitialDmRelays,
 } from '@/services/relay/relay-list.service';
 import { createSigner } from '@/services/signer/signer-factory';
 
@@ -158,7 +158,7 @@ async function bootstrapAccount(
         }),
       );
       await profileAsync(profile, 'relay.savePublishDmRelays', () =>
-        saveAndPublishDmRelays({ accountPubkey: pubkey, signer, relays: dmRelays }),
+        queueInitialDmRelays({ accountPubkey: pubkey, signer, relays: dmRelays }),
       );
     } else {
       // We hold at least one key. Sync is needed only when a NEWER key is

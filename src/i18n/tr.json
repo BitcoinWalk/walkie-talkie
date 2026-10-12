@@ -748,13 +748,14 @@
     "write_title": "Yayın röleleri",
     "write_subtitle": "Profilinizi, kişilerinizi, engel listenizi ve diğer ayarlarınızı cihazlar arasında eşitlemek için burada yayınlayın. Mesajlar kendi rölelerini kullanır. Diğer uygulamalarda ayarlanan okuma röleleri korunur.",
     "write_empty_warning": "Ayarlarınızı yayınlamak için en az bir röle ekleyin.",
-    "write_save_error": "Röleler güvenli biçimde kaydedilemedi. Bağlantınızı kontrol edip tekrar deneyin.",
     "title": "Mesaj relay'leri",
     "subtitle": "Bu relay'ler gelen mesajlarını alır.",
     "add_label": "Relay ekle",
     "duplicate": "Bu relay zaten listende.",
     "empty_warning": "Mesaj almak için en az bir relay gerekir.",
-    "save": "Kaydet"
+    "save": "Kaydet",
+    "save_success": "Röle ayarları yayınlandı.",
+    "save_error": "Röle ayarları kaydedilemedi. Tekrar deneyin."
   },
   "media_servers": {
     "title": "Medya sunucuları",
@@ -763,7 +764,9 @@
     "recommended_label": "Önerilen",
     "duplicate": "Bu sunucu zaten listende.",
     "empty_warning": "Fotoğraf, sesli mesaj ve dosya göndermek için en az bir sunucu gerekir.",
-    "save": "Kaydet"
+    "save": "Kaydet",
+    "save_success": "Medya sunucusu ayarları yayınlandı.",
+    "save_error": "Medya sunucusu ayarları kaydedilemedi. Tekrar deneyin."
   },
   "secure_storage": {
     "setup_title": "Uygulamanı koru",

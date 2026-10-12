@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, StyleSheet, View } from 'react-native';
 
@@ -14,7 +14,8 @@ import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/Scre
 import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { SortableUrlList } from '@/components/common/SortableUrlList';
 import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
-import { buildSigner } from '@/services/account/account.service';
+import { buildSigner } from '@/services/account/account-access';
+import type { Signer } from '@/services/signer/signer.interface';
 import { dmService } from '@/services/dm/dm.service';
 import {
   loadAccountDmRelays,
@@ -23,6 +24,7 @@ import {
   saveAndPublishDmRelays,
 } from '@/services/relay/relay-list.service';
 import { useActiveAccount } from '@/stores/active-account.store';
+import { showToast } from '@/stores/toast.store';
 import { useScrolled } from '@/hooks/use-scrolled';
 import { iconStrokeWidth } from '@/theme/icons';
 import { spacing, uiDensity, useThemeColors } from '@/theme';
@@ -87,10 +89,14 @@ function RelaySettingsForm({ mode, accountPubkey, scrollProps, initialRelay = ''
   const [original, setOriginal] = useState<string[]>([]);
   const [newRelay, setNewRelay] = useState(initialRelay);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const saveAbort = useRef<AbortController | null>(null);
   const [loadedAccountPubkey, setLoadedAccountPubkey] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+
+  useEffect(() => () => { saveAbort.current?.abort(); }, []);
 
   useEffect(() => {
     if (!accountPubkey) return;
@@ -136,25 +142,35 @@ function RelaySettingsForm({ mode, accountPubkey, scrollProps, initialRelay = ''
   }
 
   async function handleSave() {
-    if (!accountPubkey || !canSave) return;
+    if (!accountPubkey || !canSave || saveAbort.current) return;
+    const abort = new AbortController();
+    saveAbort.current = abort;
     setSaving(true);
     setError(null);
+    setSaveError(null);
+    let signer: Signer | undefined;
     try {
-      const signer = await buildSigner(accountPubkey);
-      if (useActiveAccount.getState().activePubkey !== accountPubkey) return;
+      signer = await buildSigner(accountPubkey);
+      if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
       if (mode === 'write') {
-        await saveAndPublishWriteRelays({ accountPubkey, signer, relays });
+        await saveAndPublishWriteRelays({ accountPubkey, signer, relays, abort: abort.signal });
       } else {
-        await saveAndPublishDmRelays({ accountPubkey, signer, relays });
+        await saveAndPublishDmRelays({ accountPubkey, signer, relays, abort: abort.signal });
       }
 
-      if (useActiveAccount.getState().activePubkey !== accountPubkey) return;
+      if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
       dmService.refreshRelayConfiguration(accountPubkey);
       setOriginal(relays);
-    } catch (e) {
-      setError(mode === 'write' ? t('relays.write_save_error') : (e as Error).message);
+      showToast(t('relays.save_success'));
+    } catch {
+      if (useActiveAccount.getState().activePubkey !== accountPubkey || abort.signal.aborted) return;
+      const message = t('relays.save_error');
+      setSaveError(message);
+      showToast(message);
     } finally {
+      saveAbort.current = null;
       setSaving(false);
+      try { await signer?.destroy?.(); } catch { /* Publication already settled. */ }
     }
   }
 
@@ -239,14 +255,21 @@ function RelaySettingsForm({ mode, accountPubkey, scrollProps, initialRelay = ''
 
       <View style={{ height: spacing.sm }} />
 
-      <AppButton
-        label={t('relays.save')}
-        variant="primary"
-        size="lg"
-        loading={saving}
-        disabled={!canSave}
-        onPress={handleSave}
-      />
+      <View style={{ gap: spacing.sm }}>
+        {saveError && (
+          <AppText variant="body" tone="danger" accessibilityLiveRegion="polite" selectable>
+            {saveError}
+          </AppText>
+        )}
+        <AppButton
+          label={t('relays.save')}
+          variant="primary"
+          size="lg"
+          loading={saving}
+          disabled={!canSave}
+          onPress={handleSave}
+        />
+      </View>
     </AppFormScrollView>
   );
 }

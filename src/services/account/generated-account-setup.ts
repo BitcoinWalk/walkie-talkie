@@ -7,7 +7,7 @@ import {
   loadEncryptionKeys,
   publishEncryptionKeyAnnouncement,
 } from '../dm/encryption-key.service';
-import { loadAccountDmRelays, saveAndPublishDmRelays } from '../relay/relay-list.service';
+import { loadAccountDmRelays, queueInitialDmRelays } from '../relay/relay-list.service';
 import { prepareConfiguration, publishConfiguration } from '../relay/configuration-publish.service';
 import { configurationPublishRelays } from '../relay/relay-router';
 import { getReplaceableEvents } from '../relay/replaceable-events.service';
@@ -51,7 +51,7 @@ async function finishLocalSetup(accountPubkey: string, abort: AbortSignal): Prom
   const dmRelays = await loadAccountDmRelays(accountPubkey);
   checkCurrent();
   if (!inbox) {
-    await saveAndPublishDmRelays({ accountPubkey, signer, relays: dmRelays });
+    await queueInitialDmRelays({ accountPubkey, signer, relays: dmRelays });
   }
   checkCurrent();
   // Only local account creation initializes NIP-65 defaults. Resuming setup

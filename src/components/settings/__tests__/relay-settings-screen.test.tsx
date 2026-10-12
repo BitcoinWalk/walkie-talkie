@@ -8,6 +8,8 @@ import { SegmentedControl } from '@/components/common/SegmentedControl';
 import { SortableUrlList } from '@/components/common/SortableUrlList';
 import { darkPalette, lightPalette } from '@/theme';
 import { saveAndPublishWriteRelays, saveAndPublishDmRelays } from '@/services/relay/relay-list.service';
+import { showToast } from '@/stores/toast.store';
+import { AppText } from '@/components/common/AppText';
 
 let mockScheme: 'light' | 'dark' = 'light';
 const mockAccount = { activePubkey: 'self' };
@@ -20,7 +22,7 @@ jest.mock('@/stores/active-account.store', () => ({
   }),
 }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-jest.mock('@/services/account/account.service', () => ({ buildSigner: async () => ({}) }));
+jest.mock('@/services/account/account-access', () => ({ buildSigner: async () => ({}) }));
 jest.mock('@/services/dm/dm.service', () => ({ dmService: { refreshRelayConfiguration: jest.fn() } }));
 jest.mock('@/services/relay/relay-list.service', () => ({
   loadAccountDmRelays: async () => ['wss://dm.example/'],
@@ -39,6 +41,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@/platform', () => ({ platform: {} }));
+jest.mock('@/stores/toast.store', () => ({ showToast: jest.fn() }));
 
 let renderer: ReactTestRenderer;
 let activeMode = 'dm';
@@ -68,14 +71,18 @@ it.each(['light', 'dark'] as const)('edits publishing relays independently in %s
     accountPubkey: 'self', relays: ['wss://write.example/', 'wss://new.example/'],
   }));
   expect(saveAndPublishDmRelays).not.toHaveBeenCalled();
+  expect(showToast).toHaveBeenCalledWith('relays.save_success');
 });
 
 it('keeps the draft and shows a save failure even when the input is empty', async () => {
-  jest.mocked(saveAndPublishWriteRelays).mockRejectedValueOnce(new Error('offline'));
+  jest.mocked(saveAndPublishWriteRelays).mockRejectedValueOnce(new Error('disk unavailable'));
   await renderSettings('write');
   act(() => { activePanel().findByType(SortableUrlList).props.onChange(['wss://new.example/']); });
   await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
-  expect(activePanel().findByType(AppInput).props.error).toBe('relays.write_save_error');
+  expect(activePanel().findByType(AppInput).props.error).toBeUndefined();
+  expect(activePanel().findAllByType(AppText).some((node) => node.props.children === 'relays.save_error')).toBe(true);
+  expect(showToast).toHaveBeenCalledWith('relays.save_error');
+  expect(activePanel().findByType(AppButton).props.disabled).toBe(false);
   expect(activePanel().findByType(SortableUrlList).props.value).toEqual(['wss://new.example/']);
 });
 
@@ -85,6 +92,39 @@ it('keeps message-relay edits on their independent save path', async () => {
   await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
   expect(saveAndPublishDmRelays).toHaveBeenCalled();
   expect(saveAndPublishWriteRelays).not.toHaveBeenCalled();
+  expect(showToast).toHaveBeenCalledWith('relays.save_success');
+});
+
+it('shows saving until the save completes, then acknowledges success', async () => {
+  let finish!: () => void;
+  jest.mocked(saveAndPublishDmRelays).mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }));
+  await renderSettings('dm');
+  act(() => { activePanel().findByType(SortableUrlList).props.onChange(['wss://new.example/']); });
+  let pending!: Promise<void>;
+  await act(async () => { pending = activePanel().findByType(AppButton).props.onPress(); });
+  expect(activePanel().findByType(AppButton).props.loading).toBe(true);
+  expect(activePanel().findByType(AppButton).props.label).toBe('relays.save');
+  expect(showToast).not.toHaveBeenCalled();
+  await act(async () => { finish(); await pending; });
+  expect(showToast).toHaveBeenCalledWith('relays.save_success');
+  expect(activePanel().findByType(AppButton).props.loading).toBe(false);
+  expect(activePanel().findByType(AppButton).props.disabled).toBe(true);
+});
+
+it.each(['dm', 'write'] as const)('keeps a failed %s relay draft retryable and clears the error after a successful retry', async (mode) => {
+  jest.mocked(mode === 'dm' ? saveAndPublishDmRelays : saveAndPublishWriteRelays).mockRejectedValueOnce(new Error('publish failed'));
+  await renderSettings(mode);
+  act(() => { activePanel().findByType(SortableUrlList).props.onChange(['wss://new.example/']); });
+  await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
+  expect(showToast).toHaveBeenLastCalledWith('relays.save_error');
+  expect(activePanel().findAllByType(AppText).some((node) => node.props.children === 'relays.save_error')).toBe(true);
+  expect(activePanel().findByType(AppButton).props.disabled).toBe(false);
+  expect(activePanel().findByType(AppButton).props.loading).toBe(false);
+  expect(activePanel().findByType(AppButton).props.label).toBe('relays.save');
+  expect(activePanel().findByType(SortableUrlList).props.value).toEqual(['wss://new.example/']);
+  await act(async () => { await activePanel().findByType(AppButton).props.onPress(); });
+  expect(showToast).toHaveBeenLastCalledWith('relays.save_success');
+  expect(activePanel().findAllByType(AppText).some((node) => node.props.children === 'relays.save_error')).toBe(false);
 });
 
 it('preserves both drafts across tab switches and saves only the selected list', async () => {

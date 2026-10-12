@@ -4,11 +4,43 @@ import {
   createBlossomUploadPlan,
   eligibleBlossomMirrorTargets,
   withBlossomUploadFallback,
+  normalizeBlossomUrl,
+  normalizeBlossomUrls,
 } from '../blossom-url';
+
+describe('Blossom URL normalization', () => {
+  it.each([
+    ['https://MEDIA.example', 'https://media.example/'],
+    ['https://media.example/', 'https://media.example/'],
+    [' HTTPS://MEDIA.example:443/ ', 'https://media.example/'],
+    ['http://MEDIA.example:80/', 'http://media.example/'],
+    ['media.example', 'https://media.example/'],
+    ['localhost:8080', 'http://localhost:8080/'],
+    ['192.168.1.2:8080', 'http://192.168.1.2:8080/'],
+    ['https://media.example//api///?z=2&a=1#fragment', 'https://media.example/api?a=1&z=2'],
+    ['https://media.example/api/', 'https://media.example/api'],
+    ['https://media.example/api', 'https://media.example/api'],
+    ['https://media.example?token=a/b/', 'https://media.example/?token=a%2Fb%2F'],
+  ])('normalizes %s to %s and remains idempotent', (input, expected) => {
+    expect(normalizeBlossomUrl(input)).toBe(expected);
+    expect(normalizeBlossomUrl(expected)).toBe(expected);
+  });
+
+  it('deduplicates equivalent root and normalized path addresses', () => {
+    expect(normalizeBlossomUrls([
+      'https://MEDIA.example', 'https://media.example/', 'https://media.example/api',
+      'https://media.example/api/', 'https://',
+    ])).toEqual(['https://media.example/', 'https://media.example/api']);
+  });
+
+  it.each(['', ' ', 'https://', 'ftp://media.example', 'wss://media.example'])('rejects invalid HTTP(S) server %s', input => {
+    expect(() => normalizeBlossomUrl(input)).toThrow();
+  });
+});
 
 describe('Blossom upload fallback', () => {
   test('recommends only the Jumble server by default', () => {
-    expect(DEFAULT_BLOSSOM_SERVERS).toEqual(['https://blossom.jumble.social']);
+    expect(DEFAULT_BLOSSOM_SERVERS).toEqual(['https://blossom.jumble.social/']);
   });
 
   test('appends Jumble after configured servers', () => {

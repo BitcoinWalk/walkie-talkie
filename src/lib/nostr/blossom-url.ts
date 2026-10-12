@@ -1,19 +1,41 @@
 /**
- * Normalize a Blossom media-server URL (BUD-03). Unlike DM relays (ws/wss),
- * media servers are plain HTTP(S) endpoints. Lower-cases the host and strips a
- * trailing slash so the same server isn't stored twice under cosmetic variants.
+ * Normalize a Blossom HTTP(S) endpoint using the relay URL conventions.
+ * Return URL serialization verbatim after normalizing the path and query.
  */
 export function normalizeBlossomUrl(url: string): string {
+  url = url.trim();
+  if (!url) throw new Error('A media server URL is required.');
+  if (!url.includes('://')) {
+    const local = url.startsWith('localhost:') || url.startsWith('localhost/') ||
+      url.startsWith('127.') || url.startsWith('192.168.');
+    url = `${local ? 'http' : 'https'}://${url}`;
+  }
   const u = new URL(url);
+  u.protocol = u.protocol.toLowerCase();
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw new Error(`Unsupported server protocol: ${u.protocol}`);
   }
   u.host = u.host.toLowerCase();
-  return u.toString().replace(/\/$/, '');
+  u.pathname = u.pathname.replace(/\/+/g, '/');
+  if (u.pathname.endsWith('/')) u.pathname = u.pathname.slice(0, -1);
+  if ((u.port === '80' && u.protocol === 'http:') ||
+    (u.port === '443' && u.protocol === 'https:')) u.port = '';
+  u.searchParams.sort();
+  u.hash = '';
+  return u.toString();
+}
+
+/** Normalize and deduplicate stored or advertised endpoints in first-seen order. */
+export function normalizeBlossomUrls(urls: readonly string[]): string[] {
+  const normalized = new Set<string>();
+  for (const url of urls) {
+    try { normalized.add(normalizeBlossomUrl(url)); } catch { /* Ignore malformed server URLs. */ }
+  }
+  return [...normalized];
 }
 
 /** Last-resort upload target appended when an account did not configure it. */
-export const BLOSSOM_UPLOAD_FALLBACK_SERVER = 'https://blossom.jumble.social';
+export const BLOSSOM_UPLOAD_FALLBACK_SERVER = 'https://blossom.jumble.social/';
 
 /**
  * Build the effective upload order without changing the user's published

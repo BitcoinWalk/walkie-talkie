@@ -109,3 +109,8 @@ it('also routes key announcements to current inbox relays', async () => {
   expect(await configurationPublishRelays({ ...event('alice'), kind: 10044 }))
     .toEqual(['wss://dm.example/', 'wss://write.example/', 'wss://empty-marker.example/', ...DISCOVERY_RELAYS.map(normalizeRelayUrl)]);
 });
+
+it('publishes a write-relay edit to its old and new write relays plus discovery', async () => {
+  expect(await configurationPublishRelays({ ...event('alice'), kind: 10002, tags: [['r', 'wss://new.example/', 'write']] }))
+    .toEqual(['wss://write.example/', 'wss://empty-marker.example/', 'wss://new.example/', ...DISCOVERY_RELAYS.map(normalizeRelayUrl)]);
+});
