@@ -9,6 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { before, after, test } from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 import { generateSecretKey, getPublicKey, getEventHash, finalizeEvent, nip44 } from 'nostr-tools';
+import { build } from 'esbuild';
 
 import { buildNotificationExtension } from '../build-notification-extension.mjs';
 
@@ -24,6 +25,29 @@ before(async () => {
   journal = JSON.parse(await readFile(resolve('src/db/migrations/meta/_journal.json'), 'utf8'));
 });
 after(async () => rm(directory, { recursive: true, force: true }));
+
+test('normalizes relay URLs identically through the notification URL bridge', async () => {
+  const bundle = await build({
+    entryPoints: ['src/lib/nostr/relay-url.ts'], bundle: true, write: false,
+    format: 'iife', globalName: 'RelayUrls',
+  });
+  const context = createContext({
+    __parseURL: (value, base) => {
+      const url = new URL(value, base || undefined);
+      return { protocol: url.protocol.toUpperCase(), host: url.host.toUpperCase(), pathname: url.pathname, search: url.search, hash: url.hash };
+    },
+  });
+  runInContext(bootstrap, context);
+  runInContext(bundle.outputFiles[0].text, context);
+  for (const [input, expected] of [
+    ['https://RELAY.example:8443//a///b/?z=hello%20world&a=1#fragment', 'wss://relay.example:8443/a/b?a=1&z=hello+world'],
+    ['wss://relay.example:443//?z=2&a=1#fragment', 'wss://relay.example/?a=1&z=2'],
+    ['127.0.0.1:80', 'ws://127.0.0.1/'],
+    ['wss://relay.example/?token=a/b/', 'wss://relay.example/?token=a%2Fb%2F'],
+  ]) {
+    assert.equal(context.RelayUrls.normalizeRelayUrl(input), expected);
+  }
+});
 
 function fixture(content = 'private message', { invalidRumorId = false } = {}) {
   const identity = generateSecretKey();

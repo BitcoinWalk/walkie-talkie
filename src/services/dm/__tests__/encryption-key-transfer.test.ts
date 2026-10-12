@@ -42,7 +42,7 @@ jest.mock('../../crypto/nip44', () => ({
 jest.mock('../../relay/relay-pool', () => ({
   relayPool: {
     publishEvent: jest.fn(async () => [
-      { relay: 'wss://relay.example', outcome: { ok: true } },
+      { relay: 'wss://relay.example/', outcome: { ok: true } },
     ]),
     query: jest.fn(),
     subscribe: jest.fn((options) => {
@@ -78,14 +78,14 @@ describe('encryption key transfer routing', () => {
     const event = await publishClientKeyAnnouncement({
       signer: signer(),
       clientPubkey: CLIENT_PUBKEY,
-      relays: ['wss://relay.example'],
+      relays: ['wss://relay.example/'],
       expectedEncryptionPubkey: 'e'.repeat(64),
     });
 
     expect(event.tags).toEqual(
       expect.arrayContaining([
         ['P', CLIENT_PUBKEY],
-        ['relay', 'wss://relay.example'],
+        ['relay', 'wss://relay.example/'],
         ['n', 'e'.repeat(64)],
       ]),
     );
@@ -102,7 +102,7 @@ describe('encryption key transfer routing', () => {
       signer: signer(),
       accountPubkey: ACCOUNT_PUBKEY,
       recipientClientPubkey: CLIENT_PUBKEY,
-      relays: ['wss://relay.example'],
+      relays: ['wss://relay.example/'],
       requestedEncryptionPubkey: olderPubkey,
     });
 
@@ -118,7 +118,7 @@ describe('encryption key transfer routing', () => {
       ]),
     );
     expect(relayPool.publishEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ relays: ['wss://relay.example'] }),
+      expect.objectContaining({ relays: ['wss://relay.example/'] }),
     );
   });
 
@@ -126,12 +126,12 @@ describe('encryption key transfer routing', () => {
     const event = {
       tags: [
         ['relay', 'WSS://Relay.Example/'],
-        ['relay', 'wss://relay.example'],
+        ['relay', 'wss://relay.example/'],
         ['relay', 'https://not-a-relay.example'],
       ],
     } as Event;
 
-    expect(getKeySyncRelayHints(event)).toEqual(['wss://relay.example']);
+    expect(getKeySyncRelayHints(event)).toEqual(['wss://relay.example/', 'wss://not-a-relay.example/']);
   });
 
   it('matches transfer author and client while surfacing a rejected payload', async () => {
@@ -143,7 +143,7 @@ describe('encryption key transfer routing', () => {
         pubkey: CLIENT_PUBKEY,
         createdAt: 100,
       },
-      relays: ['wss://relay.example'],
+      relays: ['wss://relay.example/'],
       signer: signer(),
       expectedEncryptionPubkey: 'e'.repeat(64),
       onTransfer: jest.fn(),

@@ -66,7 +66,7 @@ it('republishes acknowledged targets for a full resend without querying prior re
   const harness = relayMessageOutbox as unknown as {
     skipSuccessfulTargets: (job: { scope: string }, targets: unknown[], durable: boolean) => Promise<unknown[]>;
   };
-  const targets = [{ recipientPubkey: 'peer', relayUrl: 'wss://accepted.example' }];
+  const targets = [{ recipientPubkey: 'peer', relayUrl: 'wss://accepted.example/' }];
   jest.mocked(db.select).mockClear();
   expect(await harness.skipSuccessfulTargets({ scope: 'resend_all' }, targets, true))
     .toBe(targets);
@@ -83,8 +83,8 @@ it('prepares and publishes a resend to peer and self from the original stored ru
     markTargetsPending: () => Promise<void>;
   };
   const targets = [
-    { recipientPubkey: 'peer', relayUrl: 'wss://peer.example' },
-    { recipientPubkey: 'self', relayUrl: 'wss://self.example' },
+    { recipientPubkey: 'peer', relayUrl: 'wss://peer.example/' },
+    { recipientPubkey: 'self', relayUrl: 'wss://self.example/' },
   ];
   const job = { id: 1, scope: 'resend_all', accountPubkey: 'self', messageId: originalRumor.id };
   const query = {
@@ -107,9 +107,9 @@ it('prepares and publishes a resend to peer and self from the original stored ru
   expect(wrap).toHaveBeenCalledWith(job, originalRumor, targets, {}, 0);
   expect(relayPool.publishEvent).toHaveBeenCalledTimes(2);
   expect(relayPool.publishEvent).toHaveBeenCalledWith(expect.objectContaining({
-    relays: ['wss://peer.example'], event: { id: 'fresh-peer-wrap' },
+    relays: ['wss://peer.example/'], event: { id: 'fresh-peer-wrap' },
   }));
   expect(relayPool.publishEvent).toHaveBeenCalledWith(expect.objectContaining({
-    relays: ['wss://self.example'], event: { id: 'fresh-self-wrap' },
+    relays: ['wss://self.example/'], event: { id: 'fresh-self-wrap' },
   }));
 });

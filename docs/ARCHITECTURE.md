@@ -178,6 +178,12 @@ results. Services do not open ad hoc relay connections.
 Local relay-settings readers sit below routing and publication and never import
 either layer.
 
+Relay addresses share `src/lib/nostr/relay-url.ts` normalization at input,
+metadata, persistence-read, and transport boundaries. Equivalent addresses use
+one identity for routing, connection reuse, delivery tracking, and sync cursors;
+signed incoming events retain their original tags.
+Canonical addresses use URL serialization, including `/` for the root path.
+
 Bounded queries wait for every target relay to settle before merging results.
 EOSE means a REQ ended: a wire EOSE, deadline (even without events), or relay
 closure completes it. AUTH success resends the REQ with a fresh deadline;

@@ -5,6 +5,7 @@ import { db } from '@/db/client';
 import { messageDeliveryCopies, messages } from '@/db/schema';
 import { useLiveQuery } from '@/db/use-live-query';
 import type { MessageDelivery } from '@/stores/delivery-status.store';
+import { normalizeRelayDeliveries } from '@/services/dm/delivery-status';
 
 /**
  * Load relay detail only while the message-info sheet is visible. Message rows
@@ -55,7 +56,7 @@ export function useMessageDelivery(
       copies: (copies ?? []).map((copy) => ({
         recipient: copy.recipientPubkey,
         self: copy.recipientPubkey === accountPubkey,
-        relays: copy.relays,
+        relays: normalizeRelayDeliveries(copy.relays),
         error: copy.error ?? undefined,
       })),
     };

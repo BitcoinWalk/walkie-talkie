@@ -104,7 +104,7 @@ export default function LoginNostrConnect() {
     if (!raw) return;
     let normalized: string;
     try {
-      normalized = normalizeRelayUrl(raw.startsWith('ws') ? raw : `wss://${raw}`);
+      normalized = normalizeRelayUrl(raw);
     } catch (e) {
       setRelayError((e as Error).message);
       return;

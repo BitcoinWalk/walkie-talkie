@@ -118,7 +118,7 @@ function RelaySettingsForm({ mode, accountPubkey, scrollProps, initialRelay = ''
     if (!raw || saving) return;
     let normalized: string;
     try {
-      normalized = normalizeRelayUrl(raw.startsWith('ws') ? raw : `wss://${raw}`);
+      normalized = normalizeRelayUrl(raw);
     } catch (e) {
       setError((e as Error).message);
       return;

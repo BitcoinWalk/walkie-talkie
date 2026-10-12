@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { Event, EventTemplate } from 'nostr-tools';
 import type { NetworkStateSnapshot } from '@/platform/ports/network-state';
 import type { AppStateStatus } from '@/platform/ports/app-state';
+import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
 
 const SELF = 'a'.repeat(64);
 let mockDatabase: { sqlite: DatabaseSync; db: unknown } | undefined;
@@ -193,7 +194,7 @@ it('keeps failed events with a persisted deadline, reuses the signature, and cle
   mockPublish.mockResolvedValueOnce(results(1));
   await worker.flush();
   const row = await pending();
-  expect(row).toMatchObject({ attempts: 1, nextAttemptAt: Date.now() + 1000, acknowledgedRelays: [mockTargets[0]] });
+  expect(row).toMatchObject({ attempts: 1, nextAttemptAt: Date.now() + 1000, acknowledgedRelays: [normalizeRelayUrl(mockTargets[0])] });
   await worker.flush();
   expect(mockPublish).toHaveBeenCalledTimes(1);
   mockPublish.mockImplementationOnce(async ({ relays }) => relays.map((url: string) => ({ url, outcome: { ok: true } })));

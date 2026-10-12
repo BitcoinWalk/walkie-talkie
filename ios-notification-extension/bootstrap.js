@@ -1,4 +1,7 @@
 /* Minimal Web APIs for JavaScriptCore; protocol and policy stay in shared TypeScript. */
+/* global __encodeUTF8, __decodeUTF8, __randomBytes, __base64Encode, __base64Decode,
+  __setTimer, __clearTimer, __parseURL, __fetch, __cancelFetch, __openSocket,
+  __sendSocket, __closeSocket */
 globalThis.global = globalThis;
 globalThis.queueMicrotask = (task) => Promise.resolve().then(task);
 globalThis.console = { log() {}, info() {}, warn() {}, error() {}, debug() {} };
@@ -46,7 +49,8 @@ globalThis.AbortController = class {
   }
 };
 globalThis.URLSearchParams = class {
-  constructor(query = '') {
+  constructor(query = '', onChange = () => {}) {
+    this.onChange = onChange;
     this.entriesList = String(query).replace(/^\?/, '').split('&').filter(Boolean).map((item) => {
       const index = item.indexOf('=');
       const decode = (value) => decodeURIComponent(value.replace(/\+/g, ' '));
@@ -55,9 +59,17 @@ globalThis.URLSearchParams = class {
   }
   get(key) { return this.entriesList.find(([name]) => name === key)?.[1] ?? null; }
   set(key, value) { this.delete(key); this.append(key, value); }
-  append(key, value) { this.entriesList.push([String(key), String(value)]); }
-  delete(key) { this.entriesList = this.entriesList.filter(([name]) => name !== key); }
-  toString() { return this.entriesList.map((pair) => pair.map(encodeURIComponent).join('=')).join('&'); }
+  append(key, value) { this.entriesList.push([String(key), String(value)]); this.onChange(this.toString()); }
+  delete(key) { this.entriesList = this.entriesList.filter(([name]) => name !== key); this.onChange(this.toString()); }
+  sort() {
+    this.entriesList.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    this.onChange(this.toString());
+  }
+  toString() {
+    const encode = (value) => encodeURIComponent(value).replace(/%20/g, '+')
+      .replace(/[!'()~]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+    return this.entriesList.map((pair) => pair.map(encode).join('=')).join('&');
+  }
 };
 globalThis.URL = class {
   constructor(value, base) {
@@ -67,9 +79,13 @@ globalThis.URL = class {
   }
   get origin() { return `${this.protocol}//${this.host}`; }
   get hostname() { return this.host.split(':')[0]; }
-  get searchParams() { return new URLSearchParams(this.search); }
+  get port() { return this.host.match(/:(\d+)$/)?.[1] ?? ''; }
+  set port(value) { this.host = this.host.replace(/:\d+$/, '') + (value ? `:${value}` : ''); }
+  get searchParams() {
+    return new URLSearchParams(this.search, (query) => { this.search = query ? `?${query}` : ''; });
+  }
   get href() { return this.toString(); }
-  toString() { return `${this.protocol}//${this.host}${this.pathname}${this.search}${this.hash}`; }
+  toString() { return `${this.protocol}//${this.host}${this.pathname || '/'}${this.search}${this.hash}`; }
 };
 globalThis.fetch = (url, options = {}) => new Promise((resolve, reject) => {
   const id = __fetch(String(url), options.method ?? 'GET', options.headers ?? {}, options.body ?? null, (error, response) => {

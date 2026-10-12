@@ -7,6 +7,7 @@ import {
 } from 'nostr-tools/nip46';
 
 import { bytesToHex } from '@/lib/nostr/keys';
+import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
 import { platform } from '@/platform';
 
 import { addRemoteAccount } from '../account/account.service';
@@ -19,7 +20,7 @@ import {
 /** Default relays the two sides rendezvous on for the Nostr Connect (app-
  * initiated) flow — widely-replicated public relays most signers already speak
  * to. The user can override this via the screen's advanced setting. */
-export const NIP46_DEFAULT_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol'];
+export const NIP46_DEFAULT_RELAYS = ['wss://relay.damus.io/', 'wss://nos.lol/'];
 
 const APP_NAME = 'PsstPsst';
 
@@ -44,6 +45,7 @@ export async function loginWithBunker(input: string): Promise<{ pubkey: string }
   if (!BUNKER_REGEX.test(trimmed)) throw new Error('invalid');
   const pointer = await parseBunkerInput(trimmed);
   if (!pointer) throw new Error('invalid');
+  pointer.relays = Array.from(new Set(pointer.relays.map(normalizeRelayUrl)));
 
   const clientSecretKey = generateSecretKey();
   const signer = BunkerSigner.fromBunker(clientSecretKey, pointer, {
@@ -81,7 +83,9 @@ export type NostrConnectSession = {
  * account reconnects on later launches.
  */
 export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSession {
-  const relays = opts?.relays?.length ? opts.relays : NIP46_DEFAULT_RELAYS;
+  const relays = Array.from(new Set(
+    (opts?.relays?.length ? opts.relays : NIP46_DEFAULT_RELAYS).map(normalizeRelayUrl),
+  ));
   const clientSecretKey = generateSecretKey();
   const clientPubkey = getPublicKey(clientSecretKey);
   // A one-time secret the signer must echo back so we accept only the bunker we

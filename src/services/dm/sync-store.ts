@@ -48,8 +48,37 @@ async function loadCursors(accountPubkey: string): Promise<Map<string, SyncCurso
   if (pending) return pending;
   const task = db.select().from(syncCursors)
     .where(eq(syncCursors.accountPubkey, accountPubkey))
-    .then(rows => {
-      const cursors = new Map(rows.map(row => [row.relayUrl, {
+    .then(async rows => {
+      const normalized = new Map<string, typeof rows[number]>();
+      const aliases: string[] = [];
+      for (const row of rows) {
+        let url: string;
+        try { url = normalizeRelayUrl(row.relayUrl); } catch { continue; }
+        if (url !== row.relayUrl) aliases.push(row.relayUrl);
+        const previous = normalized.get(url);
+        normalized.set(url, previous ? {
+          ...row, relayUrl: url,
+          forwardSince: previous.forwardSince === null || row.forwardSince === null
+            ? null : Math.min(previous.forwardSince, row.forwardSince),
+          backwardUntil: previous.backwardUntil === null || row.backwardUntil === null
+            ? null : Math.max(previous.backwardUntil, row.backwardUntil),
+          updatedAt: Math.max(previous.updatedAt, row.updatedAt),
+        } : { ...row, relayUrl: url });
+      }
+      // Migrate only this account's small relay cursor set, never message history.
+      // Collisions keep conservative coverage so normalization cannot skip pages.
+      if (aliases.length > 0) await db.transaction(async tx => {
+        for (const row of normalized.values()) {
+          await tx.insert(syncCursors).values(row).onConflictDoUpdate({
+            target: [syncCursors.accountPubkey, syncCursors.relayUrl],
+            set: { forwardSince: row.forwardSince, backwardUntil: row.backwardUntil, updatedAt: row.updatedAt },
+          });
+        }
+        await tx.delete(syncCursors).where(and(
+          eq(syncCursors.accountPubkey, accountPubkey), inArray(syncCursors.relayUrl, aliases),
+        ));
+      });
+      const cursors = new Map([...normalized].map(([url, row]) => [url, {
         forwardSince: row.forwardSince, backwardUntil: row.backwardUntil,
       }]));
       if (cursorLoads.get(accountPubkey) === task) cursorCache.set(accountPubkey, cursors);

@@ -10,6 +10,6 @@ export function parseNwcConnectionString(
     throw new Error('Invalid NWC connection scheme');
   }
   const parsed = nip47.parseConnectionString(trimmed);
-  for (const relay of parsed.relays) normalizeRelayUrl(relay);
+  parsed.relays = Array.from(new Set(parsed.relays.map(normalizeRelayUrl)));
   return parsed;
 }

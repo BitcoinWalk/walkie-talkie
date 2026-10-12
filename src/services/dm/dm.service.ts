@@ -12,6 +12,7 @@ import {
 import type { Rumor } from '@/db/schema/types';
 import { platform } from '@/platform';
 import { deriveConversationKey } from '@/lib/nostr/conversation-key';
+import { normalizeRelayUrls } from '@/lib/nostr/relay-url';
 import { buildEmojiTag, type CustomEmoji } from '@/lib/nostr/custom-emoji';
 import {
   firstGroupId,
@@ -1211,7 +1212,7 @@ export class DmService {
     receiver.activeConversation = context.activeConversation;
     receiver.receivePresence = context.userPresent;
     receiver.independentReceiver = true;
-    for (const relay of context.sourceRelays) receiver.recordGiftWrapSeen(giftWrap.id, relay);
+    for (const relay of normalizeRelayUrls(context.sourceRelays)) receiver.recordGiftWrapSeen(giftWrap.id, relay);
     await loadBlockedIntoCache(context.accountPubkey);
     return await receiver.processGiftWrapWithContext(giftWrap, intake, context) ?? [];
   }
@@ -1995,7 +1996,7 @@ export class DmService {
                 options?.enqueueRelay && (rumor.kind === KIND_CHAT || rumor.kind === KIND_FILE)
                   ? 'queued'
                   : null,
-              sourceRelays: sourceRelays && sourceRelays.length > 0 ? sourceRelays : null,
+              sourceRelays: sourceRelays && sourceRelays.length > 0 ? normalizeRelayUrls(sourceRelays) : null,
             })
             .onConflictDoNothing()
             .returning({ id: messages.id })
@@ -2202,7 +2203,7 @@ export class DmService {
             ? 'queued'
             : null,
         deliveryError: null,
-        sourceRelays: sourceRelays && sourceRelays.length > 0 ? sourceRelays : null,
+        sourceRelays: sourceRelays && sourceRelays.length > 0 ? normalizeRelayUrls(sourceRelays) : null,
       });
     }
     return stored;

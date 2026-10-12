@@ -6,18 +6,18 @@ import { configurationPublishRelays, fetchReplaceable } from '../relay-router';
 import { RelayQueryError } from '../relay-query-error';
 
 jest.mock('../local-relay-settings', () => ({
-  loadAccountDmRelays: async () => ['wss://dm.example'],
+  loadAccountDmRelays: async () => ['wss://dm.example/'],
 }));
 jest.mock('@/db/client', () => ({ db: {} }));
 jest.mock('../relay-pool', () => ({ relayPool: { query: jest.fn() } }));
 jest.mock('../replaceable-events.service', () => ({
   markReplaceableFetched: jest.fn(), storeReplaceableEvent: jest.fn(),
-  getReplaceableEvent: async () => ({ tags: [['r', 'wss://write.example', 'write'], ['r', 'wss://read.example', 'read'], ['r', 'wss://write.example/', 'write'], ['r', 'wss://unknown.example', 'future-marker'], ['r', 'wss://empty-marker.example', '']] }),
+  getReplaceableEvent: async () => ({ tags: [['r', 'wss://write.example/', 'write'], ['r', 'wss://read.example/', 'read'], ['r', 'wss://write.example/', 'write'], ['r', 'wss://unknown.example/', 'future-marker'], ['r', 'wss://empty-marker.example/', '']] }),
 }));
 
-const A = 'wss://a.example';
-const B = 'wss://b.example';
-const C = 'wss://c.example';
+const A = 'wss://a.example/';
+const B = 'wss://b.example/';
+const C = 'wss://c.example/';
 const query = jest.mocked(relayPool.query);
 let calls: Map<string, {
   options: QueryOpts;
@@ -102,10 +102,10 @@ it('retains events already received from a slower relay when another sends empty
 
 it.each([0, 10002, 10050, 10063, 10030, 30000, 30030])('routes configuration kind %i to current write and discovery relays', async (kind) => {
   expect(await configurationPublishRelays({ ...event('alice'), kind }))
-    .toEqual(['wss://write.example', 'wss://empty-marker.example', ...DISCOVERY_RELAYS.map(normalizeRelayUrl)]);
+    .toEqual(['wss://write.example/', 'wss://empty-marker.example/', ...DISCOVERY_RELAYS.map(normalizeRelayUrl)]);
 });
 
 it('also routes key announcements to current inbox relays', async () => {
   expect(await configurationPublishRelays({ ...event('alice'), kind: 10044 }))
-    .toEqual(['wss://dm.example', 'wss://write.example', 'wss://empty-marker.example', ...DISCOVERY_RELAYS.map(normalizeRelayUrl)]);
+    .toEqual(['wss://dm.example/', 'wss://write.example/', 'wss://empty-marker.example/', ...DISCOVERY_RELAYS.map(normalizeRelayUrl)]);
 });

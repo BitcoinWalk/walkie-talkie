@@ -1,5 +1,7 @@
 import { createStore } from 'zustand/vanilla';
 
+import { normalizeRelayUrl, normalizeRelayUrls } from '@/lib/nostr/relay-url';
+
 export type RelayDeliveryStatus = 'pending' | 'ok' | 'failed';
 
 export type RelayDelivery = {
@@ -66,15 +68,16 @@ export function surfacedRelays(delivery: MessageDelivery): RelayDelivery[] {
  */
 export function retryableRelayUrls(delivery: MessageDelivery): string[] | null {
   const retryable = delivery.copies.flatMap((copy) => retryableCopyRelayUrls(copy) ?? []);
-  return retryable.length ? [...new Set(retryable)] : null;
+  return retryable.length ? normalizeRelayUrls(retryable) : null;
 }
 
 export function retryableCopyRelayUrls(copy: DeliveryCopy): string[] | null {
-  if (copy.relays.some((relay) => relay.status === 'pending')) return null;
-  const failed = copy.relays
+  const relays = normalizeRelayDeliveries(copy.relays);
+  if (relays.some((relay) => relay.status === 'pending')) return null;
+  const failed = relays
     .filter((relay) => relay.status === 'failed')
     .map((relay) => relay.url);
-  if (failed.length > 0) return [...new Set(failed)];
+  if (failed.length > 0) return normalizeRelayUrls(failed);
   return copy.error ? [] : null;
 }
 
@@ -93,9 +96,10 @@ export function relayDeliveryVerdict(okCount: number, total: number): 'sent' | '
 export function deliveryCopyVerdict(
   copy: Pick<DeliveryCopy, 'relays' | 'error'>,
 ): 'delivered' | 'pending' | 'failed' {
-  const ok = copy.relays.filter((relay) => relay.status === 'ok').length;
-  if (relayDeliveryVerdict(ok, copy.relays.length) === 'sent') return 'delivered';
-  if (copy.relays.some((relay) => relay.status === 'pending')) return 'pending';
+  const relays = normalizeRelayDeliveries(copy.relays);
+  const ok = relays.filter((relay) => relay.status === 'ok').length;
+  if (relayDeliveryVerdict(ok, relays.length) === 'sent') return 'delivered';
+  if (relays.some((relay) => relay.status === 'pending')) return 'pending';
   return 'failed';
 }
 
@@ -112,13 +116,28 @@ export function messageDeliveryVerdict(
   return hasUnfinishedJob ? 'queued' : 'failed';
 }
 
+/** Merge legacy relay aliases, preserving successful acknowledgements. */
+export function normalizeRelayDeliveries(relays: RelayDelivery[]): RelayDelivery[] {
+  const byUrl = new Map<string, RelayDelivery>();
+  for (const relay of relays) {
+    let url: string;
+    try { url = normalizeRelayUrl(relay.url); } catch { url = relay.url; }
+    const existing = byUrl.get(url);
+    if (!existing || (existing.status !== 'ok' &&
+      (relay.status === 'ok' || existing.status !== 'pending'))) {
+      byUrl.set(url, url === relay.url ? relay : { ...relay, url });
+    }
+  }
+  return [...byUrl.values()];
+}
+
 /** Start selected targets while preserving acknowledgements as terminal. */
 export function beginRelayTargets(
   previous: RelayDelivery[],
   targetUrls: string[],
 ): RelayDelivery[] {
-  const byUrl = new Map(previous.map((relay) => [relay.url, relay]));
-  for (const url of targetUrls) {
+  const byUrl = new Map(normalizeRelayDeliveries(previous).map((relay) => [relay.url, relay]));
+  for (const url of targetUrls.map(normalizeRelayUrl)) {
     if (byUrl.get(url)?.status !== 'ok') byUrl.set(url, { url, status: 'pending' });
   }
   return Array.from(byUrl.values());
@@ -131,8 +150,9 @@ export function settleRelayTarget(
   ok: boolean,
   error?: string,
 ): RelayDelivery[] {
+  url = normalizeRelayUrl(url);
   let found = false;
-  const next = previous.map((relay): RelayDelivery => {
+  const next = normalizeRelayDeliveries(previous).map((relay): RelayDelivery => {
     if (relay.url !== url) return relay;
     found = true;
     if (relay.status === 'ok') return relay;

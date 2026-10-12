@@ -249,8 +249,8 @@ describe('selfEventStream', () => {
     mockRelayListRows = [];
     mockSubscribeCalls = [];
     mockUnsubscribes = [];
-    mockLoadAccountDmRelays = jest.fn(async () => ['wss://dm-a.example/', 'wss://shared.example']);
-    mockLoadAccountWriteRelays = jest.fn(async () => ['wss://shared.example', 'wss://write-b.example']);
+    mockLoadAccountDmRelays = jest.fn(async () => ['wss://dm-a.example/', 'wss://shared.example/']);
+    mockLoadAccountWriteRelays = jest.fn(async () => ['wss://shared.example/', 'wss://write-b.example/']);
     mockGetSigner = jest.fn(async () => fakeSigner);
     mockApplyMutedEvent = jest.fn(async () => {});
     mockApplyContactsEvent = jest.fn(async () => {});
@@ -304,7 +304,7 @@ describe('selfEventStream', () => {
 
     // URLs are normalized (trailing slash dropped) before set arithmetic.
     const dm = findSub('self.dm')!;
-    expect(dm.relays).toEqual(['wss://dm-a.example', 'wss://shared.example']);
+    expect(dm.relays).toEqual(['wss://dm-a.example/', 'wss://shared.example/']);
     expect(dm.filters).toHaveLength(3);
     expect(dm.filters![0]).toEqual({ kinds: [10044], authors: [SELF] });
     const keySyncFilters = dm.filters!.slice(1);
@@ -319,7 +319,7 @@ describe('selfEventStream', () => {
     }
 
     const write = findSub('self.write')!;
-    expect(write.relays).toEqual(['wss://write-b.example']);
+    expect(write.relays).toEqual(['wss://write-b.example/']);
     expect(write.filters).toEqual([
       { kinds: [10044], authors: [SELF] },
       { kinds: [4454], authors: [SELF], since: expect.any(Number) },
@@ -475,7 +475,7 @@ describe('selfEventStream', () => {
     mockRelayListRows = [
       {
         accountPubkey: SELF,
-        relayUrl: 'wss://old-dm.example',
+        relayUrl: 'wss://old-dm.example/',
         read: false,
         write: false,
         updatedAt: 100,
@@ -483,14 +483,14 @@ describe('selfEventStream', () => {
     ];
     await startStream();
 
-    const updated = makeEvent(10050, 200, [['relay', 'wss://new-dm.example']]);
+    const updated = makeEvent(10050, 200, [['relay', 'wss://new-dm.example/']]);
     deliver('self.write', updated);
     await flush();
 
     expect(mockRelayListRows).toEqual([
       {
         accountPubkey: SELF,
-        relayUrl: 'wss://new-dm.example',
+        relayUrl: 'wss://new-dm.example/',
         read: false,
         write: false,
         updatedAt: 200,
@@ -499,7 +499,7 @@ describe('selfEventStream', () => {
     expect(handlers.onOwnRelayListsChanged).toHaveBeenCalledTimes(1);
 
     // The subscribe-time replay of the same version must not retrigger.
-    const replay = makeEvent(10050, 200, [['relay', 'wss://new-dm.example']]);
+    const replay = makeEvent(10050, 200, [['relay', 'wss://new-dm.example/']]);
     deliver('self.discovery', replay);
     await flush();
     expect(handlers.onOwnRelayListsChanged).toHaveBeenCalledTimes(1);
@@ -511,13 +511,13 @@ describe('selfEventStream', () => {
 
     // No stored row: the write list is the discovery fallback, so a real 10002
     // existing at all is worth a rebuild.
-    deliver('self.discovery', makeEvent(10002, 100, [['r', 'wss://x.example']]));
+    deliver('self.discovery', makeEvent(10002, 100, [['r', 'wss://x.example/']]));
     await flush();
     expect(handlers.onOwnRelayListsChanged).toHaveBeenCalledTimes(1);
   });
 
   it('does not notify on the echo of the stored current 10002 (same created_at, same id)', async () => {
-    const stored = makeEvent(10002, 100, [['r', 'wss://x.example']]);
+    const stored = makeEvent(10002, 100, [['r', 'wss://x.example/']]);
     seedStoredReplaceable(stored);
     await startStream();
 
@@ -530,10 +530,10 @@ describe('selfEventStream', () => {
   it('notifies when the pushed 10002 is newer than the stale stored row (offline change)', async () => {
     // Another device edited our 10002 while we were offline; the local cache is
     // still within its TTL, so the pushed version IS the new one.
-    seedStoredReplaceable(makeEvent(10002, 100, [['r', 'wss://old.example']]));
+    seedStoredReplaceable(makeEvent(10002, 100, [['r', 'wss://old.example/']]));
     await startStream();
 
-    deliver('self.discovery', makeEvent(10002, 200, [['r', 'wss://new.example']]));
+    deliver('self.discovery', makeEvent(10002, 200, [['r', 'wss://new.example/']]));
     await flush();
     expect(handlers.onOwnRelayListsChanged).toHaveBeenCalledTimes(1);
   });
@@ -558,7 +558,7 @@ describe('selfEventStream', () => {
     const firstUnsubs = [...mockUnsubscribes];
     const staleOnEvent = mockSubscribeCalls.find((c) => c.label === 'self.dm')!.onEvent;
 
-    mockLoadAccountDmRelays = jest.fn(async () => ['wss://dm-c.example']);
+    mockLoadAccountDmRelays = jest.fn(async () => ['wss://dm-c.example/']);
     await stream.start();
 
     for (const unsub of firstUnsubs) expect(unsub).toHaveBeenCalledTimes(1);
@@ -568,10 +568,10 @@ describe('selfEventStream', () => {
       'self.write',
       'self.discovery',
     ]);
-    expect(findSub('self.dm')!.relays).toEqual(['wss://dm-c.example']);
+    expect(findSub('self.dm')!.relays).toEqual(['wss://dm-c.example/']);
 
     // A late delivery through the closed subscription never reaches the handlers…
-    staleOnEvent(makeEvent(4454, 100), 'wss://dm-a.example');
+    staleOnEvent(makeEvent(4454, 100), 'wss://dm-a.example/');
     await flush();
     expect(handlers.onKeyRequest).not.toHaveBeenCalled();
 
@@ -599,7 +599,7 @@ describe('selfEventStream', () => {
 
     const started = stream.start();
     stream.destroy(); // lands while the relay sets are still resolving
-    resolveDm(['wss://dm-a.example']);
+    resolveDm(['wss://dm-a.example/']);
     await started;
 
     expect(mockSubscribeCalls).toHaveLength(0);

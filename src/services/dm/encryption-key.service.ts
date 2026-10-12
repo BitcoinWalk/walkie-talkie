@@ -245,10 +245,11 @@ export async function publishClientKeyAnnouncement(opts: {
   relays: string[];
   expectedEncryptionPubkey?: string | null;
 }): Promise<Event> {
+  const relays = Array.from(new Set(opts.relays.map(normalizeRelayUrl)));
   const tags = [
     ['pubkey', opts.clientPubkey],
     ['P', opts.clientPubkey],
-    ...opts.relays.map((relay) => ['relay', relay]),
+    ...relays.map((relay) => ['relay', relay]),
   ];
   if (opts.expectedEncryptionPubkey) tags.push(['n', opts.expectedEncryptionPubkey]);
   const event = await opts.signer.signEvent({
@@ -258,7 +259,7 @@ export async function publishClientKeyAnnouncement(opts: {
     created_at: Math.floor(Date.now() / 1000),
   });
   const outcomes = await relayPool.publishEvent({
-    relays: opts.relays,
+    relays,
     event,
     signer: opts.signer,
   });

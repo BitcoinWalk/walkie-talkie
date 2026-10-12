@@ -4,6 +4,7 @@ import type { Event, EventTemplate } from 'nostr-tools';
 import { db, type Database } from '@/db/client';
 import { configurationOutbox, contactSyncState, privateListSyncState, replaceableEvents } from '@/db/schema';
 import { platform } from '@/platform';
+import { normalizeRelayUrl, normalizeRelayUrls } from '@/lib/nostr/relay-url';
 
 import type { Signer } from '../signer/signer.interface';
 import { relayPool } from './relay-pool';
@@ -258,15 +259,15 @@ export class ConfigurationPublisher {
 
   private async deliver(row: PendingConfiguration, session: NonNullable<ConfigurationPublisher['session']>) {
     const current = () => this.session === session && !session.abort.signal.aborted;
-    const acknowledged = new Set(row.acknowledgedRelays);
+    const acknowledged = new Set(normalizeRelayUrls(row.acknowledgedRelays));
     let failure = 'The current relay targets have not reached a publication quorum.';
     try {
       const targets = await configurationPublishRelays(row.event);
-      const remaining = targets.filter((url) => !acknowledged.has(url));
+      const remaining = targets.filter((url) => !acknowledged.has(normalizeRelayUrl(url)));
       if (!current()) return;
       // Replacement may have landed while routing was resolving.
       if ((await readPending(row))?.eventId !== row.eventId || !current()) return;
-      if (targets.filter((url) => acknowledged.has(url)).length < configurationPublishQuorum(targets.length) && remaining.length > 0) {
+      if (targets.filter((url) => acknowledged.has(normalizeRelayUrl(url))).length < configurationPublishQuorum(targets.length) && remaining.length > 0) {
         let signer: Promise<Signer> | undefined;
         const results = await relayPool.publishEvent({
           relays: remaining, event: row.event, timeoutMs: PUBLISH_TIMEOUT_MS, abort: session.abort.signal,
@@ -277,7 +278,7 @@ export class ConfigurationPublisher {
           },
         });
         for (const result of results) {
-          if (result.outcome.ok) acknowledged.add(result.url);
+          if (result.outcome.ok) acknowledged.add(normalizeRelayUrl(result.url));
           else failure = result.outcome.reason;
         }
       }
@@ -285,7 +286,7 @@ export class ConfigurationPublisher {
       // Settings can change while a publish is awaiting acknowledgements.
       const currentTargets = await configurationPublishRelays(row.event);
       if (!current()) return;
-      if (currentTargets.filter((url) => acknowledged.has(url)).length >= configurationPublishQuorum(currentTargets.length)) {
+      if (currentTargets.filter((url) => acknowledged.has(normalizeRelayUrl(url))).length >= configurationPublishQuorum(currentTargets.length)) {
         await db.delete(configurationOutbox).where(exact(row));
         return;
       }

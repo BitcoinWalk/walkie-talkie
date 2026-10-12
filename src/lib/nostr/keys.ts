@@ -1,6 +1,8 @@
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { bytesToHex, hexToBytes } from 'nostr-tools/utils';
 
+import { normalizeRelayUrls } from './relay-url';
+
 export type Keypair = {
   privkey: Uint8Array;
   pubkey: string;
@@ -57,7 +59,7 @@ export function parseNostrProfileInput(input: string): ParsedNostrProfileInput {
   if (/^[0-9a-f]{64}$/i.test(trimmed)) return { pubkey: trimmed.toLowerCase(), relays: [] };
   const decoded = nip19.decode(trimmed);
   if (decoded.type === 'npub') return { pubkey: decoded.data, relays: [] };
-  if (decoded.type === 'nprofile') return { pubkey: decoded.data.pubkey, relays: decoded.data.relays ?? [] };
+  if (decoded.type === 'nprofile') return { pubkey: decoded.data.pubkey, relays: normalizeRelayUrls(decoded.data.relays ?? []) };
   throw new Error(`Expected npub or nprofile, got ${decoded.type}`);
 }
 

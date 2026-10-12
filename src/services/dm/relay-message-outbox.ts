@@ -29,6 +29,7 @@ import {
   beginRelayTargets,
   deliveryCopyVerdict,
   messageDeliveryVerdict,
+  normalizeRelayDeliveries,
   settleRelayTarget,
 } from './delivery-status';
 import type { EncryptionKeypair } from './encryption-key.service';
@@ -258,7 +259,7 @@ class RelayMessageOutbox {
         )
         .get();
       if (!copy) throw new Error('Delivery copy not found');
-      const targets = copy.relays
+      const targets = normalizeRelayDeliveries(copy.relays)
         .filter((relay) => relay.status === 'failed' && requested.has(relay.url))
         .map((relay) => ({ recipientPubkey, relayUrl: relay.url }));
       if (targets.length === 0 && !copy.error) return;
@@ -616,17 +617,17 @@ class RelayMessageOutbox {
       copies.flatMap((copy) =>
         copy.relays
           .filter((relay) => relay.status === 'ok')
-          .map((relay) => `${copy.recipientPubkey}\n${relay.url}`),
+          .map((relay) => `${copy.recipientPubkey}\n${normalizeRelayUrl(relay.url)}`),
       ),
     );
     const skipped = targets.filter((target) =>
-      successful.has(`${target.recipientPubkey}\n${target.relayUrl}`),
+      successful.has(`${target.recipientPubkey}\n${normalizeRelayUrl(target.relayUrl)}`),
     );
     for (const target of skipped) {
       await this.removeTarget(job, target.recipientPubkey, target.relayUrl, durable);
     }
     const remaining = targets.filter(
-      (target) => !successful.has(`${target.recipientPubkey}\n${target.relayUrl}`),
+      (target) => !successful.has(`${target.recipientPubkey}\n${normalizeRelayUrl(target.relayUrl)}`),
     );
     return remaining;
   }
@@ -773,12 +774,12 @@ class RelayMessageOutbox {
               )
               .all(),
           ]);
-          const attemptedUrls = new Set(targets.map((target) => target.relayUrl));
+          const attemptedUrls = new Set(targets.map((target) => normalizeRelayUrl(target.relayUrl)));
           await tx
             .update(messageDeliveryCopies)
             .set({
               relays: (copy?.relays ?? []).filter(
-                (relay) => relay.status !== 'pending' || !attemptedUrls.has(relay.url),
+                (relay) => relay.status !== 'pending' || !attemptedUrls.has(normalizeRelayUrl(relay.url)),
               ),
               error: reason,
               updatedAt: nowSeconds(),
@@ -953,7 +954,7 @@ class RelayMessageOutbox {
           const byRecipient = new Map<string, Set<string>>();
           for (const target of targets) {
             const urls = byRecipient.get(target.recipientPubkey) ?? new Set<string>();
-            urls.add(target.relayUrl);
+            urls.add(normalizeRelayUrl(target.relayUrl));
             byRecipient.set(target.recipientPubkey, urls);
           }
           for (const [recipientPubkey, urls] of byRecipient) {
@@ -970,7 +971,7 @@ class RelayMessageOutbox {
               .get();
             if (!copy) continue;
             const relays = copy.relays.filter(
-              (relay) => relay.status !== 'pending' || !urls.has(relay.url),
+              (relay) => relay.status !== 'pending' || !urls.has(normalizeRelayUrl(relay.url)),
             );
             if (relays.length === 0) {
               await tx

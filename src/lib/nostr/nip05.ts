@@ -1,5 +1,7 @@
 import { nip05 as nip05utils } from 'nostr-tools';
 
+import { normalizeRelayUrls } from './relay-url';
+
 const HEX_PUBKEY_RE = /^[0-9a-f]{64}$/;
 const NIP05_LOCAL_PART_RE = /^[a-z0-9._-]+$/;
 
@@ -54,5 +56,5 @@ export async function queryNip05Profile(input: string): Promise<ResolvedNip05Pro
   const pubkey = profile.pubkey?.toLowerCase();
   if (!pubkey || !HEX_PUBKEY_RE.test(pubkey)) return null;
 
-  return { identifier, pubkey, relays: profile.relays };
+  return { identifier, pubkey, relays: profile.relays && normalizeRelayUrls(profile.relays) };
 }

@@ -134,7 +134,7 @@ describe('relay-list service', () => {
     mockStore.clear();
     mockQuery = jest.fn(async (_opts: QueryCall) => []);
     mockFetchReplaceable = jest.fn(async () => null);
-    mockPeerMetaRelays = jest.fn(async () => ['wss://meta.example']);
+    mockPeerMetaRelays = jest.fn(async () => ['wss://meta.example/']);
     mockPublishEvent = jest.fn(async () => {});
     jest.resetModules();
   });
@@ -143,11 +143,11 @@ describe('relay-list service', () => {
     it('parses read/write markers from a fresh stored kind-10002 event without a relay query', async () => {
       const service = loadService();
       const event = makeEvent('self', KIND_RELAY_LIST_METADATA, 100, [
-        ['r', 'wss://both.example'],
-        ['r', 'wss://write.example', 'write'],
-        ['r', 'wss://read.example', 'read'],
-        ['r', 'wss://unknown.example', 'future-marker'],
-        ['r', 'wss://empty-marker.example', ''],
+        ['r', 'wss://both.example/'],
+        ['r', 'wss://write.example/', 'write'],
+        ['r', 'wss://read.example/', 'read'],
+        ['r', 'wss://unknown.example/', 'future-marker'],
+        ['r', 'wss://empty-marker.example/', ''],
       ]);
       seedRow({
         pubkey: 'self',
@@ -159,14 +159,14 @@ describe('relay-list service', () => {
       });
 
       await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
-        'wss://both.example',
-        'wss://write.example',
-        'wss://empty-marker.example',
+        'wss://both.example/',
+        'wss://write.example/',
+        'wss://empty-marker.example/',
       ]);
       await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
-        'wss://both.example',
-        'wss://read.example',
-        'wss://empty-marker.example',
+        'wss://both.example/',
+        'wss://read.example/',
+        'wss://empty-marker.example/',
       ]);
       expect(mockQuery).not.toHaveBeenCalled();
     });
@@ -191,7 +191,7 @@ describe('relay-list service', () => {
     it('refreshes a stale row and returns the updated list', async () => {
       const service = loadService();
       const stale = makeEvent('self', KIND_RELAY_LIST_METADATA, 100, [
-        ['r', 'wss://old.example'],
+        ['r', 'wss://old.example/'],
       ]);
       seedRow({
         pubkey: 'self',
@@ -202,12 +202,12 @@ describe('relay-list service', () => {
         fetchedAt: nowSeconds() - 25 * 3600,
       });
       const fresh = makeEvent('self', KIND_RELAY_LIST_METADATA, 200, [
-        ['r', 'wss://new.example'],
+        ['r', 'wss://new.example/'],
       ]);
       mockQuery.mockResolvedValue([fresh]);
 
       await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
-        'wss://new.example',
+        'wss://new.example/',
       ]);
       expect(mockQuery).toHaveBeenCalledTimes(1);
       expect(getRow('self', KIND_RELAY_LIST_METADATA)?.event?.id).toBe(fresh.id);
@@ -218,7 +218,7 @@ describe('relay-list service', () => {
     it('serves a fresh persisted row without touching relays', async () => {
       const service = loadService();
       const event = makeEvent('peer', KIND_DM_RELAY_LIST, 100, [
-        ['relay', 'wss://dm1.example'],
+        ['relay', 'wss://dm1.example/'],
       ]);
       seedRow({
         pubkey: 'peer',
@@ -231,7 +231,7 @@ describe('relay-list service', () => {
       const onRelayQuery = jest.fn();
 
       await expect(service.fetchDmRelays({ pubkey: 'peer', onRelayQuery })).resolves.toEqual([
-        'wss://dm1.example',
+        'wss://dm1.example/',
       ]);
       expect(mockFetchReplaceable).not.toHaveBeenCalled();
       expect(mockPeerMetaRelays).not.toHaveBeenCalled();
@@ -241,13 +241,13 @@ describe('relay-list service', () => {
     it('queries relays on a cache miss, stores the event, then serves the memory cache', async () => {
       const service = loadService();
       const event = makeEvent('peer', KIND_DM_RELAY_LIST, 100, [
-        ['relay', 'wss://dm1.example'],
+        ['relay', 'wss://dm1.example/'],
       ]);
       mockFetchReplaceable.mockResolvedValue(event);
       const onRelayQuery = jest.fn();
 
       await expect(service.fetchDmRelays({ pubkey: 'peer', onRelayQuery })).resolves.toEqual([
-        'wss://dm1.example',
+        'wss://dm1.example/',
       ]);
       expect(mockFetchReplaceable).toHaveBeenCalledTimes(1);
       expect(onRelayQuery).toHaveBeenCalledTimes(1);
@@ -255,7 +255,7 @@ describe('relay-list service', () => {
 
       // Second call: memory hit — no table read, no relay query.
       await expect(service.fetchDmRelays({ pubkey: 'peer' })).resolves.toEqual([
-        'wss://dm1.example',
+        'wss://dm1.example/',
       ]);
       expect(mockFetchReplaceable).toHaveBeenCalledTimes(1);
     });
@@ -279,7 +279,7 @@ describe('relay-list service', () => {
     it('refreshes a stale persisted row from relays', async () => {
       const service = loadService();
       const stale = makeEvent('peer', KIND_DM_RELAY_LIST, 100, [
-        ['relay', 'wss://old-dm.example'],
+        ['relay', 'wss://old-dm.example/'],
       ]);
       seedRow({
         pubkey: 'peer',
@@ -290,12 +290,12 @@ describe('relay-list service', () => {
         fetchedAt: nowSeconds() - 25 * 3600,
       });
       const fresh = makeEvent('peer', KIND_DM_RELAY_LIST, 200, [
-        ['relay', 'wss://new-dm.example'],
+        ['relay', 'wss://new-dm.example/'],
       ]);
       mockFetchReplaceable.mockResolvedValue(fresh);
 
       await expect(service.fetchDmRelays({ pubkey: 'peer' })).resolves.toEqual([
-        'wss://new-dm.example',
+        'wss://new-dm.example/',
       ]);
       expect(mockFetchReplaceable).toHaveBeenCalledTimes(1);
       expect(getRow('peer', KIND_DM_RELAY_LIST)?.event?.id).toBe(fresh.id);
@@ -304,7 +304,7 @@ describe('relay-list service', () => {
     it('force skips both caches and re-queries relays', async () => {
       const service = loadService();
       const stored = makeEvent('peer', KIND_DM_RELAY_LIST, 100, [
-        ['relay', 'wss://old-dm.example'],
+        ['relay', 'wss://old-dm.example/'],
       ]);
       seedRow({
         pubkey: 'peer',
@@ -315,12 +315,12 @@ describe('relay-list service', () => {
         fetchedAt: nowSeconds(),
       });
       const fresh = makeEvent('peer', KIND_DM_RELAY_LIST, 200, [
-        ['relay', 'wss://new-dm.example'],
+        ['relay', 'wss://new-dm.example/'],
       ]);
       mockFetchReplaceable.mockResolvedValue(fresh);
 
       await expect(service.fetchDmRelays({ pubkey: 'peer', force: true })).resolves.toEqual([
-        'wss://new-dm.example',
+        'wss://new-dm.example/',
       ]);
       expect(mockFetchReplaceable).toHaveBeenCalledTimes(1);
     });
@@ -330,7 +330,7 @@ describe('relay-list service', () => {
     it('persists live events to the table and warms the memory cache', async () => {
       const service = loadService();
       const event = makeEvent('peer', KIND_DM_RELAY_LIST, 100, [
-        ['relay', 'wss://dm1.example'],
+        ['relay', 'wss://dm1.example/'],
       ]);
       service.applyDmRelayListEvent(event);
 
@@ -339,7 +339,7 @@ describe('relay-list service', () => {
       expect(getRow('peer', KIND_DM_RELAY_LIST)?.event?.id).toBe(event.id);
 
       await expect(service.fetchDmRelays({ pubkey: 'peer' })).resolves.toEqual([
-        'wss://dm1.example',
+        'wss://dm1.example/',
       ]);
       expect(mockFetchReplaceable).not.toHaveBeenCalled();
     });
@@ -355,67 +355,125 @@ describe('relay-list service', () => {
     it('refreshes and preserves remote read membership, extension tags, and content', async () => {
       const service = loadService();
       const remote = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds() - 1, [
-        ['r', 'wss://read.example', 'read', 'extension'],
-        ['r', 'wss://both.example'],
-        ['r', 'wss://kept.example'],
-        ['r', 'wss://old-write.example', 'write'],
+        ['r', 'wss://read.example/', 'read', 'extension'],
+        ['r', 'wss://both.example/'],
+        ['r', 'wss://kept.example/'],
+        ['r', 'wss://old-write.example/', 'write'],
         ['client', 'other-app'],
-        ['r', 'wss://future.example', 'future-marker'],
-        ['r', 'wss://empty-marker.example', ''],
+        ['r', 'wss://future.example/', 'future-marker'],
+        ['r', 'wss://empty-marker.example/', ''],
       ]);
       remote.content = 'extension content';
       mockFetchReplaceable.mockResolvedValue(remote);
       const saved = await service.saveAndPublishWriteRelays({
         accountPubkey: 'self', signer,
-        relays: ['wss://kept.example/', 'wss://NEW.example/', 'wss://new.example'],
+        relays: ['wss://kept.example/', 'wss://NEW.example/', 'wss://new.example/'],
       });
       expect(saved.tags).toEqual([
-        ['r', 'wss://read.example', 'read', 'extension'],
-        ['r', 'wss://both.example', 'read'],
-        ['r', 'wss://kept.example', 'read'],
+        ['r', 'wss://read.example/', 'read', 'extension'],
+        ['r', 'wss://both.example/', 'read'],
+        ['r', 'wss://kept.example/'],
         ['client', 'other-app'],
-        ['r', 'wss://future.example', 'future-marker'],
-        ['r', 'wss://empty-marker.example', 'read'],
-        ['r', 'wss://kept.example', 'write'],
-        ['r', 'wss://new.example', 'write'],
+        ['r', 'wss://future.example/', 'future-marker'],
+        ['r', 'wss://empty-marker.example/', 'read'],
+        ['r', 'wss://new.example/', 'write'],
       ]);
       expect(saved.content).toBe('extension content');
       await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
-        'wss://kept.example', 'wss://new.example',
+        'wss://kept.example/', 'wss://new.example/',
       ]);
       await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
-        'wss://read.example', 'wss://both.example', 'wss://kept.example', 'wss://empty-marker.example',
+        'wss://read.example/', 'wss://both.example/', 'wss://kept.example/', 'wss://empty-marker.example/',
       ]);
       expect(getRow('self', KIND_DM_RELAY_LIST)).toBeUndefined();
+    });
+
+    it('merges duplicate read/write tags by normalized URL and stays stable on repeated saves', async () => {
+      const service = loadService();
+      const remote = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds() - 1, [
+        ['r', 'wss://SHARED.example/', 'write'],
+        ['r', 'wss://shared.example/', 'read'],
+        ['r', 'wss://shared.example/'],
+        ['r', 'wss://READ.example/', 'read'],
+        ['r', 'wss://read.example/', 'read'],
+        ['r', 'wss://removed.example/'],
+        ['r', 'wss://removed.example/', 'read'],
+      ]);
+      mockFetchReplaceable.mockResolvedValueOnce(remote);
+      const opts = {
+        accountPubkey: 'self', signer,
+        relays: ['wss://shared.example/', 'wss://NEW.example/', 'wss://new.example/'],
+      };
+      const expected = [
+        ['r', 'wss://shared.example/'],
+        ['r', 'wss://read.example/', 'read'],
+        ['r', 'wss://removed.example/', 'read'],
+        ['r', 'wss://new.example/', 'write'],
+      ];
+      expect((await service.saveAndPublishWriteRelays(opts)).tags).toEqual(expected);
+      expect((await service.saveAndPublishWriteRelays(opts)).tags).toEqual(expected);
+      await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
+        'wss://shared.example/', 'wss://read.example/', 'wss://removed.example/',
+      ]);
+      await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
+        'wss://shared.example/', 'wss://new.example/',
+      ]);
+    });
+
+    it('preserves extension positions when read relays become shared relays', async () => {
+      const service = loadService();
+      mockFetchReplaceable.mockResolvedValue(makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds() - 1, [
+        ['r', 'wss://read.example/', 'read', 'extension'],
+        ['r', 'wss://both.example/', '', 'both-extension'],
+        ['r', 'wss://', 'read'],
+        ['r', 'wss://future.example/', 'future-marker', 'future-extension'],
+        ['client', 'other-app'],
+      ]));
+      const saved = await service.saveAndPublishWriteRelays({
+        accountPubkey: 'self', signer, relays: ['wss://read.example/', 'wss://both.example/'],
+      });
+      expect(saved.tags).toEqual([
+        ['r', 'wss://read.example/', '', 'extension'],
+        ['r', 'wss://both.example/', '', 'both-extension'],
+        ['r', 'wss://', 'read'],
+        ['r', 'wss://future.example/', 'future-marker', 'future-extension'],
+        ['client', 'other-app'],
+      ]);
+      await expect(service.loadAccountReadRelays('self')).resolves.toEqual([
+        'wss://read.example/', 'wss://both.example/',
+      ]);
+      await expect(service.loadAccountWriteRelays('self')).resolves.toEqual([
+        'wss://read.example/', 'wss://both.example/',
+      ]);
     });
 
     it('preserves cached read relays when the completed lookup returns no event', async () => {
       const service = loadService();
       const cached = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds(), [
-        ['r', 'wss://read.example', 'read'], ['r', 'wss://old.example', 'write'],
+        ['r', 'wss://read.example/', 'read'], ['r', 'wss://old.example/', 'write'],
       ]);
       seedRow({ pubkey: 'self', kind: KIND_RELAY_LIST_METADATA, dTag: '',
         event: cached, createdAt: cached.created_at, fetchedAt: nowSeconds() });
       const saved = await service.saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://new.example'],
+        accountPubkey: 'self', signer, relays: ['wss://new.example/'],
       });
       expect(saved.tags).toEqual([
-        ['r', 'wss://read.example', 'read'], ['r', 'wss://new.example', 'write'],
+        ['r', 'wss://read.example/', 'read'], ['r', 'wss://new.example/', 'write'],
       ]);
-      expect(mockFetchReplaceable.mock.calls[0][0]).toContain('wss://old.example');
+      expect(mockFetchReplaceable.mock.calls[0][0]).toContain('wss://old.example/');
     });
 
     it('creates write-only metadata after a completed miss', async () => {
       const saved = await loadService().saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://new.example'],
+        accountPubkey: 'self', signer, relays: ['wss://new.example/'],
       });
-      expect(saved.tags).toEqual([['r', 'wss://new.example', 'write']]);
+      expect(saved.tags).toEqual([['r', 'wss://new.example/', 'write']]);
     });
 
     it('does not publish when refreshing existing metadata fails', async () => {
       mockFetchReplaceable.mockRejectedValue(new Error('offline'));
       await expect(loadService().saveAndPublishWriteRelays({
-        accountPubkey: 'self', signer, relays: ['wss://new.example'],
+        accountPubkey: 'self', signer, relays: ['wss://new.example/'],
       })).rejects.toThrow('offline');
       expect(mockPublishEvent).not.toHaveBeenCalled();
       expect(getRow('self', KIND_RELAY_LIST_METADATA)).toBeUndefined();
@@ -434,8 +492,8 @@ describe('relay-list service', () => {
     it.each([false, true])('publishes only the DM list, preserving existing NIP-65 metadata: %s', async (hasMetadata) => {
       const service = loadService();
       const existing = makeEvent('self', KIND_RELAY_LIST_METADATA, nowSeconds(), [
-        ['r', 'wss://read.example', 'read'],
-        ['r', 'wss://write.example', 'write'],
+        ['r', 'wss://read.example/', 'read'],
+        ['r', 'wss://write.example/', 'write'],
       ]);
       if (hasMetadata) {
         seedRow({ pubkey: 'self', kind: KIND_RELAY_LIST_METADATA, dTag: '',
@@ -457,12 +515,12 @@ describe('relay-list service', () => {
       await service.saveAndPublishDmRelays({
         accountPubkey: 'self',
         signer,
-        relays: ['wss://dm.example'],
+        relays: ['wss://dm.example/'],
       });
 
       const dmRow = getRow('self', KIND_DM_RELAY_LIST);
       expect(dmRow?.event?.kind).toBe(KIND_DM_RELAY_LIST);
-      expect(dmRow?.event?.tags).toEqual([['relay', 'wss://dm.example']]);
+      expect(dmRow?.event?.tags).toEqual([['relay', 'wss://dm.example/']]);
       const metaRow = getRow('self', KIND_RELAY_LIST_METADATA);
       expect(metaRow?.event).toEqual(hasMetadata ? existing : undefined);
       expect(mockPublishEvent).toHaveBeenCalledTimes(1);

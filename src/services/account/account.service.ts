@@ -27,6 +27,7 @@ import {
   syncCursors,
 } from '@/db/schema';
 import { bytesToHex, hexToBytes, nsecToPrivkey, privkeyToNsec } from '@/lib/nostr/keys';
+import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
 
 import { deleteAllAccountArchives } from '../dm/dm-backup-storage';
 import { clearSyncCursorCache } from '../dm/sync-store';
@@ -148,7 +149,11 @@ export async function addRemoteAccount(opts: {
   clientSecretKeyHex: string;
 }): Promise<{ pubkey: string }> {
   const now = Math.floor(Date.now() / 1000);
-  const signerPayload = JSON.stringify({ ...opts.pointer, secret: null } satisfies BunkerPointer);
+  const signerPayload = JSON.stringify({
+    ...opts.pointer,
+    relays: Array.from(new Set(opts.pointer.relays.map(normalizeRelayUrl))),
+    secret: null,
+  } satisfies BunkerPointer);
   await db
     .insert(accounts)
     .values({

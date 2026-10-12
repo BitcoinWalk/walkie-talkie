@@ -31,7 +31,7 @@ const EVENT = {
 } as Event;
 const POINTER = {
   pubkey: 'bunker',
-  relays: ['wss://relay.example'],
+  relays: ['wss://relay.example/'],
   secret: null,
 } as BunkerPointer;
 
@@ -77,6 +77,18 @@ describe('Nip46Signer request bounds', () => {
   afterEach(() => {
     warnSpy.mockRestore();
     jest.useRealTimers();
+  });
+
+  test('normalizes persisted bunker relays before reconnecting', async () => {
+    mockFromBunker.mockReturnValue(createBunker());
+    const pointer = { ...POINTER, relays: ['https://RELAY.example//?b=2&a=1#fragment', 'wss://relay.example/?a=1&b=2'] };
+    const signer = new Nip46Signer(new Uint8Array(32), pointer);
+    await signer.getPublicKey();
+    expect(mockFromBunker).toHaveBeenCalledWith(expect.any(Uint8Array), {
+      ...POINTER, relays: ['wss://relay.example/?a=1&b=2'],
+    }, expect.any(Object));
+    expect(pointer.relays).toHaveLength(2);
+    await signer.destroy();
   });
 
   test('times out a stalled connection and reconnects on the next request', async () => {

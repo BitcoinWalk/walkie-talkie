@@ -49,27 +49,27 @@ function reply(options: QueryOpts, events: Event[], complete = true): Promise<Ev
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getReplaceableEvents).mockResolvedValue([null, null, null]);
-  jest.mocked(loadAccountDmRelays).mockResolvedValue(['wss://old.example']);
+  jest.mocked(loadAccountDmRelays).mockResolvedValue(['wss://old.example/']);
   jest.mocked(loadEncryptionKeys).mockResolvedValue([]);
   query.mockImplementation((opts) => reply(opts, []));
 });
 
 it('follows fresh DM/write relays before selecting their latest key', async () => {
-  const inbox = event(10050, 20, [['relay', 'wss://new.example']]);
-  const outbox = event(10002, 20, [['r', 'wss://write.example']]);
+  const inbox = event(10050, 20, [['relay', 'wss://new.example/']]);
+  const outbox = event(10002, 20, [['r', 'wss://write.example/']]);
   const announcement = event(10044, 30, [['n', key]]);
   query.mockImplementationOnce((opts) => reply(opts, [inbox, outbox]));
   query.mockImplementationOnce((opts) => {
-    expect(opts.relays).toEqual(expect.arrayContaining(['wss://new.example', 'wss://write.example']));
+    expect(opts.relays).toEqual(expect.arrayContaining(['wss://new.example/', 'wss://write.example/']));
     return reply(opts, [announcement]);
   });
   jest.mocked(applyOwnDmRelayListEvent).mockImplementation(async () => {
-    jest.mocked(loadAccountDmRelays).mockResolvedValue(['wss://new.example']);
+    jest.mocked(loadAccountDmRelays).mockResolvedValue(['wss://new.example/']);
     return true;
   });
   const metadata = await resolveMessagingMetadata(self, { signAuth });
   expect(metadata.announcement).toEqual(announcement);
-  expect(metadata.dmRelays).toEqual(['wss://new.example']);
+  expect(metadata.dmRelays).toEqual(['wss://new.example/']);
   expect(query).toHaveBeenCalledTimes(2);
   expect(query.mock.calls[0][0].signAuth).toBe(signAuth);
 });
@@ -91,8 +91,8 @@ it('does not replace a newer known announcement with an older replay', async () 
 });
 
 it('requeues missing messaging declarations without restoring NIP-65 metadata', async () => {
-  const outbox = event(10002, 20, [['r', 'wss://write.example', 'write']]);
-  const inbox = event(10050, 21, [['relay', 'wss://dm.example']]);
+  const outbox = event(10002, 20, [['r', 'wss://write.example/', 'write']]);
+  const inbox = event(10050, 21, [['relay', 'wss://dm.example/']]);
   const announcement = event(10044, 22, [['n', key]]);
   jest.mocked(getReplaceableEvents).mockResolvedValue([outbox, inbox, announcement]);
 
@@ -119,7 +119,7 @@ it('does not requeue a local declaration when the relay returned the same event'
 
   expect(enqueueConfigurationEvent).toHaveBeenCalledTimes(1);
   expect(enqueueConfigurationEvent).toHaveBeenCalledWith(
-    expect.objectContaining({ kind: 10050, tags: [['relay', 'wss://old.example']] }),
+    expect.objectContaining({ kind: 10050, tags: [['relay', 'wss://old.example/']] }),
     undefined,
     null,
   );
@@ -139,7 +139,7 @@ it('reconstructs missing key and DM-relay declarations from durable local state'
     null,
   );
   expect(enqueueConfigurationEvent).toHaveBeenCalledWith(
-    expect.objectContaining({ kind: 10050, tags: [['relay', 'wss://old.example']] }),
+    expect.objectContaining({ kind: 10050, tags: [['relay', 'wss://old.example/']] }),
     undefined,
     null,
   );
@@ -172,11 +172,11 @@ it('uses the latest metadata when one relay completes and others cannot connect'
 });
 
 it('does not let an unreachable newly advertised relay veto an earlier completed response', async () => {
-  const inbox = event(10050, 20, [['relay', 'wss://new.example']]);
+  const inbox = event(10050, 20, [['relay', 'wss://new.example/']]);
   const current = event(10044, 30, [['n', key]]);
   query.mockImplementationOnce((opts) => reply(opts, [inbox, current]));
   query.mockImplementationOnce((opts) => {
-    expect(opts.relays).toEqual(['wss://new.example']);
+    expect(opts.relays).toEqual(['wss://new.example/']);
     return reply(opts, [], false);
   });
   expect((await resolveMessagingMetadata(self, { signAuth })).announcement).toEqual(current);
@@ -185,8 +185,8 @@ it('does not let an unreachable newly advertised relay veto an earlier completed
 
 it('retains per-relay outcomes when every relay fails to complete', async () => {
   const relays: QueryCompletion['relays'] = [
-    { url: 'wss://offline.example', status: 'connection-failed', received: 0, reason: 'offline' },
-    { url: 'wss://slow.example', status: 'connection-failed', received: 0 },
+    { url: 'wss://offline.example/', status: 'connection-failed', received: 0, reason: 'offline' },
+    { url: 'wss://slow.example/', status: 'connection-failed', received: 0 },
   ];
   query.mockImplementation((opts) => {
     opts.onComplete?.({ eosed: false, status: 'failed', relays });

@@ -23,6 +23,17 @@ jest.mock('@/db/client', () => {
     PRIMARY KEY (account_pubkey, relay_url)
   );`);
   return { db: createAsyncDatabase({
+    async transaction(task: (executor: unknown) => Promise<unknown>) {
+      mockSqlite.exec('BEGIN');
+      try {
+        const result = await task(this);
+        mockSqlite.exec('COMMIT');
+        return result;
+      } catch (error) {
+        mockSqlite.exec('ROLLBACK');
+        throw error;
+      }
+    },
     async execute(query: string, params: SQLInputValue[], method: string) {
       const statement = mockSqlite.prepare(query);
       statement.setReturnArrays(true);
@@ -41,6 +52,33 @@ beforeEach(() => {
   mockReads = 0;
 });
 afterAll(() => mockSqlite.close());
+
+it('migrates a root relay cursor without a trailing slash and preserves its progress', async () => {
+  mockSqlite.prepare('INSERT INTO sync_cursors VALUES (?, ?, ?, ?, ?)')
+    .run('a', 'wss://first.example', 100, 20, 1);
+  configureSyncRelays('a', ['wss://first.example/']);
+  expect(await getRelaySyncCursor('a', 'wss://first.example'))
+    .toEqual({ forwardSince: 100, backwardUntil: 20 });
+  expect(mockSqlite.prepare('SELECT relay_url FROM sync_cursors').all())
+    .toEqual([{ relay_url: 'wss://first.example/' }]);
+  clearSyncCursorCache('a');
+  expect(await getRelaySyncCursor('a', 'wss://first.example/'))
+    .toEqual({ forwardSince: 100, backwardUntil: 20 });
+});
+
+it('merges legacy relay aliases conservatively and persists one canonical cursor', async () => {
+  const insert = mockSqlite.prepare('INSERT INTO sync_cursors VALUES (?, ?, ?, ?, ?)');
+  insert.run('a', 'wss://FIRST.example//?b=2&a=1#fragment', 200, 50, 1);
+  insert.run('a', 'wss://first.example?a=1&b=2', 100, 0, 2);
+  configureSyncRelays('a', ['https://first.example/?b=2&a=1']);
+  expect(await getRelaySyncCursor('a', 'wss://first.example?a=1&b=2'))
+    .toEqual({ forwardSince: 100, backwardUntil: 50 });
+  expect(mockSqlite.prepare('SELECT count(*) AS n FROM sync_cursors').get()).toEqual({ n: 1 });
+  await setForwardSince('a', 'https://first.example/?b=2&a=1', 300);
+  clearSyncCursorCache('a');
+  expect(await getRelaySyncCursor('a', 'wss://first.example?a=1&b=2'))
+    .toEqual({ forwardSince: 300, backwardUntil: 50 });
+});
 
 it('isolates account/relay progress, normalizes URLs, and restores frontiers after a restart', async () => {
   await setForwardSince('a', `${first}/`, 100);

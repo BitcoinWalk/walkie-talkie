@@ -295,8 +295,8 @@ describe('ManagedRelayPool', () => {
     harness.relays[0].emitEvent(event);
     harness.relays[1].emitEvent(event);
 
-    expect(events).toEqual([RELAY_A.slice(0, -1)]);
-    expect(receipts).toEqual([RELAY_A.slice(0, -1), RELAY_B.slice(0, -1)]);
+    expect(events).toEqual([RELAY_A]);
+    expect(receipts).toEqual([RELAY_A, RELAY_B]);
     harness.pool.destroy();
   });
 
@@ -517,8 +517,8 @@ describe('ManagedRelayPool', () => {
       relays: [RELAY_A, RELAY_B], filter: {}, timeoutMs: 1_000, abort: controller.signal,
     });
     await flushPromises();
-    const relayA = harness.relays.find((relay) => relay.url === RELAY_A.slice(0, -1))!;
-    const relayB = harness.relays.find((relay) => relay.url === RELAY_B.slice(0, -1))!;
+    const relayA = harness.relays.find((relay) => relay.url === RELAY_A)!;
+    const relayB = harness.relays.find((relay) => relay.url === RELAY_B)!;
     controller.abort();
     await expect(pending).resolves.toMatchObject({ status: 'failed' });
     relayA.emitEvent(eventAt('live', 200), 0);
@@ -739,11 +739,11 @@ describe('ManagedRelayPool', () => {
     await flushPromises();
     harness.relays[0].emitEose();
     await jest.advanceTimersByTimeAsync(500);
-    expect(oneosed.mock.calls).toEqual([[RELAY_A.slice(0, -1), false]]);
+    expect(oneosed.mock.calls).toEqual([[RELAY_A, false]]);
     await jest.advanceTimersByTimeAsync(500);
     await pending;
     expect(oneosed.mock.calls).toEqual([
-      [RELAY_A.slice(0, -1), false], [RELAY_B.slice(0, -1), true],
+      [RELAY_A, false], [RELAY_B, true],
     ]);
     harness.relays[0].subscriptions[0].params.oneose?.();
     expect(oneosed).toHaveBeenCalledTimes(2);
@@ -773,9 +773,9 @@ describe('ManagedRelayPool', () => {
     await expect(harness.pool.query({
       relays: [RELAY_A], filter: {}, timeoutMs: 1_000, onerror, oneosed,
     })).resolves.toMatchObject({ status: 'failed' });
-    expect(onerror).toHaveBeenCalledWith(RELAY_A.slice(0, -1), expect.objectContaining({ message: 'offline' }));
+    expect(onerror).toHaveBeenCalledWith(RELAY_A, expect.objectContaining({ message: 'offline' }));
     expect(onerror).toHaveBeenCalledTimes(1);
-    expect(oneosed).toHaveBeenCalledWith(RELAY_A.slice(0, -1), true);
+    expect(oneosed).toHaveBeenCalledWith(RELAY_A, true);
     harness.pool.destroy();
   });
 

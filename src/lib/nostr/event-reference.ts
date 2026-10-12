@@ -1,5 +1,7 @@
 import { nip19 } from 'nostr-tools';
 
+import { normalizeRelayUrls } from './relay-url';
+
 const NIP19_MAX_CHARS = 5_000;
 
 export type NostrEventReference = {
@@ -34,7 +36,7 @@ export function parseNostrEventReference(input: string): NostrEventReference | n
         id: decoded.data.id,
         author: decoded.data.author,
         kind: decoded.data.kind,
-        relays: decoded.data.relays ?? [],
+        relays: normalizeRelayUrls(decoded.data.relays ?? []),
       };
     }
     if (decoded.type === 'naddr') {
@@ -43,7 +45,7 @@ export function parseNostrEventReference(input: string): NostrEventReference | n
         author: decoded.data.pubkey,
         kind: decoded.data.kind,
         identifier: decoded.data.identifier,
-        relays: decoded.data.relays ?? [],
+        relays: normalizeRelayUrls(decoded.data.relays ?? []),
       };
     }
   } catch {

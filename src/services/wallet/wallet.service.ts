@@ -485,7 +485,7 @@ async function requestNwc<T>(
   method: string,
   params: Record<string, unknown>,
 ): Promise<T> {
-  const relays = parseJson<string[]>(wallet.relaysJson, []);
+  const relays = Array.from(new Set(parseJson<string[]>(wallet.relaysJson, []).map(normalizeRelayUrl)));
   const content = await nip04.encrypt(secret, wallet.walletPubkey, JSON.stringify({ method, params }));
   const event = finalizeEvent(
     {

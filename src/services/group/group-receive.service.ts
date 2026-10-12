@@ -23,6 +23,7 @@ import {
 } from '@/lib/nostr/group-messaging';
 import { isMessageOrderNewer, messageOrderAt } from '@/lib/nostr/message-order';
 import { getReplyToId } from '@/lib/nostr/tags';
+import { normalizeRelayUrls } from '@/lib/nostr/relay-url';
 import { findFileMeta } from '@/lib/nostr/file-tags';
 import {
   KIND_CHAT,
@@ -150,7 +151,7 @@ async function insertGroupMessage(
         enqueueRelay && (rumor.kind === KIND_CHAT || rumor.kind === KIND_FILE)
           ? 'queued'
           : null,
-      sourceRelays: sourceRelays?.length ? [...new Set(sourceRelays)].sort() : null,
+      sourceRelays: sourceRelays?.length ? normalizeRelayUrls(sourceRelays).sort() : null,
     })
     .onConflictDoNothing()
     .returning({ id: messages.id })
@@ -192,7 +193,7 @@ async function quarantine(
       orderAt: messageOrderAt(rumor),
       senderPubkey: rumor.pubkey,
       rumor,
-      sourceRelays: sourceRelays?.length ? [...new Set(sourceRelays)].sort() : null,
+      sourceRelays: sourceRelays?.length ? normalizeRelayUrls(sourceRelays).sort() : null,
       pendingReason: reason,
       receivedAt: Math.floor(Date.now() / 1000),
     })

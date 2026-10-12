@@ -2,6 +2,7 @@ import type { Event, EventTemplate } from 'nostr-tools';
 import { BunkerSigner, type BunkerPointer } from 'nostr-tools/nip46';
 
 import { platform } from '@/platform';
+import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
 
 import { relayPool } from '../relay/relay-pool';
 import type { Signer } from './signer.interface';
@@ -46,7 +47,11 @@ export class Nip46Signer implements Signer {
     if (this.inner) return Promise.resolve(this.inner);
     if (this.connecting) return this.connecting;
     const generation = ++this.connectionGeneration;
-    const signer = BunkerSigner.fromBunker(this.clientSecretKey, this.pointer, {
+    const pointer = {
+      ...this.pointer,
+      relays: Array.from(new Set(this.pointer.relays.map(normalizeRelayUrl))),
+    };
+    const signer = BunkerSigner.fromBunker(this.clientSecretKey, pointer, {
       pool: relayPool.underlyingPool,
       onauth: openAuthUrl,
     });

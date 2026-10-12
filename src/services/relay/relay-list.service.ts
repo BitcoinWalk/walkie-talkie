@@ -6,6 +6,7 @@ import { relayLists, replaceableEvents } from '@/db/schema';
 import {
   DISCOVERY_RELAYS,
   normalizeRelayUrl,
+  normalizeRelayUrls,
 } from '@/lib/nostr/relay-url';
 
 import { KIND_DM_RELAY_LIST, KIND_RELAY_LIST_METADATA } from '../crypto/nip17-gift-wrap';
@@ -41,16 +42,9 @@ const dmRelaysCache = new Map<
 
 /** Parse relay URLs out of a kind-10050 event's `relay` tags. */
 function parseRelayTags(event: Event): string[] {
-  return event.tags
+  return normalizeRelayUrls(event.tags
     .filter((t) => t[0] === 'relay' && t[1])
-    .map((t) => {
-      try {
-        return normalizeRelayUrl(t[1]);
-      } catch {
-        return null;
-      }
-    })
-    .filter((u): u is string => u !== null);
+    .map((t) => t[1]));
 }
 
 /** Apply a kind-10050 event observed live (peer subscription) to the cache,
@@ -262,18 +256,34 @@ export function saveAndPublishWriteRelays(opts: {
     if (remote) await storeReplaceableEvent(remote);
     const current = await getReplaceableEvent(key);
     const tags: string[][] = [];
+    const writeSet = new Set(write);
+    const readSeen = new Set<string>();
     for (const tag of current?.tags ?? []) {
       if (tag[0] !== 'r' || !tag[1]) {
         tags.push(tag);
-      } else if (tag[2] === undefined || tag[2] === '') {
-        // An absent or empty marker also grants read membership. Removing its write side
-        // must leave that read membership (and any extension fields) intact.
-        tags.push([tag[0], tag[1], 'read', ...tag.slice(3)]);
+      } else if (tag[2] === undefined || tag[2] === '' || tag[2] === 'read') {
+        let url: string;
+        try {
+          url = normalizeRelayUrl(tag[1]);
+        } catch {
+          tags.push(tag[2] === 'read' ? tag : ['r', tag[1], 'read', ...tag.slice(3)]);
+          continue;
+        }
+        if (readSeen.has(url)) continue;
+        readSeen.add(url);
+        const extensions = tag.slice(3);
+        // A shared relay uses one unmarked tag. Keep an empty marker slot when
+        // extension fields follow it so they cannot be interpreted as a role.
+        tags.push(writeSet.has(url)
+          ? ['r', url, ...(extensions.length > 0 ? ['', ...extensions] : [])]
+          : ['r', url, 'read', ...extensions]);
       } else if (tag[2] !== 'write') {
         tags.push(tag);
       }
     }
-    tags.push(...write.map((url) => ['r', url, 'write']));
+    for (const url of write) {
+      if (!readSeen.has(url)) tags.push(['r', url, 'write']);
+    }
     return publishConfiguration(opts.accountPubkey, opts.signer, {
       kind: key.kind, tags, content: current?.content ?? '', created_at: Math.floor(Date.now() / 1000),
     }, undefined, current?.id ?? null);
@@ -336,7 +346,7 @@ export async function saveAndPublishDmRelays(opts: {
   signer: Signer;
   relays: string[];
 }): Promise<void> {
-  const normalized = opts.relays.map(normalizeRelayUrl);
+  const normalized = Array.from(new Set(opts.relays.map(normalizeRelayUrl)));
   const now = Math.floor(Date.now() / 1000);
 
   await db.transaction(async (tx) => {
