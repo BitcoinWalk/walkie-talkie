@@ -151,7 +151,6 @@ sender. Its `p` tags remain the delivery audience for that rumor.
 The first `action` tag describes a group state change:
 
 ```text
-["action", "create"]
 ["action", "invite", "<target-pubkey>"]
 ["action", "remove", "<target-pubkey>"]
 ["action", "rename"]
@@ -183,13 +182,6 @@ A complete invite rumor, before sealing and gift wrapping, has this form:
 The rumor is unsigned; its kind `13` seal supplies the identity signature. The
 `subject` tag is optional.
 
-### Create
-
-`create` marks the first kind `14` or kind `15` rumor in a group. Its `p` tags
-list the initial members other than the author. A kind `14` create has non-empty
-content; a kind `15` create contains a valid file offer. The rumor keeps its
-ordinary text or file presentation.
-
 ### Invite
 
 `invite` is an empty kind `14` rumor. Its target is the new member. Its `p` tags
@@ -208,13 +200,18 @@ author, the action means leave and the target need not appear in `p`.
 value sets the group name. A missing, empty, or whitespace-only value clears it.
 Names contain at most 80 Unicode code points.
 
-An invite MAY include the current `subject` so the new member receives the name
-with the roster.
+Ordinary kind `14` and kind `15` messages SHOULD include the current `subject`
+(an empty value for an unnamed group), so another device can recover the name
+without an earlier rename or initial message. An invite MAY also include it.
 
 ## Group state
 
-An unknown group is initialized only by `create` or `invite`. Its initial roster
-is the author plus the valid `p` values. After initialization, ordinary-message
+An unknown group is initialized by an ordinary non-empty kind `14` message, a
+valid kind `15` file offer, or an `invite`. Its initial roster is the author plus
+the valid `p` values. No first-message action or earlier history is required.
+Reactions, empty ordinary messages, `remove`, and `rename` cannot initialize a
+group. Legacy exact-shape `action=create` tags are treated as ordinary content,
+not state changes. After initialization, ordinary-message
 `p` tags describe only that rumor's audience and MUST NOT replace the roster.
 
 Membership actions are applied in rumor order. Their author MUST be a member at
@@ -226,7 +223,7 @@ Only the first `subject` tag is used. On any accepted kind `14` or kind `15`
 group rumor, absence preserves the name, a missing or empty value clears it, and
 other values are trimmed. The newest accepted subject under the event order
 wins independently of membership replay. An overlong subject is ignored on an
-ordinary message, `create`, or `invite`; it invalidates a `rename` action.
+ordinary message or `invite`; it invalidates a `rename` action.
 
 This extension does not deliver earlier rumors to a newly invited member.
 

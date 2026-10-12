@@ -1412,10 +1412,7 @@ function ChatPageContent({
     let tags: string[][] = counterparties.map((r) => ['p', r]);
     if (isGroup && conversation?.groupId) {
       tags.push(['h', conversation.groupId]);
-      if (!conversation.membersBootstrapEventId) {
-        tags.push(['action', 'create']);
-        if (conversation.name) tags.push(['subject', conversation.name]);
-      }
+      tags.push(['subject', conversation.name ?? '']);
       if (replyToId) tags.push(['e', replyToId]);
       tags.push(...emojiTags);
     } else {

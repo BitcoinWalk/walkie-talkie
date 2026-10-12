@@ -948,7 +948,6 @@ export class DmService {
     const group = await this.loadWritableGroup(opts.accountPubkey, opts.conversationKey);
     const timestamp = opts.timestamp ?? nextRumorTimestamp();
     const kind = opts.kind ?? KIND_CHAT;
-    const create = !group.membersBootstrapEventId;
     const content = kind === KIND_CHAT ? normalizeBareNostrUris(opts.content) : opts.content;
     const routingTags = new Set(['p', 'e', 'h', 'subject', 'action', 'ms']);
     const groupName = group.name;
@@ -958,8 +957,7 @@ export class DmService {
           .filter((member) => member !== opts.accountPubkey)
           .map((member): string[] => ['p', member]),
         ['h', group.groupId],
-        ...(create ? [['action', 'create']] : []),
-        ...(create && groupName != null ? [['subject', groupName]] : []),
+        ['subject', groupName ?? ''],
         ...(opts.replyToId ? [['e', opts.replyToId]] : []),
         ...(opts.contentTags ?? []).filter((tag) => !routingTags.has(tag[0])),
       ],

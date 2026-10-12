@@ -98,7 +98,7 @@ function isMessageFromSelf(
 function isGroupSystemMessage(message: MessageRow, group: boolean): boolean {
   if (!group) return false;
   const action = parseGroupAction(message.tags);
-  return action.status === 'valid' && action.action.type !== 'create';
+  return action.status === 'valid';
 }
 
 /** Full-width "Unread messages" band marking where the user last left off
@@ -1623,9 +1623,7 @@ export function MessageList({
       // The unread divider sits above the first message past the watermark.
       const showUnread = msg.id === firstUnreadId;
       const parsedAction = group ? parseGroupAction(msg.tags) : { status: 'none' as const };
-      const systemAction =
-        parsedAction.status === 'valid' &&
-        parsedAction.action.type !== 'create';
+      const systemAction = parsedAction.status === 'valid';
       if (systemAction) {
         const persistedDelivery = deliveriesByMessageId[msg.id] ??
           (msg.deliveryStatus
@@ -1710,8 +1708,7 @@ export function MessageList({
         group && older?.kind === 'message'
           ? parseGroupAction(older.message.tags)
           : { status: 'none' as const };
-      const olderIsSystem =
-        olderAction.status === 'valid' && olderAction.action.type !== 'create';
+      const olderIsSystem = olderAction.status === 'valid';
       const olderSenderChanged =
         group &&
         older?.kind === 'message' &&
@@ -1731,8 +1728,7 @@ export function MessageList({
         group && newer?.kind === 'message'
           ? parseGroupAction(newer.message.tags)
           : { status: 'none' as const };
-      const newerIsSystem =
-        newerAction.status === 'valid' && newerAction.action.type !== 'create';
+      const newerIsSystem = newerAction.status === 'valid';
       const groupRunEnd =
         !newer ||
         newer.kind !== 'message' ||

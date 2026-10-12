@@ -96,10 +96,7 @@ export async function getNotificationPreview(
     }
 
     let messageContent: string | null;
-    if (
-      action.status === 'valid' &&
-      action.action.type !== 'create'
-    ) {
+    if (action.status === 'valid') {
       if (!options.includeIdentity) {
         messageContent = action.action.type === 'invite'
           ? i18n.t('group.member_invited')

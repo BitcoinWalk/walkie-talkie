@@ -79,8 +79,8 @@ the renderer's perspective on every runtime.
   accepts the group into the main inbox; an explicit local leave removes it.
 - Relay groups use `group:<sha256(h)>` conversation keys, retain the raw `h`
   value separately for rumors and private lists, and materialize a sorted roster
-  from an ordered membership-action log. Unknown-group rumors wait in a bounded
-  account-scoped quarantine outside hot message queries.
+  from an ordered membership-action log. Non-bootstrap unknown-group rumors wait in a
+  bounded account-scoped quarantine outside hot message queries.
 - Device preferences stay in SQLite; private keys and wallet secrets stay in
   secure storage. Electron boot-time metadata is the exception: the main
   process owns atomic local files for window geometry and update-check timing,
@@ -137,7 +137,9 @@ recipient model for content that is sent to the current conversation.
 
 Direct conversation keys identify the counterparty within one owning account.
 Group conversation keys hash the private rumor's stable `h` identity; explicit
-`create`, `invite`, `remove`, and `rename` tags drive bootstrap and presentation.
+`invite`, `remove`, and `rename` tags drive membership and presentation.
+Ordinary text/file rumors can bootstrap an unknown group from their authenticated
+author and audience, independently of its first message.
 Membership changes replay in shared message order, while ordinary messages
 authorize incrementally against the materialized roster. Once full account
 history is covered, its persisted forward cursor rejects newly discovered

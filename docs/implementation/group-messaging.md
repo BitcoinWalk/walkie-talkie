@@ -116,10 +116,10 @@ being covered. Once the account's full backward history sync completes, its
 persisted forward sync cursor becomes an action-finality boundary. A network
 action first seen after that boundary was persisted is dropped when its
 authenticated inner timestamp is in the already-covered range. This applies to
-`create`, `invite`, `remove`, and `rename`, and drops the entire rumor even when
-a `create` also carries ordinary message content. The cursor has whole-second
-precision, so its boundary second remains open until a later completed forward
-pass covers it.
+`invite`, `remove`, and `rename`, and drops the entire action rumor.
+Legacy `create` tags are ordinary content and bypass action finality. The cursor
+has whole-second precision, so its boundary second remains open until a later
+completed forward pass covers it.
 
 The finality rule is account-scoped because history sync covers every gift wrap
 addressed to that account. It starts only when `backward_until = 0`; a partial
@@ -135,12 +135,11 @@ seal or gift-wrap timestamps. Future-dated rumors are not quarantined for later.
 
 ## 4. Group membership
 
-The first sent kind-14 or kind-15 group rumor carries a `create` action. It
-remains the user's first text or file message, not a separate system message.
-For a previously unseen group, a valid `create` or `invite` action initializes
-the local roster from `author ∪ p-tag pubkeys`. A plain message's `p` tags never
-change membership. Bootstrap members are deduplicated and stored in
-lexicographic pubkey order.
+Any ordinary non-empty kind-14 message, valid kind-15 file offer, or invite can
+initialize a previously unseen group from `author ∪ p-tag pubkeys`. Recovery
+does not depend on the first message. After initialization, a plain message's
+`p` tags never change membership. Bootstrap members are deduplicated and stored
+in lexicographic pubkey order.
 
 A valid member or recipient pubkey is exactly 64 lowercase hexadecimal
 characters. Filter malformed incoming `p` values before addressing checks,
@@ -155,7 +154,7 @@ or removing edits the cached initial roster, rename edits the cached name, and
 leaving abandons the unsent group by deleting its local conversation and draft
 state. These local edits preserve the conversation's creation and updated times.
 No system rows or network events are produced. The first text or file send
-freezes that final local state into `create`, `p`, and `subject`.
+freezes that final local state into `p` and `subject`.
 
 For an existing group:
 
@@ -202,16 +201,16 @@ For a valid current-member kind-14 or kind-15 rumor:
 - otherwise trim Unicode whitespace from the first subject value;
 - a trimmed empty value clears the custom name;
 - a value of 1–80 Unicode code points sets the trimmed custom name;
-- an overlong value on an ordinary message, `create`, or `invite` is ignored for
+- an overlong value on an ordinary message or `invite` is ignored for
   name state while the rest of the rumor continues normally.
 
 A subject changes the cached name only when its event is newer than the cached
 name cursor. Older or backfilled subjects never roll the current name backward.
 
-PsstPsst emits `subject` when it intentionally communicates name state, notably
-for rename and for an invite into an already named group. Ordinary messages do
-not need to repeat an unchanged subject. A foreign client's valid group message
-may still change the name by carrying a subject.
+PsstPsst emits the current `subject` on every ordinary text/file message, with
+an empty value for an unnamed group, so a device can recover the name without
+earlier history. Rename and invites also communicate name state. A foreign
+client's valid group message may still change the name by carrying a subject.
 
 When no custom name exists, derive the title from the current roster, including
 the local user while still a member. Order members by pubkey, resolve at most the
@@ -222,11 +221,10 @@ not add a special "you" label.
 
 ## 6. Action messages
 
-Group actions are authenticated tags inside ordinary group rumors. Four actions
+Group actions are authenticated tags inside ordinary group rumors. Three actions
 exist:
 
 ```text
-["action", "create"]
 ["action", "invite", "<target-pubkey>"]
 ["action", "remove", "<target-pubkey>"]
 ["action", "rename"]
@@ -239,13 +237,9 @@ arity, or the entire rumor is dropped before storage, quarantine, notification,
 or state changes. A malformed or unknown first action cannot fall back to an
 ordinary message, even when the rumor has text or file content.
 
-`create` is allowed only on the first kind-14 or kind-15 text or file message.
-Its `p` tags list every initial member except the author. The message retains
-its ordinary bubble presentation and content. A `create` received after a newer
-invite bootstrap may be stored as historical content without changing the
-roster. A `create` newer than an existing bootstrap cursor is rejected as a
-whole rumor rather than stored as an ordinary message, and it cannot
-reinitialize a known group.
+Legacy exact-shape `action=create` tags are treated as ordinary content. They
+retain bubble presentation and cannot reinitialize a known group. Outgoing
+rumors never emit this tag.
 
 `invite` addresses every current member except the author plus its target in
 `p`, so a newly invited recipient can initialize the group without receiving
@@ -335,10 +329,11 @@ The receive path remains incremental:
    copy need not include them in `p`. This applies to both unknown and existing
    groups, including actions and reactions, before quarantine or storage.
 5. Derive the hashed group conversation key.
-6. For an unknown group, initialize only from a valid `create` or `invite`
-   action. Its author and `p` pubkeys form the initial roster; the local account
-   must be in that roster. Quarantine ordinary rumors and other actions until
-   such a bootstrap action arrives. Save it as the roster baseline.
+6. For an unknown group, initialize from ordinary non-empty text, a valid file
+   offer, or an invite. Its author and `p` pubkeys form the initial roster; the
+   local account must be in that roster. Quarantine reactions, empty content,
+   and other actions until a bootstrap rumor arrives. Save it as the roster
+   baseline.
 7. For an existing group, accept an ordinary rumor, reaction, or rename/name
    event only from a current member; drop it immediately otherwise, including
    an own authored self copy after local removal. Insert structurally valid
@@ -346,10 +341,10 @@ The receive path remains incremental:
    bootstrap baseline; each action's
    author must be a member at that position. Actions older than the bootstrap
    baseline remain historical and cannot change it. Ignore `p` differences for
-   membership after bootstrap; reject a new `create` after the baseline. Apply
-   accepted rename/name events through their independent latest-event cursor;
+   membership after bootstrap. Apply accepted rename/name events through their
+   independent latest-event cursor;
    membership replay never rolls them back.
-8. Quarantine pre-bootstrap ordinary rumors while group membership is unknown.
+8. Quarantine non-bootstrap rumors while group membership is unknown.
    After bootstrap, a non-current author is an authorization failure rather than
    a delayed-membership candidate.
 9. After an accepted bootstrap, revalidate its pre-bootstrap quarantine and
@@ -476,8 +471,8 @@ name_event_id
 
 `group_id = null` continues to identify non-group conversations. The existing
 `name` column caches the current custom group name. `member_pubkeys` caches the
-active roster, initialized from local member selection or a received `create` or
-`invite` bootstrap and changed afterward only by explicit invite/remove actions.
+active roster, initialized from local member selection, received ordinary
+content, or an `invite` bootstrap and changed afterward only by explicit invite/remove actions.
 The bootstrap cursor is the baseline for that roster: actions older than it
 cannot overwrite the roster when backfilled after an invite initialized a
 previously unseen group.
@@ -486,17 +481,17 @@ For a locally created group, insert the conversation row as soon as member
 selection completes. Persist the raw group id and the deduplicated roster of the
 local creator plus all selected pubkeys there;
 `members_bootstrap_event_id = null` marks the row as local-only until the first
-`create` rumor is stored. Store the conversation's local creation time in
+ordinary content rumor is stored. Store its local creation time in
 `created_at` plus its millisecond `created_order_at`, and initialize the matching
 conversation updated fields `updated_at` and `updated_order_at`. Keep every
 last-message field null until a real message exists. Composer drafts do not
 change these timestamps. No separate
 group-draft table is needed. Other devices learn the group only after the
-`create` rumor is delivered.
+ordinary content rumor is delivered.
 
 Initialize a local-only group with `hasReplied = true`, `deleted = false`, and
 zero unread so it appears in the main conversation list rather than Requests.
-The first outgoing `create` preserves that accepted state.
+The first outgoing content message preserves that accepted state.
 
 Allow last-message fields to be null for a conversation with no messages. The
 conversation list sorts by `updated_order_at`, with the conversation key as a
@@ -600,9 +595,8 @@ flag. Replay considers both that log and unpromoted action candidates in
 
 Group rumor persistence needs no new message columns: stored tags and rumor JSON
 already contain `h`, `p`, `subject`, and `action`. Delivery work separately
-extends the existing `messages.delivery_status` enum with `partial`. A `create`
-tag on the first text or file message retains bubble presentation. Invite,
-remove, and rename appear as system lines. Once an invite or remove has applied
+extends the existing `messages.delivery_status` enum with `partial`. Ordinary
+text and file messages retain bubble presentation. Invite, remove, and rename appear as system lines. Once an invite or remove has applied
 at least once, its system line stays visible even when later replay makes its
 current roster effect inactive. A never-applied candidate lives only in
 `pending_group_rumors` until replay first validates it.
@@ -739,9 +733,9 @@ Apply this behavior to direct messages as well as groups.
 ## 9. Sending
 
 Compose the rumor and freeze its delivery audience before updating local group
-state. The first text or file message carries `create` and the explicit initial
+state. The first text or file message carries the explicit initial
 roster in `p`; its `p` tags address every initial member except the author, and
-its `subject` communicates the current local custom name when one exists. An
+its `subject` communicates the current name, including an empty value. An
 ordinary send puts every current member except the author in `p`. An invite
 also puts its new member in `p`, forming a bootstrap roster for a recipient that
 has never seen the group; a remove retains its target in `p` so they receive the
@@ -749,7 +743,7 @@ notice. The raw group id goes in `h`.
 
 Every group send path checks the current cached roster in the service layer
 before optimistic storage or wrapping. If the local account is absent, reject
-ordinary messages, files, replies, forwards, reactions, create, invite,
+ordinary messages, files, replies, forwards, reactions, invite,
 remove/leave, and rename. The UI mirrors this read-only state, but the service
 check remains authoritative. A newer valid `invite` restores sending.
 
@@ -811,9 +805,9 @@ fan-out pipeline. Reactions do not produce member or name state.
 Forwarding always strips source routing and group-state tags, including `p`,
 `e`, `h`, `subject`, and `action`, at the service boundary even when the caller
 already sanitized them. Action system rows are not valid forward sources. When
-an ordinary source message also carried its original group's `create`, remove
-that tag; add a fresh `create` only when the destination is a local-only group
-whose first forwarded text or file message establishes it.
+an ordinary source message carried a legacy `create` tag, remove it. The
+destination's first forwarded text or file message establishes a local-only
+group without an action tag.
 
 ## 10. Large-group guidance
 
@@ -854,7 +848,7 @@ Read `docs/DESIGN.md`, especially section 12, before implementation.
   local-only conversation row, so drafts, attachments, file handoff, routing,
   the raw group id, and the selected roster survive restarts under the stable
   `group:<hash>` key.
-- The first sent kind-14 or kind-15 text or file rumor carries `create` and the
+- The first sent kind-14 or kind-15 text or file rumor carries the
   initial roster in `p` while remaining an ordinary message bubble. Storing it
   fills the bootstrap cursor and promotes the existing row from local-only to an
   established group.
@@ -896,7 +890,7 @@ Read `docs/DESIGN.md`, especially section 12, before implementation.
   timeline to an individual profile; member navigation starts from the member
   list beneath the group information.
 - While the group is local-only, those controls edit or abandon local draft
-  state without emitting system rows or network actions. After `create` is
+  state without emitting system rows or network actions. After the first content message is
   stored, they send the normal group actions.
 - After the local user is removed, retain readable history, replace the composer
   with a plain-language read-only explanation, and hide group-management action
@@ -907,7 +901,7 @@ Read `docs/DESIGN.md`, especially section 12, before implementation.
   restores both the composer draft and its normal Draft preview behavior.
 - Exclude read-only removed groups from share and forward target pickers. A
   local-only group remains eligible; its first forwarded text or file rumor
-  carries `create` and promotes the group like any other first send.
+  establishes and promotes the group like any other first send.
 
 ### Conversation presentation
 
@@ -981,7 +975,7 @@ so two copies sharing a relay can never be retried together accidentally.
 ### Notifications
 
 Ordinary text/file rumors and invite, remove, and rename actions all enter the
-same notification eligibility and aggregation pipeline. The first `create`
+same notification eligibility and aggregation pipeline. The first content
 rumor notifies once as its ordinary text or file message; it does not create a
 second action notification.
 
@@ -1052,7 +1046,7 @@ the next phase begins.
 2. **Group identity and pure helpers**
    - first-`h` parsing;
    - hashed conversation keys;
-   - create/invite bootstrap rosters and subject snapshots;
+   - ordinary-content/invite bootstrap rosters and subject snapshots;
    - action parsing and validation.
 3. **Persistence migration**
    - conversation group fields and ordered membership-action history;
@@ -1060,7 +1054,7 @@ the next phase begins.
    - extend current message/copy delivery state for `partial` and pre-relay copy
      errors;
 4. **Receive path**
-   - create/invite bootstrap and pre-bootstrap quarantine;
+   - ordinary-content/invite bootstrap and pre-bootstrap quarantine;
    - current-member ordinary-message authorization;
    - ordered action replay and independent name LWW updates;
    - quarantine revalidation and bounded eviction;
@@ -1101,7 +1095,7 @@ At minimum, cover:
 - partial backfill establishes no action cutoff, while a completed backward
   sync rejects every subsequently discovered network action in the finalized
   account range and leaves the cursor's current second open;
-- action finality applies to create, invite, remove, and rename, drops the whole
+- action finality applies to invite, remove, and rename, drops the whole
   rumor, and purges now-unrecoverable quarantine entries;
 - archive import bypasses network finality, while a finalized ordinary rumor is
   retained without applying its subject to name state;
@@ -1120,7 +1114,7 @@ At minimum, cover:
   actions replay;
 - ten-minute future rejection for direct, group, reaction, file, and Nearby
   rumors;
-- first-message `create` on text and file rumors retains bubble presentation;
+- ordinary text and file rumors bootstrap without a create action;
 - creation requires at least two other members, while established groups have no
   minimum roster size;
 - creation/invite pickers inherit the shared Contacts visibility policy rather
@@ -1128,10 +1122,10 @@ At minimum, cover:
 - creation excludes self, while invite excludes self/current members and permits
   re-inviting removed contacts;
 - local group creation persists its conversation row, raw group id, and roster
-  before the first message, then promotes that row on `create` storage;
+  before the first message, then promotes that row on first-content storage;
 - local-only groups start accepted in the main list with zero unread;
 - pre-bootstrap membership and name management mutates only local draft state;
-  the first create carries the final roster and custom name;
+  the first content message carries the final roster and custom name;
 - message-free groups display and sort by immutable conversation creation time
   with null last-message cursors;
 - draft persistence never changes conversation timestamps, including on
@@ -1149,9 +1143,9 @@ At minimum, cover:
 - an `invite` bootstraps a later-added recipient from its `p` tags;
 - a stale inviter roster produces the invitee's stale bootstrap without
   pre-bootstrap reconciliation;
-- ordinary rumors received before bootstrap are quarantined and replayed;
+- non-bootstrap rumors received before bootstrap are quarantined and replayed;
 - older actions backfilled after an invite bootstrap do not change its roster;
-- an older `create` can render as history without reinitializing the group;
+- legacy `create` content can render as history without reinitializing the group;
 - other-authored group rumors without the local account in `p` are dropped;
 - own authored self copies without the local account in `p` are accepted while
   the local account is a current member and dropped after removal;
@@ -1167,7 +1161,7 @@ At minimum, cover:
 - read-only conversations suppress preserved Draft previews until membership is
   restored;
 - removed groups are excluded from share/forward targets, while a local-only
-  group can use its first forwarded text or file rumor as `create`;
+  group can use its first forwarded text or file rumor as its baseline;
 - a send admitted before removal completes its frozen per-copy pipeline, while
   later send attempts are rejected;
 - action admission applies local state atomically with message/outbox storage,
@@ -1181,7 +1175,7 @@ At minimum, cover:
 - copy detail rows remain in stable target-pubkey order, identify each target
   with avatar/name/key fallback, and label self as delivery to other devices;
 - independent subject preserve, set, and clear behavior;
-- subject trimming and 80-code-point boundaries across ordinary, create,
+- subject trimming and 80-code-point boundaries across ordinary,
   invite, and rename rumors;
 - overlong rename actions are invalid while other overlong subjects only skip
   their name mutation;
@@ -1247,7 +1241,7 @@ At minimum, cover:
 - attachment upload-once behavior;
 - group reactions and forwards;
 - action rows cannot enter message content actions, and forwarding strips every
-  source `action` tag before destination-specific create logic;
+  source `action` tag before destination-specific routing;
 - conversation-key assumption audits;
 - common-groups profile entry and list, without group-management controls or
   conversation-search expansion;
@@ -1258,8 +1252,8 @@ At minimum, cover:
 - notification privacy combinations;
 - group names, sender identity, avatars, and previews obey the full independent
   privacy matrix without resolving unnecessary roster profiles;
-- invite, remove, and rename notify through the ordinary pipeline; create emits
-  only the notification for its ordinary message payload;
+- invite, remove, and rename notify through the ordinary pipeline; the first content
+  message emits only its ordinary message notification;
 - i18n parity, RTL, light/dark themes, and stable bubble metadata width.
 
 ## 15. Explicitly out of scope for v1

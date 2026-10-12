@@ -76,18 +76,20 @@ function actionIsMembership(
 }
 
 function actionIsStructurallyValid(rumor: Rumor, action: GroupAction, pTags: string[]): boolean {
-  if (action.type === 'create') {
-    return (
-      (rumor.kind === KIND_CHAT && rumor.content.trim().length > 0) ||
-      (rumor.kind === KIND_FILE && findFileMeta(rumor.content, rumor.tags) != null)
-    );
-  }
   if (rumor.kind !== KIND_CHAT || rumor.content !== '') return false;
   if (action.type === 'invite') return pTags.includes(action.memberPubkey);
   if (action.type === 'remove') {
     return action.memberPubkey === rumor.pubkey || pTags.includes(action.memberPubkey);
   }
   return true;
+}
+
+/** Content messages carry enough authenticated audience data to recover a group. */
+function hasBootstrapContent(rumor: Rumor): boolean {
+  return (
+    (rumor.kind === KIND_CHAT && rumor.content.trim().length > 0) ||
+    (rumor.kind === KIND_FILE && findFileMeta(rumor.content, rumor.tags) != null)
+  );
 }
 
 function parseMembers(value: string[] | null): string[] {
@@ -861,8 +863,8 @@ class GroupReceiveService {
 
       if (!conversation) {
         const bootstrap =
-          action.status === 'valid' &&
-          (action.action.type === 'create' || action.action.type === 'invite');
+          (action.status === 'none' && hasBootstrapContent(rumor)) ||
+          (action.status === 'valid' && action.action.type === 'invite');
         if (!bootstrap || senderBlocked) {
           if (!senderBlocked) {
             await quarantine(
@@ -945,62 +947,42 @@ class GroupReceiveService {
       }
       const members = parseMembers(conversation.memberPubkeys);
 
-      if (action.status === 'valid' && action.action.type === 'create') {
-        if (
-          conversation.membersBootstrapOrderAt == null ||
-          !conversation.membersBootstrapEventId
-        ) {
-          if (intake !== 'local' || rumor.pubkey !== accountPubkey) {
-            return { handled: true, stored: false, conversationKey, promoted: [] };
-          }
-          const expectedMembers = parseMembers(conversation.memberPubkeys);
-          const receivedMembers = bootstrapMembers(rumor.pubkey, rumor.tags);
-          if (expectedMembers.join('\n') !== receivedMembers.join('\n')) {
-            return { handled: true, stored: false, conversationKey, promoted: [] };
-          }
-          await tx
-            .update(conversations)
-            .set({
-              membersBootstrapOrderAt: messageOrderAt(rumor),
-              membersBootstrapEventId: rumor.id!,
-            })
-            .where(
-              and(
-                eq(conversations.accountPubkey, accountPubkey),
-                eq(conversations.conversationKey, conversationKey),
-              ),
-            );
-          const stored = await insertGroupMessage(
-            tx,
-            accountPubkey,
-            conversationKey,
-            rumor,
-            options.sourceRelays,
-            true,
-          );
-          if (stored) {
-            await updateNameState(tx, accountPubkey, conversationKey, rumor, false);
-            await refreshConversationMessageState(tx, options, conversationKey);
-          }
-          return { handled: true, stored, conversationKey, promoted: [] };
-        }
-        const candidate = { orderAt: messageOrderAt(rumor), id: rumor.id! };
-        const bootstrapCursor = {
-          orderAt: conversation.membersBootstrapOrderAt,
-          id: conversation.membersBootstrapEventId,
-        };
-        if (isMessageOrderNewer(candidate, bootstrapCursor)) {
+      if (
+        (conversation.membersBootstrapOrderAt == null || !conversation.membersBootstrapEventId) &&
+        action.status === 'none' && hasBootstrapContent(rumor)
+      ) {
+        if (intake !== 'local' || rumor.pubkey !== accountPubkey) {
           return { handled: true, stored: false, conversationKey, promoted: [] };
         }
+        const expectedMembers = parseMembers(conversation.memberPubkeys);
+        const receivedMembers = bootstrapMembers(rumor.pubkey, rumor.tags);
+        if (expectedMembers.join('\n') !== receivedMembers.join('\n')) {
+          return { handled: true, stored: false, conversationKey, promoted: [] };
+        }
+        await tx
+          .update(conversations)
+          .set({
+            membersBootstrapOrderAt: messageOrderAt(rumor),
+            membersBootstrapEventId: rumor.id!,
+          })
+          .where(
+            and(
+              eq(conversations.accountPubkey, accountPubkey),
+              eq(conversations.conversationKey, conversationKey),
+            ),
+          );
         const stored = await insertGroupMessage(
           tx,
           accountPubkey,
           conversationKey,
           rumor,
           options.sourceRelays,
-          intake === 'local',
+          true,
         );
-        if (stored) await refreshConversationMessageState(tx, options, conversationKey);
+        if (stored) {
+          await updateNameState(tx, accountPubkey, conversationKey, rumor, false);
+          await refreshConversationMessageState(tx, options, conversationKey);
+        }
         return { handled: true, stored, conversationKey, promoted: [] };
       }
 

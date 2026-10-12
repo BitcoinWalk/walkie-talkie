@@ -49,8 +49,7 @@ describe('group messaging helpers', () => {
 
   test('parses only the first action tag with exact shapes', () => {
     expect(parseGroupAction([['action', 'create'], ['action', 'wat']])).toEqual({
-      status: 'valid',
-      action: { type: 'create' },
+      status: 'none',
     });
     expect(parseGroupAction([['action', 'create', A]])).toEqual({ status: 'invalid' });
     expect(parseGroupAction([['action', 'invite', A]])).toEqual({

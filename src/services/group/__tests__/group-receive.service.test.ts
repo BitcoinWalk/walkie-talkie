@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 
 import type { Rumor } from '@/db/schema';
+import { buildFileTags } from '@/lib/nostr/file-tags';
 
 let mockDatabase: { sqlite: DatabaseSync; db: unknown } | undefined;
 
@@ -96,6 +97,144 @@ beforeAll(() => {
 });
 
 afterAll(() => mockDatabase?.sqlite.close());
+
+let recoveryId = 0;
+function recoveryRumor(h: string, content = 'Recovered message'): Rumor {
+  return {
+    ...rumor('0', BOB, 500, [['p', ACCOUNT], ['p', CAROL], ['h', h]], content),
+    id: (++recoveryId).toString(16).padStart(64, '0'),
+  };
+}
+
+it.each(['live', 'recovery', 'history', 'archive'] as const)(
+  'recovers an unknown group from ordinary content during %s without its first message',
+  async (intake) => {
+    const h = `ordinary-recovery-${intake}`;
+    const message = recoveryRumor(h);
+    message.tags.push(['subject', 'Recovered group']);
+    await expect(groupReceiveService.receive({
+      accountPubkey: ACCOUNT, rumor: message, intake, active: false,
+      senderBlocked: false, syncCursor: { backwardUntil: 0, forwardSince: 600 },
+    })).resolves.toMatchObject({ stored: true });
+    expect(mockDatabase!.sqlite.prepare(`
+      SELECT member_pubkeys, name, members_bootstrap_event_id, last_message_id, has_replied
+      FROM conversations WHERE account_pubkey = ? AND group_id = ?
+    `).get(ACCOUNT, h)).toEqual({
+      member_pubkeys: JSON.stringify([ACCOUNT, BOB, CAROL]), name: 'Recovered group',
+      members_bootstrap_event_id: message.id, last_message_id: message.id, has_replied: 0,
+    });
+  },
+);
+
+it('establishes a local draft from its first ordinary message and queues delivery', async () => {
+  const group = await groupService.createLocalGroup(ACCOUNT, [BOB, CAROL]);
+  const message = recoveryRumor(group.groupId);
+  message.pubkey = ACCOUNT;
+  message.tags = [['p', BOB], ['p', CAROL], ['h', group.groupId]];
+  await expect(groupReceiveService.receive({
+    accountPubkey: ACCOUNT, rumor: message, intake: 'local', active: true,
+    senderBlocked: false,
+  })).resolves.toMatchObject({ stored: true });
+  expect(mockDatabase!.sqlite.prepare(
+    'SELECT members_bootstrap_event_id FROM conversations WHERE group_id = ?',
+  ).get(group.groupId)).toEqual({ members_bootstrap_event_id: message.id });
+  expect(mockDatabase!.sqlite.prepare(
+    'SELECT message_id FROM relay_outbox_jobs WHERE account_pubkey = ? AND message_id = ?',
+  ).get(ACCOUNT, message.id!)).toEqual({ message_id: message.id });
+});
+
+it('recovers a group from a valid file offer without an earlier text message', async () => {
+  const h = 'file-recovery';
+  const message = recoveryRumor(h, 'https://example.com/file');
+  message.kind = 15;
+  message.tags.push(...buildFileTags({
+    url: message.content, mime: 'application/octet-stream',
+    decryptionKeyHex: '1'.repeat(64), decryptionNonceHex: '2'.repeat(24),
+    cipherSha256Hex: '3'.repeat(64),
+  }));
+  await expect(groupReceiveService.receive({
+    accountPubkey: ACCOUNT, rumor: message, intake: 'live', active: false,
+    senderBlocked: false, syncCursor: null,
+  })).resolves.toMatchObject({ stored: true });
+});
+
+it('keeps legacy create content readable even when it arrives after ordinary content', async () => {
+  const h = 'late-legacy-create';
+  const receive = (message: Rumor) => groupReceiveService.receive({
+    accountPubkey: ACCOUNT, rumor: message, intake: 'live', active: false,
+    senderBlocked: false, syncCursor: { backwardUntil: 0, forwardSince: 600 },
+  });
+  await expect(receive(recoveryRumor(h))).resolves.toMatchObject({ stored: true });
+  const legacy = recoveryRumor(h, 'Earlier first message');
+  legacy.created_at = 400;
+  legacy.tags.push(['action', 'create']);
+  await expect(receive(legacy)).resolves.toMatchObject({ stored: true });
+});
+
+it('releases a pending reaction when ordinary content establishes the group', async () => {
+  const h = 'pending-reaction-recovery';
+  const message = recoveryRumor(h);
+  const reaction = recoveryRumor(h, '+');
+  reaction.kind = 7;
+  reaction.created_at = 501;
+  reaction.tags.push(['e', message.id!]);
+  const receive = (rumor: Rumor) => groupReceiveService.receive({
+    accountPubkey: ACCOUNT, rumor, intake: 'live', active: false,
+    senderBlocked: false, syncCursor: null,
+  });
+  await expect(receive(reaction)).resolves.toMatchObject({ stored: false });
+  const result = await receive(message);
+  expect(result).toMatchObject({
+    stored: true, promoted: expect.arrayContaining([reaction]),
+  });
+  expect(mockDatabase!.sqlite.prepare(
+    'SELECT message_id FROM pending_group_rumors WHERE conversation_key = ?',
+  ).all(result.conversationKey!)).toEqual([]);
+});
+
+it('does not let an ordinary audience snapshot re-add a removed member', async () => {
+  const h = 'ordinary-roster-authorization';
+  const receive = (rumor: Rumor) => groupReceiveService.receive({
+    accountPubkey: ACCOUNT, rumor, intake: 'live', active: false,
+    senderBlocked: false, syncCursor: null,
+  });
+  await receive(recoveryRumor(h));
+  const remove = recoveryRumor(h, '');
+  remove.created_at = 501;
+  remove.tags.push(['action', 'remove', CAROL]);
+  await expect(receive(remove)).resolves.toMatchObject({ stored: true });
+  const ordinary = recoveryRumor(h);
+  ordinary.created_at = 502;
+  await expect(receive(ordinary)).resolves.toMatchObject({ stored: true });
+  const removedSender = recoveryRumor(h);
+  removedSender.pubkey = CAROL;
+  removedSender.created_at = 503;
+  await expect(receive(removedSender)).resolves.toMatchObject({ stored: false });
+  expect(mockDatabase!.sqlite.prepare(
+    'SELECT member_pubkeys FROM conversations WHERE group_id = ?',
+  ).get(h)).toEqual({ member_pubkeys: JSON.stringify([ACCOUNT, BOB]) });
+});
+
+it.each(['reaction', 'empty', 'invalid-file', 'blocked', 'unaddressed', 'rename', 'remove'])(
+  'does not bootstrap an unknown group from %s',
+  async (variant) => {
+    const h = `invalid-bootstrap-${variant}`;
+    const message = recoveryRumor(h);
+    if (variant === 'reaction') message.kind = 7;
+    if (variant === 'empty' || variant === 'rename' || variant === 'remove') message.content = '';
+    if (variant === 'invalid-file') message.kind = 15;
+    if (variant === 'unaddressed') message.tags = [['p', CAROL], ['h', h]];
+    if (variant === 'rename') message.tags.push(['action', 'rename'], ['subject', 'Name']);
+    if (variant === 'remove') message.tags.push(['action', 'remove', ACCOUNT]);
+    await expect(groupReceiveService.receive({
+      accountPubkey: ACCOUNT, rumor: message, intake: 'live', active: false,
+      senderBlocked: variant === 'blocked', syncCursor: null,
+    })).resolves.toMatchObject({ stored: false });
+    expect(mockDatabase!.sqlite.prepare(
+      'SELECT group_id FROM conversations WHERE group_id = ?',
+    ).get(h)).toBeUndefined();
+  },
+);
 
 it('uses creation time for a new group and preserves it during local metadata edits', async () => {
   const clock = jest.spyOn(Date, 'now').mockReturnValue(900123);
@@ -248,7 +387,6 @@ it('bootstraps, applies tail actions, and authorizes ordinary messages from the 
   const create = rumor('1', BOB, 10, [
     ['p', ACCOUNT],
     ['h', h],
-    ['action', 'create'],
   ], 'hello');
   await expect(groupReceiveService.receive({
     accountPubkey: ACCOUNT,
@@ -295,7 +433,6 @@ it('drops finalized actions and ignores finalized ordinary subjects without drop
   const create = rumor('4', BOB, 200, [
     ['p', ACCOUNT],
     ['h', h],
-    ['action', 'create'],
   ], 'hello');
   await groupReceiveService.receive({
     accountPubkey: ACCOUNT,
@@ -347,8 +484,7 @@ it('promotes a quarantined action when an earlier prerequisite arrives', async (
     rumor: rumor('7', BOB, 300, [
       ['p', ACCOUNT],
       ['h', h],
-      ['action', 'create'],
-    ], 'hello'),
+      ], 'hello'),
     intake: 'live',
     active: false,
     senderBlocked: false,

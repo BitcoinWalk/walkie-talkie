@@ -347,7 +347,6 @@ function ConversationListItemBase({
   const actionPreview = (() => {
     if (
       parsedGroupAction.status !== 'valid' ||
-      parsedGroupAction.action.type === 'create' ||
       !lastMessageSenderPubkey
     ) return null;
     const actor = resolvedGroupSenderName ?? resolveDisplayName(lastMessageSenderPubkey);

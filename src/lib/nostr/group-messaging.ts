@@ -9,7 +9,6 @@ const MAX_GROUP_ID_BYTES = 256;
 const MAX_GROUP_NAME_CODE_POINTS = 80;
 
 export type GroupAction =
-  | { type: 'create' }
   | { type: 'invite'; memberPubkey: string }
   | { type: 'remove'; memberPubkey: string }
   | { type: 'rename'; name: string | null };
@@ -89,7 +88,8 @@ export function parseGroupAction(tags: readonly string[][]): ParsedGroupAction {
   if (!tag) return { status: 'none' };
 
   if (tag.length === 2 && tag[1] === 'create') {
-    return { status: 'valid', action: { type: 'create' } };
+    // Older clients tagged their first content message as create.
+    return { status: 'none' };
   }
   if (tag.length === 3 && tag[1] === 'invite' && isValidMemberPubkey(tag[2])) {
     return { status: 'valid', action: { type: 'invite', memberPubkey: tag[2] } };
