@@ -40,6 +40,7 @@ env:
 
 jobs:
   validate-version:
+    if: github.repository == 'codytseng/psstpsst'
     name: Validate version and signing
     runs-on: ubuntu-24.04
     outputs:

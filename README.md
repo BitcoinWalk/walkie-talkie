@@ -1,4 +1,24 @@
-# PsstPsst
+# Walkie Talkie
+
+BitcoinWalk's Nostr companion for iOS and Android: city and walk details,
+NIP-17 DMs, NIP-29 city groups, nearby Bluetooth communication and walk invites.
+Android distribution targets Zapstore; iOS testing targets TestFlight.
+
+**Early development. No Walkie Talkie binary is published yet.** The initial
+invite and counting modules are prototypes, not connected to native screens or
+Bluetooth. See [the implementation plan](docs/WALKIE-TALKIE.md).
+
+Based on [PsstPsst](https://github.com/CodyTseng/psstpsst), under its MIT licence.
+Upstream history, copyright and third-party notices are retained. The `upstream`
+remote tracks that project; BitcoinWalk development uses `main`.
+Inherited build identifiers, release workflows and Zapstore metadata still refer
+to PsstPsst and must be adapted before any Walkie Talkie distribution.
+
+Run the initial foundation tests with `node --test tests/bitcoinwalk/core.test.mjs`.
+
+## Upstream documentation (PsstPsst)
+
+The following describes upstream, not Walkie Talkie's release status.
 
 **Decentralized, end-to-end encrypted messaging. No phone number required.**
 
