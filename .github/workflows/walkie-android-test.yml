@@ -46,7 +46,13 @@ jobs:
           grep -q "applicationId 'org.bitcoinwalk.walkietalkie.dev'" android/app/build.gradle
       - name: Build standalone test APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a -PreactNativeDevServerIp=127.0.0.1
+        run: >-
+          ./gradlew :app:assembleRelease
+          --no-daemon
+          --max-workers=2
+          '-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8'
+          -PreactNativeArchitectures=arm64-v8a
+          -PreactNativeDevServerIp=127.0.0.1
       - name: Verify and label test artifact
         run: |
           mkdir -p test-artifact
