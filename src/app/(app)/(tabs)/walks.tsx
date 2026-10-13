@@ -1,4 +1,5 @@
 import MapPin from 'lucide-react-native/icons/map-pin';
+import MessagesSquare from 'lucide-react-native/icons/messages-square';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -53,6 +54,20 @@ export default function WalksTab() {
           {selectedCity ? <AppButton variant="primary" label={t('walks.city_page')}
             onPress={() => void open(selectedCity.canonicalUrl)} /> : null}
           <AppButton variant="text" label={t('walks.change_city')} onPress={() => router.push('/city')} />
+          {selectedCity ? <AppCard style={{ gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <MessagesSquare color={c.accent} size={uiDensity.tabIconSize} />
+              <AppText variant="subtitle">{selectedCity.chat.scope === 'city'
+                ? t('walks.community_city_title', { city: selectedCity.name })
+                : t('walks.community_global_title')}</AppText>
+            </View>
+            <AppText tone="muted">{selectedCity.chat.nip29
+              ? t('walks.community_ready')
+              : t('walks.community_unavailable')}</AppText>
+            {selectedCity.chat.nip29 ?
+              <AppButton variant="secondary" label={t('walks.community_open')}
+                onPress={() => router.push('/community')} /> : null}
+          </AppCard> : null}
           {failed && <><AppText tone="danger">{t('walks.error')}</AppText>
             <AppButton variant="secondary" label={t('walks.retry')} onPress={refresh} /></>}
           {linkFailed && <AppText tone="danger">{t('walks.link_error')}</AppText>}

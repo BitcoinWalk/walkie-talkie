@@ -7,7 +7,11 @@ const madeira = {
   slug: 'madeira',
   aliases: [],
   canonicalUrl: `${BITCOINWALK_ORIGIN}/madeira`,
-  chat: { scope: 'global', url: 'https://armada.buzz/s/chat.bitcoinwalk.org/group' },
+  chat: {
+    scope: 'global',
+    url: 'https://armada.buzz/s/chat.bitcoinwalk.org/group',
+    nip29: { relay: 'wss://chat.bitcoinwalk.org', groupId: 'group' },
+  },
 };
 
 describe('BitcoinWalk city directory', () => {
@@ -17,7 +21,11 @@ describe('BitcoinWalk city directory', () => {
     expect(parseCityDirectory({ version: 1, cities: [madeira] })).toEqual([madeira]);
     expect(parseCityDirectory({ version: 1, cities: [{
       ...madeira,
-      chat: { scope: 'global', url: 'https://bitcoinwalk.org/join' },
+      chat: {
+        scope: 'global',
+        url: 'https://bitcoinwalk.org/join',
+        nip29: { relay: 'wss://chat.bitcoinwalk.org', groupId: 'group' },
+      },
     }] })).toHaveLength(1);
   });
 
@@ -25,6 +33,9 @@ describe('BitcoinWalk city directory', () => {
     { ...madeira, canonicalUrl: 'https://evil.example/madeira' },
     { ...madeira, canonicalUrl: 'https://bitcoinwalk.org/london' },
     { ...madeira, chat: { scope: 'global', url: 'https://evil.example/s/group' } },
+    { ...madeira, chat: { ...madeira.chat, nip29: { relay: 'wss://evil.example', groupId: 'group' } } },
+    { ...madeira, chat: { ...madeira.chat, nip29: { relay: 'wss://chat.bitcoinwalk.org', groupId: '../group' } } },
+    { ...madeira, chat: { scope: 'city', url: null, nip29: { relay: 'wss://london.bitcoinwalk.org', groupId: 'group' } } },
     { ...madeira, slug: '../madeira' },
   ])('rejects an unsafe city record', (city) => {
     expect(() => parseCityDirectory({ version: 1, cities: [city] })).toThrow('Invalid');

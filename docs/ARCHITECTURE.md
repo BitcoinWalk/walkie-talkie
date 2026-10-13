@@ -127,6 +127,12 @@ PsstPsst combines the
   kind `1059` following NIP-59.
 - The recipient's NIP-17 inbox is published as kind `10050`.
 
+BitcoinWalk public city communities are a distinct NIP-29 surface. Their exact
+relay and group ID come only from the fail-closed BitcoinWalk city directory;
+they do not reuse the encrypted private-group tables or imply end-to-end
+encryption. The current bounded native read, join and publish behavior is
+specified in [`protocols/nip29-community.md`](./protocols/nip29-community.md).
+
 The rumor is the canonical business message. Seals and gift wraps belong to
 relay delivery and ingestion boundaries; UI, conversation, archive, reply,
 reaction, and attachment logic operate on rumors rather than relay envelopes.

@@ -85,6 +85,12 @@ The website exposes the versioned, fail-closed `/api/cities` projection so the
 mobile app never invents cities or chat destinations. Free cities may point at
 the verified global NIP-29 community. A paid city with incomplete dedicated chat
 provisioning exposes no group link rather than falling back to global chat.
+The projection carries the verified public NIP-29 relay and group identifier
+separately from the optional external-client link. Walkie Talkie validates both
+against the selected city and shows the community entry only when that evidence
+is present. This bridge does not yet make the inherited private-group transport
+NIP-29-compatible; native join, history and publish remain the next protocol
+slice.
 
 Branding now defaults to black/white with exact BitcoinWalk orange `#F7931A` and
 uses the approved BitcoinWalk mark on a black native loading screen. Red, green
