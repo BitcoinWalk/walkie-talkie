@@ -62,6 +62,7 @@ import { usePendingAttachmentsStore } from '@/stores/pending-attachments.store';
 import { useReactionPrefsStore } from '@/stores/reaction-prefs.store';
 import { useDesktopLayoutStore } from '@/stores/desktop-layout.store';
 import { useThemeStore } from '@/stores/theme.store';
+import { useSelectedCity } from '@/stores/selected-city.store';
 import { useTouchLayoutStore } from '@/stores/touch-layout.store';
 import {
   SystemColorSchemeProvider,
@@ -194,6 +195,7 @@ function RootLayoutContent() {
     ? !IS_ELECTRON || desktopLayoutLoaded
     : touchLayoutLoaded;
   const themeLoaded = useThemeStore((s) => s.loaded);
+  const selectedCityLoaded = useSelectedCity((s) => s.loaded);
   const languageLoaded = useLanguageStore((s) => s.loaded);
   const direction = useLanguageDirection();
   const c = useThemeColors();
@@ -306,6 +308,7 @@ function RootLayoutContent() {
       ...(IS_ELECTRON ? [profileAsync(profile, 'desktopLayout.load', () => useDesktopLayoutStore.getState().load())] : []),
       ...(Platform.OS !== 'web' ? [profileAsync(profile, 'touchLayout.load', () => useTouchLayoutStore.getState().load())] : []),
       profileAsync(profile, 'theme.load', () => useThemeStore.getState().load()),
+      profileAsync(profile, 'selectedCity.load', () => useSelectedCity.getState().load()),
       // Language preference — also gated (see below), so the first frame is already
       // in the chosen language rather than flashing the system default.
       profileAsync(profile, 'language.load', () => useLanguageStore.getState().load()),
@@ -450,6 +453,7 @@ function RootLayoutContent() {
       !secureStorageReady ||
       !layoutReady ||
       !themeLoaded ||
+      !selectedCityLoaded ||
       !languageLoaded ||
       !nativeDirectionReady ||
       status === 'idle' ||
@@ -461,7 +465,7 @@ function RootLayoutContent() {
     // (falling back to the same generic "preparing" before the first phase lands —
     // both are local work, so one calm line covers them without alarming copy).
     const phase =
-      !migrationsApplied || !layoutReady || !themeLoaded || !languageLoaded || !nativeDirectionReady
+      !migrationsApplied || !layoutReady || !themeLoaded || !selectedCityLoaded || !languageLoaded || !nativeDirectionReady
         ? 'preparing'
         : (bootPhase ?? 'preparing');
     return <AppBootScreen message={t(`boot.${phase}`)} />;

@@ -1,5 +1,6 @@
 import MapPin from 'lucide-react-native/icons/map-pin';
-import { useState } from 'react';
+import { router } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ import { AppText } from '@/components/common/AppText';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
 import { useBitcoinWalks } from '@/hooks/use-bitcoinwalk-walks';
 import { platform } from '@/platform';
+import { useSelectedCity } from '@/stores/selected-city.store';
 import { bottomBarHeight, spacing, uiDensity, useThemeColors } from '@/theme';
 
 export default function WalksTab() {
@@ -19,6 +21,15 @@ export default function WalksTab() {
   const insets = useSafeAreaInsets();
   const top = useScreenHeaderClearance();
   const { walks, loading, failed, refresh } = useBitcoinWalks();
+  const selectedCity = useSelectedCity((state) => state.selectedCity);
+  const cityWalks = useMemo(() => walks.filter((walk) => {
+    if (!selectedCity) return false;
+    try {
+      return new URL(walk.link).pathname.startsWith(`/${selectedCity.slug}/`);
+    } catch {
+      return false;
+    }
+  }), [selectedCity, walks]);
   const [linkFailed, setLinkFailed] = useState(false);
   async function open(url: string) {
     setLinkFailed(false);
@@ -30,15 +41,18 @@ export default function WalksTab() {
     <AppScreen edges={[]}>
       <ScreenHeader title={t('walks.title')} back={false} />
       <FlatList
-        data={walks}
+        data={cityWalks}
         keyExtractor={(walk) => walk.id}
         refreshing={loading}
         onRefresh={refresh}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: top + spacing.lg,
           paddingBottom: bottomBarHeight + insets.bottom + spacing['2xl'], gap: spacing.lg }}
         ListHeaderComponent={<View style={{ gap: spacing.sm }}>
-          <AppText variant="title">{t('walks.heading')}</AppText>
-          <AppText tone="muted">{t('walks.intro')}</AppText>
+          <AppText variant="title">{selectedCity ? `BitcoinWalk in ${selectedCity.name}` : t('walks.heading')}</AppText>
+          <AppText tone="muted">{t('walks.city_intro')}</AppText>
+          {selectedCity ? <AppButton variant="primary" label={t('walks.city_page')}
+            onPress={() => void open(selectedCity.canonicalUrl)} /> : null}
+          <AppButton variant="text" label={t('walks.change_city')} onPress={() => router.push('/city')} />
           {failed && <><AppText tone="danger">{t('walks.error')}</AppText>
             <AppButton variant="secondary" label={t('walks.retry')} onPress={refresh} /></>}
           {linkFailed && <AppText tone="danger">{t('walks.link_error')}</AppText>}

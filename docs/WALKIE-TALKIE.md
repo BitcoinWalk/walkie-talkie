@@ -72,8 +72,27 @@ to the verified Walkie Talkie listing. Publishing credentials are not yet config
 
 ## Current implementation boundary
 
-The first mobile slice adds a Walks tab backed by the production public
-`https://bitcoinwalk.org/api/events` feed. It shows upcoming/in-progress walks,
+The first physical-device gate passed on 13 October 2026: the arm64 Android test
+APK installed on a Pixel running GrapheneOS, connected through Amber over NIP-46,
+and the user confirmed the current build works as expected. This proves the app
+shell and remote-signer path on that device; it does not yet prove city groups,
+background notifications or Bluetooth mesh.
+
+The next city-first slice uses one persisted approved city as the app context.
+A new installation chooses its city before Nostr sign-in. The Walks tab is then
+scoped to that city and leads with the canonical `bitcoinwalk.org/<city>` page.
+The website exposes the versioned, fail-closed `/api/cities` projection so the
+mobile app never invents cities or chat destinations. Free cities may point at
+the verified global NIP-29 community. A paid city with incomplete dedicated chat
+provisioning exposes no group link rather than falling back to global chat.
+
+Branding now defaults to black/white with exact BitcoinWalk orange `#F7931A` and
+uses the approved BitcoinWalk mark on a black native loading screen. Red, green
+and amber remain available only for semantic error, success and warning states.
+
+The first mobile slice adds a Walks tab backed by BitcoinWalk's public
+`/api/events` feed. Test APKs use staging; production packages default to
+`https://bitcoinwalk.org`. The tab shows upcoming/in-progress walks,
 meeting-place time zones, addresses, descriptions, and external details/maps
 links. Loading, refresh failure and an empty directory are distinct. This is
 read-only: it does not import events into chat membership or authorize hosting.
@@ -82,9 +101,27 @@ The feed does not expose city UUIDs, so invite-to-city resolution remains pendin
 Mobile app identities now use `org.bitcoinwalk.walkietalkie` (plus `.dev` for
 development) and the approved BitcoinWalk icon. The inherited Apple signing team
 has been removed. Existing remote-signer onboarding remains in place; device
-acceptance is still required. Upstream artwork, remaining translations, notification
-infrastructure and release metadata still need a full branding/configuration pass
+acceptance passed on the Pixel/GrapheneOS/Amber test combination. Upstream artwork,
+remaining translations, notification infrastructure and release metadata need a full branding/configuration pass
 before distribution. No Zapstore or TestFlight release has been published.
+
+NIP-29 rollout is deliberately split from the city selector. Automatic group
+creation must be an idempotent server-side operation against the authoritative
+relay, followed by exact relay read-back and durable city-to-group mapping. The
+public directory and walk pages may publish the resulting link only after that
+verification. Display names use `BitcoinWalk in <City>`; a name alone is never
+treated as a group identifier or authority record. The target is one distinct
+group per approved city: free-city groups share `chat.bitcoinwalk.org` but keep
+separate stable group IDs, while a provisioned paid city uses its dedicated city
+relay. The existing global free-city group remains a compatibility destination
+during migration, not the final per-city grouping model.
+
+Bluetooth mesh is also not implied by the upstream pairwise Nearby transport.
+The next radio gate is an authenticated, consented two-phone room for one signed
+walk. Only after that passes do we add three-device bounded forwarding, TTL,
+deduplication, store-and-forward recovery and relay reconciliation. Nearby counts
+include directly authenticated devices only, never devices merely heard through
+another mesh node.
 
 Run `npx jest src/services/bitcoinwalk/__tests__/walks.test.ts --runInBand`
 for feed validation and transport tests. Android JavaScript export is not an APK;

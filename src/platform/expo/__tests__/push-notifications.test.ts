@@ -8,7 +8,7 @@ const mockUnregister = jest.fn();
 const mockRemove = jest.fn();
 const mockAddListener = jest.fn();
 let mockNative: Record<string, unknown> | null;
-let mockApplicationId = 'chat.psstpsst.app.dev';
+let mockApplicationId = 'org.bitcoinwalk.walkietalkie.dev';
 jest.mock('expo-application', () => ({
   get applicationId() { return mockApplicationId; },
   getIosPushNotificationServiceEnvironmentAsync: () => mockEnvironment(),
@@ -21,7 +21,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.replaceProperty(Platform, 'OS', 'ios');
   mockEnvironment.mockResolvedValue('development');
-  mockApplicationId = 'chat.psstpsst.app.dev';
+  mockApplicationId = 'org.bitcoinwalk.walkietalkie.dev';
   mockReleaseType.mockResolvedValue(3);
   mockRegister.mockResolvedValue('0012ABcd');
   mockAddListener.mockReturnValue({ remove: mockRemove });
@@ -33,14 +33,14 @@ it.each([
   ['development', 'sandbox'], ['production', 'production'],
 ])('maps signed %s APNs to %s and preserves every token byte', async (signed, expected) => {
   mockEnvironment.mockResolvedValue(signed);
-  mockApplicationId = signed === 'development' ? 'chat.psstpsst.app.dev' : 'chat.psstpsst.app';
+  mockApplicationId = signed === 'development' ? 'org.bitcoinwalk.walkietalkie.dev' : 'org.bitcoinwalk.walkietalkie';
   await expect(adapter.getDevice()).resolves.toEqual({ token: '0012abcd', environment: expected });
   expect(mockRegister).toHaveBeenCalledTimes(1);
 });
 
 it('uses production APNs for a store installation with its embedded profile removed', async () => {
   mockEnvironment.mockResolvedValue(null);
-  mockApplicationId = 'chat.psstpsst.app';
+  mockApplicationId = 'org.bitcoinwalk.walkietalkie';
   await expect(adapter.getDevice()).resolves.toEqual({ token: '0012abcd', environment: 'production' });
 });
 

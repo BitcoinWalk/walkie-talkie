@@ -1,9 +1,10 @@
 import { loadWalks, parseWalkFeed } from '../walks';
+import { BITCOINWALK_ORIGIN } from '../config';
 
 const walk = {
   id: 'a'.repeat(64), name: 'BitcoinWalk Madeira', description: 'Meet for a walk',
   startDate: '2030-01-01T10:00:00Z', endDate: '2030-01-01T12:00:00Z',
-  timeZone: 'Atlantic/Madeira', link: 'https://bitcoinwalk.org/madeira/nevent1abc',
+  timeZone: 'Atlantic/Madeira', link: `${BITCOINWALK_ORIGIN}/madeira/nevent1abc`,
   address: 'Meeting point', latitude: 32.6, longitude: -16.9,
 };
 const feed = (events: unknown[]) => ({ version: 1, events });
@@ -35,7 +36,7 @@ test('passes cancellation to transport and rejects unsuccessful HTTP responses',
   try {
     const controller = new AbortController();
     await expect(loadWalks(controller.signal)).rejects.toThrow('unavailable');
-    expect(mock).toHaveBeenCalledWith('https://bitcoinwalk.org/api/events',
+    expect(mock).toHaveBeenCalledWith(`${BITCOINWALK_ORIGIN}/api/events`,
       expect.objectContaining({ signal: controller.signal }));
   } finally { global.fetch = original; }
 });

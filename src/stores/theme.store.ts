@@ -10,7 +10,7 @@ import { ACCENTS, type AccentKey } from '@/theme/accents';
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 /** Device-level (not per-account), persisted as non-secret SQLite preferences.
- * Default to system + the blue accent. */
+ * Default to system + BitcoinWalk orange. */
 const PREFERENCE_KEY = 'theme.preference';
 const ACCENT_KEY = 'theme.accent';
 
@@ -36,7 +36,7 @@ type State = {
 
 export const useThemeStore = create<State>((set) => ({
   preference: 'system',
-  accent: 'blue',
+  accent: 'orange',
   loaded: false,
   load: async () => {
     try {
@@ -46,7 +46,7 @@ export const useThemeStore = create<State>((set) => ({
       ]);
       set({
         preference: isPreference(storedPreference) ? storedPreference : 'system',
-        accent: isAccent(storedAccent) ? storedAccent : 'blue',
+        accent: isAccent(storedAccent) ? storedAccent : 'orange',
       });
     } catch (error) {
       console.warn('[theme] Failed to restore appearance preferences.', error);

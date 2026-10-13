@@ -1,3 +1,5 @@
+import { BITCOINWALK_ORIGIN } from './config';
+
 export type Walk = {
   id: string;
   name: string;
@@ -10,8 +12,6 @@ export type Walk = {
   latitude: number;
   longitude: number;
 };
-
-const ORIGIN = 'https://bitcoinwalk.org';
 
 /** Reject incomplete feeds rather than presenting a misleading empty directory. */
 export function parseWalkFeed(value: unknown, now = Date.now()): Walk[] {
@@ -34,7 +34,7 @@ export function parseWalkFeed(value: unknown, now = Date.now()): Walk[] {
       throw new Error('Invalid walk');
     }
     const url = new URL(walk.link);
-    if (url.origin !== ORIGIN || url.username || url.password || !/^\/[^/]+\/nevent1[a-z0-9]+$/.test(url.pathname)) {
+    if (url.origin !== BITCOINWALK_ORIGIN || url.username || url.password || !/^\/[^/]+\/nevent1[a-z0-9]+$/.test(url.pathname)) {
       throw new Error('Invalid walk link');
     }
     new Intl.DateTimeFormat('en', { timeZone: walk.timeZone });
@@ -44,7 +44,7 @@ export function parseWalkFeed(value: unknown, now = Date.now()): Walk[] {
 }
 
 export async function loadWalks(signal: AbortSignal): Promise<Walk[]> {
-  const response = await fetch(`${ORIGIN}/api/events`, { signal, headers: { Accept: 'application/json' } });
+  const response = await fetch(`${BITCOINWALK_ORIGIN}/api/events`, { signal, headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error('Walk feed unavailable');
   const body = await response.text();
   if (body.length > 4_000_000) throw new Error('Walk feed too large');

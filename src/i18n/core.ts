@@ -49,6 +49,19 @@ export const LANGUAGES = [
 ] as const;
 export type Language = (typeof LANGUAGES)[number];
 
+type Catalog = Record<string, unknown>;
+
+/** BitcoinWalk-specific screens are introduced in English first. Keep their
+ * complete, placeholder-safe fallback inside every shipped catalog until each
+ * locale receives reviewed copy, instead of rendering raw translation keys. */
+function withBitcoinWalkFallback(catalog: Catalog): Catalog {
+  return {
+    ...catalog,
+    city_select: { ...en.city_select, ...(catalog.city_select as object | undefined) },
+    walks: { ...en.walks, ...(catalog.walks as object | undefined) },
+  };
+}
+
 /** Native-script labels stay readable even before the current UI language changes. */
 export const LANGUAGE_NAMES: Record<Language, string> = {
   en: 'English',
@@ -74,24 +87,24 @@ export const LANGUAGE_NAMES: Record<Language, string> = {
 
 export const TRANSLATIONS: Record<Language, object> = {
   en,
-  zh,
-  'zh-Hant': zhHant,
-  ar,
-  de,
-  es,
-  fa,
-  fr,
-  hi,
-  hu,
-  it,
-  ja,
-  ko,
-  pl,
-  'pt-BR': ptBR,
-  'pt-PT': ptPT,
-  ru,
-  th,
-  tr,
+  zh: withBitcoinWalkFallback(zh),
+  'zh-Hant': withBitcoinWalkFallback(zhHant),
+  ar: withBitcoinWalkFallback(ar),
+  de: withBitcoinWalkFallback(de),
+  es: withBitcoinWalkFallback(es),
+  fa: withBitcoinWalkFallback(fa),
+  fr: withBitcoinWalkFallback(fr),
+  hi: withBitcoinWalkFallback(hi),
+  hu: withBitcoinWalkFallback(hu),
+  it: withBitcoinWalkFallback(it),
+  ja: withBitcoinWalkFallback(ja),
+  ko: withBitcoinWalkFallback(ko),
+  pl: withBitcoinWalkFallback(pl),
+  'pt-BR': withBitcoinWalkFallback(ptBR),
+  'pt-PT': withBitcoinWalkFallback(ptPT),
+  ru: withBitcoinWalkFallback(ru),
+  th: withBitcoinWalkFallback(th),
+  tr: withBitcoinWalkFallback(tr),
 };
 
 /** Resolve a BCP-47 OS locale to a shipped catalog. */

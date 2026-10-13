@@ -7,12 +7,15 @@ import { CustomEmojiSync } from '@/components/emoji/CustomEmojiSync';
 import { CustomEmojiDetailSheet } from '@/components/emoji/CustomEmojiDetailSheet';
 import { NearbyChatRequestSheet } from '@/components/proximity/nearby-chat-request-sheet';
 import { useActiveAccount } from '@/stores/active-account.store';
+import { useSelectedCity } from '@/stores/selected-city.store';
 import { useThemeColors } from '@/theme';
 
 export default function AppLayout() {
   const activePubkey = useActiveAccount((s) => s.activePubkey);
+  const selectedCity = useSelectedCity((s) => s.selectedCity);
   const c = useThemeColors();
 
+  if (!selectedCity) return <Redirect href="/city" />;
   if (!activePubkey) return <Redirect href="/welcome" />;
 
   return (

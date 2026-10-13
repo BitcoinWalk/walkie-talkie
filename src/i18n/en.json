@@ -1,8 +1,20 @@
 {
+  "city_select": {
+    "title": "Choose your city",
+    "heading": "Which BitcoinWalk are you interested in?",
+    "intro": "This city becomes your home in Walkie Talkie. You can change it later.",
+    "search": "Search cities",
+    "error": "We couldn’t load the verified city list.",
+    "empty": "No matching cities",
+    "choose": "Choose {{city}}"
+  },
   "walks": {
     "title": "Walks",
     "heading": "Find your next BitcoinWalk",
     "intro": "Upcoming community walks. Times are shown in the meeting place’s time zone.",
+    "city_intro": "Your selected city page and its upcoming walks.",
+    "city_page": "Open city page",
+    "change_city": "Change city",
     "error": "We couldn’t refresh the walks. Any walks below may be out of date.",
     "retry": "Try again",
     "link_error": "Couldn’t open the link. Please try again.",

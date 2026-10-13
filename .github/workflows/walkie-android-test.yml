@@ -19,6 +19,7 @@ jobs:
       CI: '1'
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_APP_ENV: development
+      EXPO_PUBLIC_BITCOINWALK_ORIGIN: https://app-staging.bitcoinwalk.org
       ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +40,7 @@ jobs:
         run: |
           node --test tests/bitcoinwalk/core.test.mjs
           npx jest src/services/bitcoinwalk/__tests__/walks.test.ts --runInBand
+          npx jest src/services/bitcoinwalk/__tests__/cities.test.ts src/services/bitcoinwalk/__tests__/config.test.ts --runInBand
           npx tsc --noEmit
       - name: Generate isolated development app
         run: |
