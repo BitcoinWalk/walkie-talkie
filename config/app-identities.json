@@ -1,14 +1,14 @@
 {
   "production": {
-    "name": "PsstPsst",
-    "id": "chat.psstpsst.app",
-    "scheme": "psstpsst",
-    "packageName": "psstpsst-desktop"
+    "name": "Walkie Talkie",
+    "id": "org.bitcoinwalk.walkietalkie",
+    "scheme": "walkietalkie",
+    "packageName": "walkietalkie-desktop"
   },
   "development": {
-    "name": "PsstPsst Dev",
-    "id": "chat.psstpsst.app.dev",
-    "scheme": "psstpsst-dev",
-    "packageName": "psstpsst-desktop-dev"
+    "name": "Walkie Talkie Dev",
+    "id": "org.bitcoinwalk.walkietalkie.dev",
+    "scheme": "walkietalkie-dev",
+    "packageName": "walkietalkie-desktop-dev"
   }
 }

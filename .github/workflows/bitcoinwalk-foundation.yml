@@ -14,3 +14,7 @@ jobs:
         with:
           node-version: '22'
       - run: node --test tests/bitcoinwalk/core.test.mjs
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx patch-package --error-on-fail
+      - run: npx jest src/services/bitcoinwalk/__tests__/walks.test.ts --runInBand
+      - run: npx tsc --noEmit

@@ -1,4 +1,5 @@
 import { router, Tabs } from 'expo-router';
+import MapPin from 'lucide-react-native/icons/map-pin';
 import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
 import { ChatRound as ChatRoundBold } from '@solar-icons/react-native/category/messages/Bold/ChatRound';
 import { ChatRound as ChatRoundLinear } from '@solar-icons/react-native/category/messages/Linear/ChatRound';
@@ -98,6 +99,9 @@ export default function TabsLayout() {
           },
         }}
       >
+        <Tabs.Screen name="walks" options={{ title: t('walks.title'),
+          tabBarIcon: ({ color, size }) => <MapPin color={color} size={size} />,
+        }} />
         <Tabs.Screen
           name="index"
           options={{

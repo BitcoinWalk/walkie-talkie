@@ -1,7 +1,19 @@
 {
+  "walks": {
+    "title": "Walks",
+    "heading": "Find your next BitcoinWalk",
+    "intro": "Upcoming community walks. Times are shown in the meeting place’s time zone.",
+    "error": "We couldn’t refresh the walks. Any walks below may be out of date.",
+    "retry": "Try again",
+    "link_error": "Couldn’t open the link. Please try again.",
+    "empty": "No upcoming walks",
+    "empty_hint": "Pull down to check again later.",
+    "details": "View walk details",
+    "directions": "Get directions"
+  },
   "welcome": {
-    "title": "PsstPsst",
-    "subtitle": "Decentralized, end-to-end encrypted messaging",
+    "title": "Walkie Talkie",
+    "subtitle": "Walk, connect and chat with BitcoinWalk",
     "choose_title": "Choose an account",
     "login_nsec": "Sign in with private key",
     "create_new": "Create new account",

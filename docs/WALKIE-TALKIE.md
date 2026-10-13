@@ -72,6 +72,24 @@ to the verified Walkie Talkie listing. Publishing credentials are not yet config
 
 ## Current implementation boundary
 
+The first mobile slice adds a Walks tab backed by the production public
+`https://bitcoinwalk.org/api/events` feed. It shows upcoming/in-progress walks,
+meeting-place time zones, addresses, descriptions, and external details/maps
+links. Loading, refresh failure and an empty directory are distinct. This is
+read-only: it does not import events into chat membership or authorize hosting.
+The feed does not expose city UUIDs, so invite-to-city resolution remains pending.
+
+Mobile app identities now use `org.bitcoinwalk.walkietalkie` (plus `.dev` for
+development) and the approved BitcoinWalk icon. The inherited Apple signing team
+has been removed. Existing remote-signer onboarding remains in place; device
+acceptance is still required. Upstream artwork, remaining translations, notification
+infrastructure and release metadata still need a full branding/configuration pass
+before distribution. No Zapstore or TestFlight release has been published.
+
+Run `npx jest src/services/bitcoinwalk/__tests__/walks.test.ts --runInBand`
+for feed validation and transport tests. Android JavaScript export is not an APK;
+a native SDK build and physical-device testing are separate gates.
+
 `src/lib/bitcoinwalk/invites.mjs` supplies validated invite formatting/parsing.
 `presence.mjs` is an in-memory counting reducer accepting already-verified direct
 BLE observations. It does not authenticate peers, read GPS, persist state, merge
