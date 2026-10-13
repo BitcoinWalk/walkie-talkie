@@ -38,7 +38,7 @@
     },
     "nostr_connect": {
       "title": "Nostr Connect",
-      "subtitle": "Scan this code with your signer, or tap it to open a signer on this device. PsstPsst will sign in once the signer approves.",
+      "subtitle": "Scan this code with your signer, or tap it to open a signer on this device. Walkie Talkie will sign in once the signer approves.",
       "copy": "Copy link",
       "copied": "Copied",
       "waiting": "Waiting for your signer…",
