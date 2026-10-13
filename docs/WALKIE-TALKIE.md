@@ -90,6 +90,28 @@ Run `npx jest src/services/bitcoinwalk/__tests__/walks.test.ts --runInBand`
 for feed validation and transport tests. Android JavaScript export is not an APK;
 a native SDK build and physical-device testing are separate gates.
 
+### Android test build
+
+Run the manual **Walkie Talkie Android test APK** GitHub Actions workflow.
+It produces an arm64 standalone APK under `org.bitcoinwalk.walkietalkie.dev`,
+with bundled JavaScript and a debug certificate. It does not publish a release,
+use production signing credentials, or need a running Metro server. Download
+the artifact with its SHA-256 checksum and source commit from the completed run.
+This is not the future Zapstore production certificate; test data may need to
+be removed when replacing this build. Use a disposable identity and no funded
+wallets until the inherited network services and security boundaries are reviewed.
+
+Physical-device acceptance:
+1. Install on an arm64 Android phone and confirm the development app name.
+2. Connect a disposable existing identity through a remote signer. Confirm
+   displayed public key, cancellation, and reconnect after closing the app.
+3. Open Walks; compare a meeting time, address and details link with the website.
+4. Test directions, pull-to-refresh, offline errors, and recovery after reconnect.
+5. Check light/dark mode and larger system text for clipping.
+
+Standard NIP-17 compatibility, NIP-29 groups, BitcoinWalk invites and walk-linked
+Bluetooth are not acceptance claims of this first APK.
+
 `src/lib/bitcoinwalk/invites.mjs` supplies validated invite formatting/parsing.
 `presence.mjs` is an in-memory counting reducer accepting already-verified direct
 BLE observations. It does not authenticate peers, read GPS, persist state, merge
