@@ -11,8 +11,9 @@ The app accepts communities only from BitcoinWalk's versioned `/api/cities`
 projection. The projection independently supplies the verified BitcoinWalk
 Global destination and the selected city's verified destination. Every city
 room uses the shared BitcoinWalk relay with its own canonical
-`bitcoinwalk-<city-slug>` group ID. A legacy dedicated destination may remain
-readable only during its verified migration. An incomplete city has no city destination; the
+`bitcoinwalk-<city-slug>` group ID. Dedicated paid-city relays remain separate
+Armada/Concord destinations; Walkie Talkie neither reads nor replaces them. An
+incomplete city has no city destination; the
 Global group remains a separate conversation and is never relabelled as that
 city's room.
 

@@ -122,9 +122,11 @@ public directory and walk pages may publish the resulting link only after that
 verification. Display names use `BitcoinWalk <City>`; a name alone is never
 treated as a group identifier or authority record. The target is one distinct
 group per approved city on `chat.bitcoinwalk.org`, with separate stable IDs,
-membership and history for Basic and Pro cities alike. Paid city event relays
-remain independent. The existing Global group stays as the movement-wide
-conversation and is shown after the selected city group.
+membership and history for Basic and Pro cities alike. Dedicated paid-city
+relays such as `london.bitcoinwalk.org` remain independent Armada/Concord
+destinations and are never used or replaced by Walkie Talkie. The existing
+Global group stays as the movement-wide conversation and is shown after the
+selected city group.
 
 Bluetooth mesh is also not implied by the upstream pairwise Nearby transport.
 The next radio gate is an authenticated, consented two-phone room for one signed

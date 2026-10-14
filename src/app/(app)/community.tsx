@@ -25,6 +25,7 @@ import {
   type BitcoinWalkCommunityMessage,
 } from '@/services/bitcoinwalk/community';
 import { useActiveAccount } from '@/stores/active-account.store';
+import { loadCities } from '@/services/bitcoinwalk/cities';
 import { useSelectedCity } from '@/stores/selected-city.store';
 import { spacing, uiDensity, useThemeColors } from '@/theme';
 
@@ -32,10 +33,14 @@ export default function CommunityScreen() {
   const { t, i18n } = useTranslation();
   const c = useThemeColors();
   const clearance = useScreenHeaderClearance();
-  const city = useSelectedCity((state) => state.selectedCity);
+  const selectedCity = useSelectedCity((state) => state.selectedCity);
+  const selectCity = useSelectedCity((state) => state.select);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
-  const params = useLocalSearchParams<{ scope?: string }>();
+  const params = useLocalSearchParams<{ scope?: string; city?: string | string[] }>();
   const scope = params.scope === 'global' ? 'global' : 'city';
+  const requestedCity = (Array.isArray(params.city) ? params.city[0] : params.city)?.toLowerCase();
+  const city = !requestedCity || selectedCity?.slug === requestedCity ? selectedCity : null;
+  const resolvingCity = !!requestedCity && !city;
   const destination = city?.chat.communities[scope] ?? null;
   const destinationKey = destination ? `${destination.relay}\n${destination.groupId}` : null;
   const [messages, setMessages] = useState<BitcoinWalkCommunityMessage[]>([]);
@@ -48,6 +53,22 @@ export default function CommunityScreen() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!requestedCity || selectedCity?.slug === requestedCity) return;
+    const controller = new AbortController();
+    void loadCities(controller.signal).then((cities) => {
+      const match = cities.find((candidate) => candidate.slug === requestedCity);
+      if (!match) throw new Error('Unknown BitcoinWalk city');
+      selectCity(match);
+      setError(null);
+    }).catch((cause: unknown) => {
+      if ((cause as { name?: string })?.name !== 'AbortError') setError(t('community.load_error'));
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+    return () => controller.abort();
+  }, [requestedCity, selectCity, selectedCity?.slug, t]);
 
   const refresh = useCallback(async (quiet = false) => {
     if (!destination) {
@@ -149,13 +170,13 @@ export default function CommunityScreen() {
   return (
     <AppScreen edges={['bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
-        {!destination ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center',
+        {resolvingCity || !!destination && (loading || !resolved) ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={c.accent} />
+        </View> : !destination ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center',
           gap: spacing.md, padding: spacing.xl }}>
           <MessagesSquare color={c.textMuted} size={uiDensity.contactAvatarSize} />
           <AppText variant="subtitle" align="center">{t('community.unavailable')}</AppText>
           <AppText tone="muted" align="center">{t('community.unavailable_hint')}</AppText>
-        </View> : loading || !resolved ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={c.accent} />
         </View> : <>
           <FlatList
             data={messages}
