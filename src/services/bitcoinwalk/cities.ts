@@ -26,8 +26,8 @@ export type BitcoinWalkCommunityChoice = {
 
 function validNip29Destination(
   value: BitcoinWalkCommunityDestination | null,
-  role: 'global' | 'city',
-  slug: string,
+  _role: 'global' | 'city',
+  _slug: string,
 ): boolean {
   if (value === null) return true;
   if (!value || typeof value.relay !== 'string' ||
@@ -36,17 +36,17 @@ function validNip29Destination(
     const relay = new URL(value.relay);
     if (relay.protocol !== 'wss:' || relay.username || relay.password || relay.port ||
         relay.pathname !== '/' || relay.search || relay.hash) return false;
-    if (role === 'global') {
-      return relay.hostname === 'chat.bitcoinwalk.org' ||
-        relay.hostname === 'chat-staging.bitcoinwalk.org';
-    }
     return relay.hostname === 'chat.bitcoinwalk.org' ||
-      relay.hostname === 'chat-staging.bitcoinwalk.org' ||
-      relay.hostname === `${slug}.bitcoinwalk.org` ||
-      (slug.endsWith('-staging') && relay.hostname === `chat-${slug}.bitcoinwalk.org`);
+      relay.hostname === 'chat-staging.bitcoinwalk.org';
   } catch {
     return false;
   }
+}
+
+export function isWalkieTalkieDestination(
+  value: BitcoinWalkCommunityDestination | null | undefined,
+): value is BitcoinWalkCommunityDestination {
+  return validNip29Destination(value ?? null, 'city', 'unused');
 }
 
 function validAvatarUrl(value: unknown): value is string {

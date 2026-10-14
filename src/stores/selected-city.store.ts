@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 
-import type { BitcoinWalkCity } from '@/services/bitcoinwalk/cities';
+import {
+  isWalkieTalkieDestination,
+  type BitcoinWalkCity,
+} from '@/services/bitcoinwalk/cities';
 import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 import {
   getDevicePreference,
@@ -18,13 +21,22 @@ function storedCity(value: string | null): BitcoinWalkCity | null {
       city.canonicalUrl === `${BITCOINWALK_ORIGIN}/${encodeURIComponent(city.slug)}` && city.chat)) {
       return null;
     }
-    const legacyDestination = city.chat.nip29 ?? null;
+    const legacyDestination = isWalkieTalkieDestination(city.chat.nip29)
+      ? city.chat.nip29
+      : null;
+    const savedCommunities = city.chat.communities;
     return {
       ...city,
       avatarUrl: city.avatarUrl ?? `${BITCOINWALK_ORIGIN}/brand/bitcoinwalk-share-fallback.jpg`,
       chat: {
         ...city.chat,
-        communities: city.chat.communities ?? {
+        nip29: legacyDestination,
+        communities: savedCommunities ? {
+          global: isWalkieTalkieDestination(savedCommunities.global)
+            ? savedCommunities.global : null,
+          city: isWalkieTalkieDestination(savedCommunities.city)
+            ? savedCommunities.city : null,
+        } : {
           global: city.chat.scope === 'global' ? legacyDestination : null,
           city: city.chat.scope === 'city' ? legacyDestination : null,
         },

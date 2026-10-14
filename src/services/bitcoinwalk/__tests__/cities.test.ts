@@ -49,6 +49,8 @@ describe('BitcoinWalk city directory', () => {
     { ...madeira, chat: { ...madeira.chat, nip29: { relay: 'wss://chat.bitcoinwalk.org', groupId: '../group' } } },
     { ...madeira, chat: { ...madeira.chat, scope: 'city', url: null,
       nip29: { relay: 'wss://london.bitcoinwalk.org', groupId: 'group' } } },
+    { ...madeira, slug: 'madeira', chat: { ...madeira.chat, scope: 'city', url: null,
+      nip29: { relay: 'wss://madeira.bitcoinwalk.org', groupId: 'group' } } },
     { ...madeira, chat: { ...madeira.chat, communities: {
       global: { relay: 'wss://chat.bitcoinwalk.org', groupId: 'same' },
       city: { relay: 'wss://chat.bitcoinwalk.org', groupId: 'same' },

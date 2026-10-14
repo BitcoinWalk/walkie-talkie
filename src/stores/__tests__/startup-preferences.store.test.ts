@@ -62,4 +62,22 @@ describe('startup preference recovery', () => {
     await expect(useSelectedCity.getState().load()).resolves.toBeUndefined();
     expect(useSelectedCity.getState()).toMatchObject({ selectedCity: city, loaded: true });
   });
+
+  it('removes a legacy dedicated Armada relay from cached Walkie Talkie data', async () => {
+    const city = {
+      id: 'london', name: 'London', slug: 'london', aliases: [],
+      canonicalUrl: `${BITCOINWALK_ORIGIN}/london`,
+      chat: {
+        scope: 'city', url: null,
+        nip29: { relay: 'wss://london.bitcoinwalk.org/', groupId: 'bitcoinwalk-london' },
+      },
+    };
+    jest.mocked(getDevicePreference).mockResolvedValue(JSON.stringify(city));
+
+    await expect(useSelectedCity.getState().load()).resolves.toBeUndefined();
+    expect(useSelectedCity.getState().selectedCity?.chat).toMatchObject({
+      nip29: null,
+      communities: { global: null, city: null },
+    });
+  });
 });
