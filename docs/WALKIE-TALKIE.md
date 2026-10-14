@@ -82,9 +82,10 @@ The city-first slice uses one persisted approved city as the app context.
 A new installation chooses its city before Nostr sign-in. The Walks tab is then
 scoped to that city and leads with the canonical `bitcoinwalk.org/<city>` page.
 The website exposes the versioned, fail-closed `/api/cities` projection so the
-mobile app never invents cities or chat destinations. Free cities may point at
-the verified global NIP-29 community. A paid city with incomplete dedicated chat
-provisioning exposes no group link rather than falling back to global chat.
+mobile app never invents cities or chat destinations. Each approved city may
+point at its own verified NIP-29 group on the shared BitcoinWalk community
+relay. An incomplete city exposes no city group link; BitcoinWalk Global stays
+available as a separate second conversation.
 The projection carries the verified public NIP-29 relay and group identifier
 separately from the optional external-client link. Walkie Talkie validates both
 against the selected city and shows the community entry only when that evidence
@@ -118,12 +119,12 @@ NIP-29 rollout is deliberately split from the city selector. Automatic group
 creation must be an idempotent server-side operation against the authoritative
 relay, followed by exact relay read-back and durable city-to-group mapping. The
 public directory and walk pages may publish the resulting link only after that
-verification. Display names use `BitcoinWalk in <City>`; a name alone is never
+verification. Display names use `BitcoinWalk <City>`; a name alone is never
 treated as a group identifier or authority record. The target is one distinct
-group per approved city: free-city groups share `chat.bitcoinwalk.org` but keep
-separate stable group IDs, while a provisioned paid city uses its dedicated city
-relay. The existing global free-city group remains a compatibility destination
-during migration, not the final per-city grouping model.
+group per approved city on `chat.bitcoinwalk.org`, with separate stable IDs,
+membership and history for Basic and Pro cities alike. Paid city event relays
+remain independent. The existing Global group stays as the movement-wide
+conversation and is shown after the selected city group.
 
 Bluetooth mesh is also not implied by the upstream pairwise Nearby transport.
 The next radio gate is an authenticated, consented two-phone room for one signed

@@ -9,9 +9,10 @@ as end-to-end encrypted.
 
 The app accepts communities only from BitcoinWalk's versioned `/api/cities`
 projection. The projection independently supplies the verified BitcoinWalk
-Global destination and the selected city's verified destination. A city room
-may use the shared BitcoinWalk relay with its own group ID or the city's
-canonical BitcoinWalk relay. An incomplete city has no city destination; the
+Global destination and the selected city's verified destination. Every city
+room uses the shared BitcoinWalk relay with its own canonical
+`bitcoinwalk-<city-slug>` group ID. A legacy dedicated destination may remain
+readable only during its verified migration. An incomplete city has no city destination; the
 Global group remains a separate conversation and is never relabelled as that
 city's room.
 
