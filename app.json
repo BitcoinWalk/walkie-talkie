@@ -10,11 +10,11 @@
     "ios": {
       "icon": "./assets/images/bitcoinwalk-icon.png",
       "bundleIdentifier": "org.bitcoinwalk.walkietalkie",
-      "buildNumber": "12",
+      "buildNumber": "13",
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 12,
+      "versionCode": 13,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/bitcoinwalk-icon.png"

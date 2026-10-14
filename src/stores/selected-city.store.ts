@@ -13,10 +13,23 @@ function storedCity(value: string | null): BitcoinWalkCity | null {
   if (!value) return null;
   try {
     const city = JSON.parse(value) as BitcoinWalkCity;
-    return typeof city.id === 'string' && typeof city.name === 'string' &&
+    if (!(typeof city.id === 'string' && typeof city.name === 'string' &&
       /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(city.slug) &&
-      city.canonicalUrl === `${BITCOINWALK_ORIGIN}/${encodeURIComponent(city.slug)}`
-      ? city : null;
+      city.canonicalUrl === `${BITCOINWALK_ORIGIN}/${encodeURIComponent(city.slug)}` && city.chat)) {
+      return null;
+    }
+    const legacyDestination = city.chat.nip29 ?? null;
+    return {
+      ...city,
+      avatarUrl: city.avatarUrl ?? `${BITCOINWALK_ORIGIN}/brand/bitcoinwalk-share-fallback.jpg`,
+      chat: {
+        ...city.chat,
+        communities: city.chat.communities ?? {
+          global: city.chat.scope === 'global' ? legacyDestination : null,
+          city: city.chat.scope === 'city' ? legacyDestination : null,
+        },
+      },
+    };
   } catch {
     return null;
   }

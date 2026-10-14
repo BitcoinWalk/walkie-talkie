@@ -1,4 +1,5 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, StyleSheet, View } from 'react-native';
@@ -12,7 +13,10 @@ import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/Scre
 import { KEYBOARD_AVOIDING_BEHAVIOR } from '@/lib/platform';
 import { buildSigner } from '@/services/account/account.service';
 import {
-  joinCommunity,
+  ensureCommunityMemberships,
+  hasCommunityMembership,
+} from '@/services/bitcoinwalk/community-membership';
+import {
   loadCommunity,
   mergeCommunityMessageModels,
   mergeCommunityMessages,
@@ -30,7 +34,9 @@ export default function CommunityScreen() {
   const clearance = useScreenHeaderClearance();
   const city = useSelectedCity((state) => state.selectedCity);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
-  const destination = city?.chat.nip29 ?? null;
+  const params = useLocalSearchParams<{ scope?: string }>();
+  const scope = params.scope === 'global' ? 'global' : 'city';
+  const destination = city?.chat.communities[scope] ?? null;
   const destinationKey = destination ? `${destination.relay}\n${destination.groupId}` : null;
   const [messages, setMessages] = useState<BitcoinWalkCommunityMessage[]>([]);
   const [name, setName] = useState<string | null>(null);
@@ -76,6 +82,11 @@ export default function CommunityScreen() {
     }).catch((cause: unknown) => {
       if ((cause as { name?: string })?.name !== 'AbortError') setError(t('community.load_error'));
     }).finally(() => setLoading(false));
+    if (accountPubkey) {
+      void hasCommunityMembership(accountPubkey, destination).then((joined) => {
+        if (joined && !controller.signal.aborted) setJoinedDestinationKey(destinationKey);
+      });
+    }
     const unsubscribe = subscribeCommunity(destination, (event) => {
       setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
     });
@@ -83,18 +94,14 @@ export default function CommunityScreen() {
       controller.abort();
       unsubscribe();
     };
-  }, [destination, t]);
+  }, [accountPubkey, destination, destinationKey, t]);
 
   async function join() {
     if (!destination || !accountPubkey || busy) return;
     setBusy(true);
     try {
-      const signer = await buildSigner(accountPubkey);
-      try {
-        await joinCommunity(destination, signer);
-      } finally {
-        await signer.destroy?.();
-      }
+      const result = await ensureCommunityMemberships(accountPubkey, [destination]);
+      if (result.failed.length > 0) throw new Error('Community join failed');
       setJoinedDestinationKey(destinationKey);
       setError(null);
     } catch {
@@ -130,7 +137,9 @@ export default function CommunityScreen() {
     }
   }
 
-  const title = name ?? (city ? t('community.city_title', { city: city.name }) : t('community.title'));
+  const title = name ?? (scope === 'global'
+    ? t('community.global_title')
+    : city ? t('community.city_title', { city: city.name }) : t('community.title'));
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
   const resolved = destinationKey !== null && loadedDestinationKey === destinationKey;
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage, {
@@ -190,7 +199,7 @@ export default function CommunityScreen() {
           </View>
         </>}
       </KeyboardAvoidingView>
-      <ScreenHeader title={t('community.title')} />
+      <ScreenHeader title={title} />
     </AppScreen>
   );
 }

@@ -1,4 +1,5 @@
 import { BITCOINWALK_ORIGIN } from './config';
+import type { BitcoinWalkCommunityDestination } from './community';
 
 export type BitcoinWalkCity = {
   id: string;
@@ -6,16 +7,26 @@ export type BitcoinWalkCity = {
   slug: string;
   aliases: string[];
   canonicalUrl: string;
+  avatarUrl: string;
   chat: {
     scope: 'global' | 'city';
     url: string | null;
-    nip29: { relay: string; groupId: string } | null;
+    nip29: BitcoinWalkCommunityDestination | null;
+    communities: {
+      global: BitcoinWalkCommunityDestination | null;
+      city: BitcoinWalkCommunityDestination | null;
+    };
   };
 };
 
+export type BitcoinWalkCommunityChoice = {
+  scope: 'city' | 'global';
+  destination: BitcoinWalkCommunityDestination;
+};
+
 function validNip29Destination(
-  value: BitcoinWalkCity['chat']['nip29'],
-  scope: BitcoinWalkCity['chat']['scope'],
+  value: BitcoinWalkCommunityDestination | null,
+  role: 'global' | 'city',
   slug: string,
 ): boolean {
   if (value === null) return true;
@@ -25,15 +36,48 @@ function validNip29Destination(
     const relay = new URL(value.relay);
     if (relay.protocol !== 'wss:' || relay.username || relay.password || relay.port ||
         relay.pathname !== '/' || relay.search || relay.hash) return false;
-    if (scope === 'global') {
+    if (role === 'global') {
       return relay.hostname === 'chat.bitcoinwalk.org' ||
         relay.hostname === 'chat-staging.bitcoinwalk.org';
     }
-    return relay.hostname === `${slug}.bitcoinwalk.org` ||
+    return relay.hostname === 'chat.bitcoinwalk.org' ||
+      relay.hostname === 'chat-staging.bitcoinwalk.org' ||
+      relay.hostname === `${slug}.bitcoinwalk.org` ||
       (slug.endsWith('-staging') && relay.hostname === `chat-${slug}.bitcoinwalk.org`);
   } catch {
     return false;
   }
+}
+
+function validAvatarUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return url.origin === BITCOINWALK_ORIGIN && !url.username && !url.password && !url.search &&
+      !url.hash && (/^\/api\/og\/files\/[0-9a-f]{64}\.jpg$/.test(url.pathname) ||
+        url.pathname === '/brand/bitcoinwalk-share-fallback.jpg');
+  } catch {
+    return false;
+  }
+}
+
+function sameDestination(
+  left: BitcoinWalkCommunityDestination | null,
+  right: BitcoinWalkCommunityDestination | null,
+): boolean {
+  return !!left && !!right && left.relay === right.relay && left.groupId === right.groupId;
+}
+
+export function communityChoicesForCity(city: BitcoinWalkCity): BitcoinWalkCommunityChoice[] {
+  const choices: BitcoinWalkCommunityChoice[] = [];
+  if (city.chat.communities.city) {
+    choices.push({ scope: 'city', destination: city.chat.communities.city });
+  }
+  if (city.chat.communities.global &&
+      !sameDestination(city.chat.communities.city, city.chat.communities.global)) {
+    choices.push({ scope: 'global', destination: city.chat.communities.global });
+  }
+  return choices;
 }
 
 export function parseCityDirectory(value: unknown): BitcoinWalkCity[] {
@@ -49,9 +93,14 @@ export function parseCityDirectory(value: unknown): BitcoinWalkCity[] {
         typeof city.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(city.slug) ||
         !Array.isArray(city.aliases) || city.aliases.length > 30 ||
         !city.aliases.every((alias) => typeof alias === 'string' && alias.length <= 120) ||
+        !validAvatarUrl(city.avatarUrl) ||
         !city.chat || !['global', 'city'].includes(city.chat.scope) ||
+        !city.chat.communities ||
         !(city.chat.url === null || typeof city.chat.url === 'string') ||
-        !validNip29Destination(city.chat.nip29, city.chat.scope, city.slug)) {
+        !validNip29Destination(city.chat.nip29, city.chat.scope, city.slug) ||
+        !validNip29Destination(city.chat.communities.global, 'global', city.slug) ||
+        !validNip29Destination(city.chat.communities.city, 'city', city.slug) ||
+        sameDestination(city.chat.communities.city, city.chat.communities.global)) {
       throw new Error('Invalid city');
     }
     const canonical = new URL(city.canonicalUrl);

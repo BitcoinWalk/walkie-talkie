@@ -17,6 +17,7 @@
     "change_city": "Change city",
     "community_city_title": "BitcoinWalk in {{city}} community",
     "community_global_title": "BitcoinWalk community",
+    "community_heading": "Your BitcoinWalk groups",
     "community_ready": "Meet local walkers, share updates and keep the conversation going.",
     "community_unavailable": "This city’s community is not available yet.",
     "community_open": "Open community",
@@ -1077,6 +1078,8 @@
   "community": {
     "title": "Community",
     "city_title": "BitcoinWalk in {{city}}",
+    "global_title": "BitcoinWalk Global",
+    "list_preview": "Public BitcoinWalk group chat",
     "about": "The public city conversation for local walkers.",
     "unavailable": "Community not available",
     "unavailable_hint": "This city’s verified community has not been activated yet.",

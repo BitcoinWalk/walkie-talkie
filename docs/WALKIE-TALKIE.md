@@ -78,7 +78,7 @@ and the user confirmed the current build works as expected. This proves the app
 shell and remote-signer path on that device; it does not yet prove city groups,
 background notifications or Bluetooth mesh.
 
-The next city-first slice uses one persisted approved city as the app context.
+The city-first slice uses one persisted approved city as the app context.
 A new installation chooses its city before Nostr sign-in. The Walks tab is then
 scoped to that city and leads with the canonical `bitcoinwalk.org/<city>` page.
 The website exposes the versioned, fail-closed `/api/cities` projection so the
@@ -89,8 +89,11 @@ The projection carries the verified public NIP-29 relay and group identifier
 separately from the optional external-client link. Walkie Talkie validates both
 against the selected city and shows the community entry only when that evidence
 is present. This bridge does not yet make the inherited private-group transport
-NIP-29-compatible; native join, history and publish remain the next protocol
-slice.
+NIP-29-compatible. Chats now pins the verified city group and BitcoinWalk
+Global above private conversations. After sign-in the app submits each missing
+membership request once through the connected signer and remembers successful
+joins on that device. The city group avatar uses a centred circular crop of the
+approved city OG artwork.
 
 Branding now defaults to black/white with exact BitcoinWalk orange `#F7931A` and
 uses the approved BitcoinWalk mark on a black native loading screen. Red, green

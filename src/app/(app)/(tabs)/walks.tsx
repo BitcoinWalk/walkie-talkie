@@ -13,6 +13,7 @@ import { AppText } from '@/components/common/AppText';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
 import { useBitcoinWalks } from '@/hooks/use-bitcoinwalk-walks';
 import { platform } from '@/platform';
+import { communityChoicesForCity } from '@/services/bitcoinwalk/cities';
 import { useSelectedCity } from '@/stores/selected-city.store';
 import { bottomBarHeight, spacing, uiDensity, useThemeColors } from '@/theme';
 
@@ -31,6 +32,10 @@ export default function WalksTab() {
       return false;
     }
   }), [selectedCity, walks]);
+  const communityChoices = useMemo(
+    () => selectedCity ? communityChoicesForCity(selectedCity) : [],
+    [selectedCity],
+  );
   const [linkFailed, setLinkFailed] = useState(false);
   async function open(url: string) {
     setLinkFailed(false);
@@ -57,16 +62,17 @@ export default function WalksTab() {
           {selectedCity ? <AppCard style={{ gap: spacing.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <MessagesSquare color={c.accent} size={uiDensity.tabIconSize} />
-              <AppText variant="subtitle">{selectedCity.chat.scope === 'city'
-                ? t('walks.community_city_title', { city: selectedCity.name })
-                : t('walks.community_global_title')}</AppText>
+              <AppText variant="subtitle">{t('walks.community_heading')}</AppText>
             </View>
-            <AppText tone="muted">{selectedCity.chat.nip29
+            <AppText tone="muted">{communityChoices.length > 0
               ? t('walks.community_ready')
               : t('walks.community_unavailable')}</AppText>
-            {selectedCity.chat.nip29 ?
-              <AppButton variant="secondary" label={t('walks.community_open')}
-                onPress={() => router.push('/community')} /> : null}
+            {communityChoices.map((choice) =>
+              <AppButton key={choice.scope} variant="secondary"
+                label={choice.scope === 'city'
+                  ? t('community.city_title', { city: selectedCity.name })
+                  : t('community.global_title')}
+                onPress={() => router.push(`/community?scope=${choice.scope}`)} />)}
           </AppCard> : null}
           {failed && <><AppText tone="danger">{t('walks.error')}</AppText>
             <AppButton variant="secondary" label={t('walks.retry')} onPress={refresh} /></>}

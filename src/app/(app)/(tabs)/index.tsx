@@ -22,6 +22,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { QrScanButton, type QrScanButtonHandle } from '@/components/common/QrScanButton';
 import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { ConversationListItem } from '@/components/conversation/ConversationListItem';
+import { BitcoinWalkCommunityRow } from '@/components/bitcoinwalk/BitcoinWalkCommunityRow';
 import { ScreenshotConversations } from '@/components/marketing/ScreenshotConversations';
 import { usePrimaryPaneNavigation } from '@/components/navigation/primary-pane-navigation';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -45,8 +46,10 @@ import {
 } from '@/services/conversation/conversation-prefs.service';
 import { dmService } from '@/services/dm/dm.service';
 import { getProximityEnabled } from '@/services/proximity/proximity-preferences';
+import { communityChoicesForCity } from '@/services/bitcoinwalk/cities';
 import { syncPersonalConfigs } from '@/services/relay/personal-configs.service';
 import { useActiveAccount } from '@/stores/active-account.store';
+import { useSelectedCity } from '@/stores/selected-city.store';
 import { useComposerFileHandoffStore } from '@/stores/composer-file-handoff.store';
 import { useProximityStore } from '@/stores/proximity.store';
 import { useSyncPhase } from '@/stores/sync-status.store';
@@ -61,6 +64,7 @@ const SEARCH_HEADER_BODY_HEIGHT = uiDensity.searchBarHeight + spacing.sm;
 // ConversationListItem uses a fixed runtime row height — used with the measured viewport to
 // size the tap-to-dismiss footer below the rows.
 const CONV_ROW_HEIGHT = uiDensity.conversationRowHeight;
+const GLOBAL_COMMUNITY_AVATAR = require('../../../../assets/images/bitcoinwalk-icon.png') as number;
 const CONVERSATION_VIEWABILITY_CONFIG = {
   itemVisiblePercentThreshold: 1,
 } as const;
@@ -78,6 +82,13 @@ function RealConversations() {
   const topClearance = headerHeight + insets.top;
   const searchHeaderHeight = topClearance + SEARCH_HEADER_BODY_HEIGHT;
   const accountPubkey = useActiveAccount((s) => s.activePubkey);
+  const selectedCity = useSelectedCity((state) => state.selectedCity);
+  const communityChoices = useMemo(
+    () => selectedCity ? communityChoicesForCity(selectedCity) : [],
+    [selectedCity],
+  );
+  const communityRowsHeight = communityChoices.length * CONV_ROW_HEIGHT;
+  const listHeaderHeight = searchHeaderHeight + communityRowsHeight;
   // Conversation rows already warm each visible peer. Keep our own profile in
   // the same session cache so transition reply previews authored by us also
   // have their final name without doing navigation-time SQLite work.
@@ -188,6 +199,10 @@ function RealConversations() {
     },
     [openInDetailPane],
   );
+
+  const openCommunity = useCallback((scope: 'city' | 'global') => {
+    openInDetailPane(`/community?scope=${scope}`);
+  }, [openInDetailPane]);
 
   const dropFilesIntoConversation = useCallback(
     (
@@ -392,7 +407,7 @@ function RealConversations() {
           before the empty state is trustworthy. */}
         {!loaded && items.length === 0 ? (
           <View style={{ flex: 1 }} />
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && communityChoices.length === 0 ? (
           <View
             style={{
               flex: 1,
@@ -429,14 +444,14 @@ function RealConversations() {
               getItemLayout={(_, index) => ({
                 length: CONV_ROW_HEIGHT,
                 offset:
-                  searchHeaderHeight +
+                  listHeaderHeight +
                   (CONV_ROW_HEIGHT + StyleSheet.hairlineWidth) * index,
                 index,
               })}
               onScrollToIndexFailed={({ index }) =>
                 listRef.current?.scrollToOffset({
                   offset:
-                    searchHeaderHeight +
+                    listHeaderHeight +
                     (CONV_ROW_HEIGHT + StyleSheet.hairlineWidth) * index -
                     topClearance,
                   animated: true,
@@ -462,19 +477,32 @@ function RealConversations() {
               // Inactive search affordance at the top of the list (visible at rest);
               // it's a button — tapping opens the real (autofocused) search.
               ListHeaderComponent={
-                <View
-                  style={{
+                <View>
+                  <View style={{
                     paddingHorizontal: SEARCH_BAR_SCREEN_GUTTER,
                     paddingTop: topClearance,
                     paddingBottom: spacing.sm,
-                  }}
-                >
-                  <SearchBar
-                    value=""
-                    onChangeText={() => {}}
-                    shortcutHint={SEARCH_ACTIVATION_SHORTCUT_LABEL}
-                    onPress={openSearch}
-                  />
+                  }}>
+                    <SearchBar
+                      value=""
+                      onChangeText={() => {}}
+                      shortcutHint={SEARCH_ACTIVATION_SHORTCUT_LABEL}
+                      onPress={openSearch}
+                    />
+                  </View>
+                  {communityChoices.map((choice) => (
+                    <BitcoinWalkCommunityRow
+                      key={choice.scope}
+                      title={choice.scope === 'city'
+                        ? t('community.city_title', { city: selectedCity?.name })
+                        : t('community.global_title')}
+                      subtitle={t('community.list_preview')}
+                      picture={choice.scope === 'city'
+                        ? selectedCity?.avatarUrl ?? GLOBAL_COMMUNITY_AVATAR
+                        : GLOBAL_COMMUNITY_AVATAR}
+                      onPress={() => openCommunity(choice.scope)}
+                    />
+                  ))}
                 </View>
               }
               // Footer fills the blank below the rows (viewport − search header −
@@ -488,7 +516,7 @@ function RealConversations() {
                     height: Math.max(
                       0,
                       listH -
-                        searchHeaderHeight -
+                        listHeaderHeight -
                         bottomClearance -
                         items.length * CONV_ROW_HEIGHT,
                     ),
