@@ -11,6 +11,8 @@ export type DmSupport = {
   missingEncryptionKey: boolean;
   /** Once checked: the peer published no DM inbox relay (kind 10050). */
   missingRelays: boolean;
+  /** Standard identity-key text only; extension media/group features stay off. */
+  standardTextOnly: boolean;
   /** Re-run the check, bypassing caches (re-queries relays). */
   recheck: () => void;
 };
@@ -21,6 +23,7 @@ const LOCAL: DmSupportState = {
   status: 'local',
   missingEncryptionKey: false,
   missingRelays: false,
+  standardTextOnly: false,
 };
 
 const CHECKING: DmSupportState = { ...LOCAL, status: 'checking' };
@@ -40,6 +43,7 @@ const DM_SUPPORT_TTL_MS = 60 * 60 * 1000;
 async function readCache(
   accountPubkey: string,
   counterparties: string[],
+  allowStandardText: boolean,
 ): Promise<{ state: DmSupportState; fresh: boolean } | null> {
   if (counterparties.length === 0) return null;
   const verdicts = await Promise.all(
@@ -49,12 +53,14 @@ async function readCache(
   const known = verdicts as { encryptionKey: boolean; relays: boolean; at: number }[];
   const missingEncryptionKey = known.some((v) => !v.encryptionKey);
   const missingRelays = known.some((v) => !v.relays);
+  const standardTextOnly = allowStandardText && counterparties.length === 1 && missingEncryptionKey && !missingRelays;
   const oldest = Math.min(...known.map((v) => v.at));
   return {
     state: {
-      status: missingEncryptionKey || missingRelays ? 'unsupported' : 'ready',
+      status: (missingEncryptionKey && !standardTextOnly) || missingRelays ? 'unsupported' : 'ready',
       missingEncryptionKey,
       missingRelays,
+      standardTextOnly,
     },
     fresh: Date.now() - oldest < DM_SUPPORT_TTL_MS,
   };
@@ -77,9 +83,10 @@ export function useDmSupport(
   accountPubkey: string,
   counterparties: string[],
   enabled = true,
+  allowStandardText = false,
 ): DmSupport {
   const peerKey = counterparties.join(',');
-  const key = `${accountPubkey}\u0000${peerKey}`;
+  const key = `${accountPubkey}\u0000${peerKey}\u0000${allowStandardText}`;
   const [result, setResult] = useState<{ key: string; state: DmSupportState }>(() => ({
     key,
     state: { ...LOCAL },
@@ -94,7 +101,7 @@ export function useDmSupport(
       const id = ++reqId.current;
       void (async () => {
         if (!accountPubkey || counterparties.length === 0) return;
-        const cached = force ? null : await readCache(accountPubkey, counterparties);
+        const cached = force ? null : await readCache(accountPubkey, counterparties, allowStandardText);
         if (id !== reqId.current) return;
         if (cached) {
           setResult({ key, state: cached.state });
@@ -123,12 +130,14 @@ export function useDmSupport(
         if (id !== reqId.current) return;
         const missingEncryptionKey = results.some((r) => !r.encryptionKey);
         const missingRelays = results.some((r) => !r.relays);
+        const standardTextOnly = allowStandardText && counterparties.length === 1 && missingEncryptionKey && !missingRelays;
         setResult({
           key,
           state: {
-            status: missingEncryptionKey || missingRelays ? 'unsupported' : 'ready',
+            status: (missingEncryptionKey && !standardTextOnly) || missingRelays ? 'unsupported' : 'ready',
             missingEncryptionKey,
             missingRelays,
+            standardTextOnly,
           },
         });
       })();

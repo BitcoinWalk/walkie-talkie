@@ -153,12 +153,24 @@ author and audience, independently of its first message.
 Membership changes replay in shared message order, while ordinary messages
 authorize incrementally against the materialized roster. Once full account
 history is covered, its persisted forward cursor rejects newly discovered
-backdated actions in the finalized range. Relay intake requires the sender's
-encryption-key `n` tag
-inside the authenticated seal. A verified seal without it is unsupported and
-marked processed without decrypting its content. Envelopes that fail decryption
-with all available messaging keys are also marked processed; later key changes
-do not retry them. Results from an invalidated receive session are discarded.
+backdated actions in the finalized range. Split-key relay intake requires the
+sender's encryption-key `n` tag inside the authenticated seal. Foreground intake
+also attempts standard identity-key NIP-17 text through the account signer;
+standard envelopes never update the split-key peer-key cache. Background work
+does not launch interactive signers. Failed or deferred envelopes are not marked
+processed; session-local retry suppression is bounded and reset on foreground
+entry or key reload. A small encrypted retry window is retained for foreground
+entry. Results from an invalidated receive session are discarded. An explicit
+foreground repair checks at most 32 recent encrypted wrappers without deleting
+processed IDs or advancing history cursors. It re-decodes only standard text,
+stores by canonical rumor ID and does not generate historical arrival alerts.
+
+Direct kind-14 text to a peer with a verified inbox and no extension key uses
+identity-signer NIP-44 encryption and ordinary empty-tag NIP-59 seals. Known
+split-key peers retain their existing encryption and own-device copies. Private
+groups, group controls, files and reactions never fall back to this text path;
+standard-only conversations hide extension media/voice controls. The durable
+outbox persists each exact wrapper before publication and reuses it on retry.
 Encryption-key announcement and synchronization are specified in the
 [PsstPsst NIP-4E Profile](protocols/nip4e.md). Split-key envelopes, message
 timestamps, and stable-group events are specified in

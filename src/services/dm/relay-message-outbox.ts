@@ -18,6 +18,8 @@ import { platform } from '@/platform';
 import { buildSigner } from '../account/account.service';
 import {
   createGiftWrappedMessage,
+  createStandardGiftWrappedMessage,
+  canSendStandardNip17,
   KIND_CHAT,
   KIND_FILE,
   type SignSeal,
@@ -516,7 +518,7 @@ class RelayMessageOutbox {
             searchRelays: session.dmRelays,
           });
           const encryptionKey = metadata.encryptionPubkey;
-          if (!encryptionKey) {
+          if (!encryptionKey && !canSendStandardNip17(rumor, job.accountPubkey, participant)) {
             throw new Error(
               `Recipient ${participant.slice(0, 8)}… has no known encryption key`,
             );
@@ -706,7 +708,8 @@ class RelayMessageOutbox {
               peerPubkey: recipientPubkey,
               searchRelays: session.dmRelays,
             })).encryptionPubkey;
-        if (!recipientEncPubkey) {
+        const standard = !recipientEncPubkey && canSendStandardNip17(rumor, job.accountPubkey, recipientPubkey);
+        if (!recipientEncPubkey && !standard) {
           throw new Error(
             `Recipient ${recipientPubkey.slice(0, 8)}… has no known encryption key`,
           );
@@ -717,15 +720,37 @@ class RelayMessageOutbox {
         if (!this.isCurrent(session, generation) || !this.online) {
           throw new Error('Relay outbox session changed');
         }
-        const { giftWrap } = await createGiftWrappedMessage({
-          rumorTemplate,
-          senderIdentityPubkey: job.accountPubkey,
-          senderEncPrivkey: session.encryptionKeypair.privkey,
-          senderEncPubkey: session.encryptionKeypair.pubkey,
-          recipientIdentityPubkey: recipientPubkey,
-          recipientEncPubkey,
-          signSeal: session.signSeal,
-        });
+        let giftWrap: Event;
+        if (standard) {
+          if (platform.notifications.shouldNotifyNow()) {
+            throw new Error(
+              'Open the app and retry to approve standard NIP-17 delivery in your signer.',
+            );
+          }
+          const signer = await buildSigner(job.accountPubkey);
+          try {
+            ({ giftWrap } = await createStandardGiftWrappedMessage({
+              rumor,
+              recipientIdentityPubkey: recipientPubkey,
+              signer,
+              isCurrent: () => this.isCurrent(session, generation) && this.online,
+            }));
+          } finally {
+            await signer.destroy?.();
+          }
+        } else {
+          ({ giftWrap } = await createGiftWrappedMessage({
+            rumorTemplate,
+            senderIdentityPubkey: job.accountPubkey,
+            senderEncPrivkey: session.encryptionKeypair.privkey,
+            senderEncPubkey: session.encryptionKeypair.pubkey,
+            recipientIdentityPubkey: recipientPubkey,
+            recipientEncPubkey: recipientEncPubkey!,
+            signSeal: session.signSeal,
+          }));
+        }
+        if (!this.isCurrent(session, generation) || !this.online)
+          throw new Error('Relay outbox session changed');
         await db
           .insert(relayOutboxPayloads)
           .values({ jobId: job.id, recipientPubkey, giftWrap })
