@@ -10,13 +10,10 @@ import {
 } from 'nostr-tools';
 
 import type { Rumor } from '@/db/schema/types';
-import {
-  profileAsync,
-  profileSync,
-  type PerfSpan,
-} from '@/lib/perf/profiler';
+import { profileAsync, profileSync, type PerfSpan } from '@/lib/perf/profiler';
 
 import { getConversationKeyAsync } from './conversation-key-cache';
+import type { Signer } from '../signer/signer.interface';
 
 /**
  * Sign a seal (kind 13) with the account's **identity** key. The seal is signed
@@ -159,7 +156,76 @@ export async function createGiftWrappedMessage(opts: {
     opts.signSeal,
     opts.senderIdentityPubkey === opts.senderEncPubkey,
   );
-  const giftWrap = await createGiftWrap(seal, opts.recipientIdentityPubkey, opts.recipientEncPubkey);
+  const giftWrap = await createGiftWrap(
+    seal,
+    opts.recipientIdentityPubkey,
+    opts.recipientEncPubkey,
+  );
+  return { rumor, seal, giftWrap };
+}
+
+/** Standard one-to-one text path. Identity encryption stays behind the signer;
+ * absence of an extension key never permits extension groups/files to downgrade. */
+export function canSendStandardNip17(rumor: Rumor, account: string, recipient: string): boolean {
+  const peers = new Set(rumor.tags.filter((tag) => tag[0] === 'p').map((tag) => tag[1]));
+  return (
+    rumor.kind === KIND_CHAT &&
+    rumor.pubkey === account &&
+    /^[0-9a-f]{64}$/.test(recipient) &&
+    recipient !== account &&
+    peers.size === 1 &&
+    peers.has(recipient) &&
+    !rumor.tags.some((tag) => tag[0] === 'h' || tag[0] === 'action')
+  );
+}
+
+export async function createStandardGiftWrappedMessage(opts: {
+  rumor: Rumor;
+  recipientIdentityPubkey: string;
+  signer: Signer;
+  isCurrent: () => boolean;
+}): Promise<GiftWrappedMessage> {
+  const { rumor, signer, recipientIdentityPubkey: recipient, isCurrent } = opts;
+  const check = () => {
+    if (!isCurrent()) throw new Error('Messaging account changed. Retry from the current account.');
+  };
+  check();
+  if (
+    !validateEvent(rumor) ||
+    rumor.id !== getEventHash(rumor) ||
+    !canSendStandardNip17(rumor, rumor.pubkey, recipient) ||
+    rumor.content.length > 16 * 1024 ||
+    !signer.nip44Encrypt
+  ) {
+    throw new Error('This message or signer does not support standard NIP-17 text delivery.');
+  }
+  if ((await signer.getPublicKey()) !== rumor.pubkey)
+    throw new Error('Messaging signer account mismatch.');
+  check();
+  const content = await signer.nip44Encrypt(recipient, JSON.stringify(rumor));
+  check();
+  const created_at = randomTimeUpTo2DaysInThePast();
+  const seal = await signer.signEvent({
+    kind: KIND_SEAL,
+    tags: [],
+    content,
+    created_at,
+  });
+  check();
+  if (
+    !verifyEvent(seal) ||
+    seal.kind !== KIND_SEAL ||
+    seal.pubkey !== rumor.pubkey ||
+    seal.content !== content ||
+    seal.created_at !== created_at ||
+    seal.tags.length !== 0 ||
+    (await signer.getPublicKey()) !== rumor.pubkey
+  ) {
+    throw new Error('Signer returned a mismatched NIP-17 seal. Nothing was published.');
+  }
+  check();
+  const giftWrap = await createGiftWrap(seal, recipient, recipient);
+  check();
   return { rumor, seal, giftWrap };
 }
 
@@ -168,6 +234,8 @@ export async function createGiftWrappedMessage(opts: {
 // being the sender (recipientEncPubkey = the sender's own encryption pubkey).
 
 export type UnwrapResult = {
+  /** Identity-key envelopes must never update the NIP-4E peer-key cache. */
+  protocol?: 'nip17';
   giftWrap: Event;
   seal: Event;
   rumor: Rumor;
@@ -181,6 +249,67 @@ export type GiftWrapUnwrapOutcome =
   | { status: 'decrypted'; value: UnwrapResult }
   | { status: 'unsupported'; reason: 'missing-encryption-key-tag' }
   | { status: 'failed' };
+
+/** Standard identity-key NIP-17 intake. All private-key operations stay behind
+ * the signer. Check the receive session after every asynchronous boundary. */
+export async function unwrapGiftWrapWithSigner(
+  giftWrap: Event,
+  accountPubkey: string,
+  signer: Signer,
+  isCurrent: () => boolean,
+): Promise<GiftWrapUnwrapOutcome> {
+  try {
+    if (
+      !isCurrent() ||
+      !signer.nip44Decrypt ||
+      giftWrap.kind !== KIND_GIFT_WRAP ||
+      giftWrap.content.length > 100_000 ||
+      !verifyEvent(giftWrap) ||
+      !giftWrap.tags.some((tag) => tag[0] === 'p' && tag[1] === accountPubkey)
+    ) {
+      return { status: 'failed' };
+    }
+    if ((await signer.getPublicKey()) !== accountPubkey || !isCurrent())
+      return { status: 'failed' };
+    const sealJson = await signer.nip44Decrypt(giftWrap.pubkey, giftWrap.content);
+    if (!isCurrent() || sealJson.length > 65_535) return { status: 'failed' };
+    const seal = JSON.parse(sealJson) as Event;
+    // NIP-59 seals have no tags. Do not interpret an extension envelope as
+    // standard NIP-17 or import its private group-control conventions.
+    if (seal.kind !== KIND_SEAL || !verifyEvent(seal) || seal.tags.length !== 0) {
+      return { status: 'failed' };
+    }
+    const rumorJson = await signer.nip44Decrypt(seal.pubkey, seal.content);
+    if (!isCurrent() || rumorJson.length > 65_535) return { status: 'failed' };
+    const rumor = JSON.parse(rumorJson) as Rumor;
+    if (
+      !validateEvent(rumor) ||
+      rumor.kind !== KIND_CHAT ||
+      !Number.isSafeInteger(rumor.created_at) ||
+      rumor.created_at < 0 ||
+      seal.pubkey !== rumor.pubkey ||
+      rumor.id !== getEventHash(rumor) ||
+      rumor.tags.some((tag) => tag[0] === 'h') ||
+      (rumor.pubkey !== accountPubkey &&
+        !rumor.tags.some((tag) => tag[0] === 'p' && tag[1] === accountPubkey))
+    ) {
+      return { status: 'failed' };
+    }
+    return {
+      status: 'decrypted',
+      value: {
+        giftWrap,
+        seal,
+        rumor,
+        senderEncryptionPubkey: seal.pubkey,
+        protocol: 'nip17',
+      },
+    };
+  } catch {
+    // Signer denial/unavailability is not a successfully consumed envelope.
+    return { status: 'failed' };
+  }
+}
 
 /** Generic envelope decoder retained for unified-key Nearby envelopes. Relay
  * account intake uses the stricter `unwrapGiftWrapWithKeys` boundary below. */
@@ -213,7 +342,8 @@ async function unwrapGiftWrapAttempt(
     if (seal.kind !== KIND_SEAL) return { status: 'failed' };
     // Authenticity: the seal must carry a valid signature from the sender's
     // identity key. Without this anyone could substitute the seal in transit.
-    if (!profileSync(profile, 'crypto.verifySeal', () => verifyEvent(seal))) return { status: 'failed' };
+    if (!profileSync(profile, 'crypto.verifySeal', () => verifyEvent(seal)))
+      return { status: 'failed' };
 
     const encryptionKeyTag = seal.tags.find((tag) => tag[0] === SEAL_ENCRYPTION_PUBKEY_TAG);
     if (!encryptionKeyTag && requireEncryptionKeyTag) {
@@ -245,9 +375,16 @@ async function unwrapGiftWrapAttempt(
     // claims author `rumor.pubkey`. They MUST match — otherwise someone
     // re-sealed another author's rumor under their own signature. This binding
     // is exactly what signing the seal with the encryption key could not give.
-    if (!validateEvent(rumor) || !Number.isSafeInteger(rumor.created_at) || rumor.created_at < 0 ||
-      !Number.isSafeInteger(rumor.kind) || rumor.kind < 0 ||
-      seal.pubkey !== rumor.pubkey || rumor.id !== getEventHash(rumor)) return { status: 'failed' };
+    if (
+      !validateEvent(rumor) ||
+      !Number.isSafeInteger(rumor.created_at) ||
+      rumor.created_at < 0 ||
+      !Number.isSafeInteger(rumor.kind) ||
+      rumor.kind < 0 ||
+      seal.pubkey !== rumor.pubkey ||
+      rumor.id !== getEventHash(rumor)
+    )
+      return { status: 'failed' };
 
     return {
       status: 'decrypted',

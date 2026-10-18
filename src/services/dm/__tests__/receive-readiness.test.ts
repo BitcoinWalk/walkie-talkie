@@ -14,7 +14,8 @@ import {
   setBackwardUntil,
   setForwardSince,
 } from '../sync-store';
-import { unwrapGiftWrapWithKeys, type GiftWrapUnwrapOutcome } from '../../crypto/nip17-gift-wrap';
+import { unwrapGiftWrapWithKeys, unwrapGiftWrapWithSigner, type GiftWrapUnwrapOutcome } from '../../crypto/nip17-gift-wrap';
+import { observedPeerKeyService } from '../observed-peer-key.service';
 
 const mockProcessedIds = new Set<string>();
 let mockAppState: AppStateStatus = 'background';
@@ -85,6 +86,7 @@ jest.mock('../../crypto/nip17-gift-wrap', () => ({
   KIND_GIFT_WRAP: 1059, KIND_CHAT: 14, KIND_FILE: 15, KIND_REACTION: 7,
   KIND_ENCRYPTION_KEY_ANNOUNCEMENT: 10044,
   unwrapGiftWrapWithKeys: jest.fn(),
+  unwrapGiftWrapWithSigner: jest.fn(),
 }));
 
 const self = 'a'.repeat(64);
@@ -130,8 +132,40 @@ beforeEach(() => {
   });
   jest.mocked(getRelaySyncCursor).mockResolvedValue({ forwardSince: null, backwardUntil: 0 });
   jest.mocked(unwrapGiftWrapWithKeys).mockResolvedValue({ status: 'failed' });
+  jest.mocked(unwrapGiftWrapWithSigner).mockResolvedValue({ status: 'failed' });
 });
 afterEach(() => dmService.destroy());
+
+it('bounds explicit standard recovery and preserves old processed markers', async () => {
+  mockAppState = 'active';
+  await dmService.init({ ...options, metadata: metadata(), skipInitialHistory: true });
+  const wraps = Array.from({ length: 40 }, (_, i) => ({id:`legacy-standard-${i}`,content:'encrypted',kind:1059,created_at:1000-i,tags:[['p',self]]} as Event));
+  for (const wrap of wraps) mockProcessedIds.add(wrap.id);
+  jest.mocked(relayPool.query).mockImplementation(async opts => {
+    opts.onComplete?.({eosed:true,status:'complete',relays:[{url:opts.relays[0],status:'eose',received:wraps.length}]});
+    return wraps;
+  });
+  jest.mocked(unwrapGiftWrapWithKeys).mockClear();
+  const result = await dmService.recoverStandardInbox();
+  expect(result).toEqual({checked:32,recovered:0});
+  expect(unwrapGiftWrapWithSigner).toHaveBeenCalledTimes(32);
+  expect(unwrapGiftWrapWithKeys).not.toHaveBeenCalled();
+  expect(mockProcessedIds.size).toBe(40);
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
+  expect(jest.mocked(relayPool.query).mock.calls.at(-1)![0].filter).toEqual({kinds:[1059],'#p':[self],limit:32});
+});
+
+it('does not launch standard recovery from background or accept an incomplete empty read', async () => {
+  await dmService.init({ ...options, metadata: metadata(), skipInitialHistory: true });
+  await expect(dmService.recoverStandardInbox()).rejects.toThrow(/Open the active account/);
+  mockAppState = 'active';
+  jest.mocked(relayPool.query).mockImplementation(async opts => {
+    opts.onComplete?.({eosed:false,status:'complete',relays:[{url:opts.relays[0],status:'connection-failed',received:0}]});
+    return [];
+  });
+  await expect(dmService.recoverStandardInbox()).rejects.toThrow(/No inbox relay completed/);
+  expect(unwrapGiftWrapWithSigner).not.toHaveBeenCalled();
+});
 
 it('opens no message intake before metadata resolves, then uses fresh relays', async () => {
   const pending = deferred<MessagingMetadata>();
@@ -377,14 +411,64 @@ it('cancels a cold poll query when a new session takes over', async () => {
 });
 
 
-it('marks an authenticated seal without an n tag processed without storing a message', async () => {
+it('defers standard identity envelopes in the background without marking them processed', async () => {
   await dmService.init(options);
   jest.mocked(unwrapGiftWrapWithKeys).mockResolvedValueOnce({
     status: 'unsupported', reason: 'missing-encryption-key-tag',
   });
   live().onEvent({ id: 'ordinary-nip17', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
   await flush();
-  expect(markGiftWrapProcessed).toHaveBeenCalledWith('ordinary-nip17', self);
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
+  expect(unwrapGiftWrapWithSigner).not.toHaveBeenCalled();
+});
+
+it('tries the account signer in the foreground and leaves rejection unprocessed', async () => {
+  mockAppState = 'active';
+  await dmService.init(options);
+  live().onEvent({ id: 'standard-foreground', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
+  await flush();
+  expect(unwrapGiftWrapWithSigner).toHaveBeenCalledTimes(1);
+  expect(unwrapGiftWrapWithSigner).toHaveBeenCalledWith(expect.anything(), self, expect.anything(), expect.any(Function));
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
+});
+
+it('retries a bounded background envelope on foreground entry', async () => {
+  await dmService.init(options);
+  live().onEvent({ id: 'deferred-standard', content: 'encrypted', tags: [['p', self]], kind: 1059 } as Event, 'wss://fresh.example');
+  await flush();
+  expect(unwrapGiftWrapWithSigner).not.toHaveBeenCalled();
+  changeAppState('active');
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  await flush();
+  expect(unwrapGiftWrapWithSigner).toHaveBeenCalledTimes(1);
+  expect(markGiftWrapProcessed).not.toHaveBeenCalled();
+});
+
+it('stores standard text once without replacing the peer messaging key', async () => {
+  mockAppState = 'active';
+  await dmService.init(options);
+  const event = { id: 'standard-text', tags: [['p', self]], kind: 1059 } as Event;
+  const rumor = { id: 'rumor-id', pubkey: 'b'.repeat(64), kind: 14, created_at: 1,
+    content: 'Guide message', tags: [['p', self]] };
+  jest.mocked(unwrapGiftWrapWithSigner).mockResolvedValue({ status: 'decrypted', value: {
+    giftWrap: event, seal: {} as Event, rumor, senderEncryptionPubkey: rumor.pubkey, protocol: 'nip17',
+  } });
+  // Isolate receive routing from the database-backed message store here.
+  const store = jest.spyOn(dmService as unknown as { storeRumor: (...args: unknown[]) => Promise<boolean> }, 'storeRumor')
+    .mockResolvedValue(true);
+  try {
+    live().onEvent(event, 'wss://fresh.example');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    await flush();
+    expect(store).toHaveBeenCalledTimes(1);
+    expect(observedPeerKeyService.rememberVerifiedSealKey).not.toHaveBeenCalled();
+    expect(markGiftWrapProcessed).toHaveBeenCalledWith(event.id, self);
+    live().onEvent(event, 'wss://fresh.example');
+    await flush();
+    expect(store).toHaveBeenCalledTimes(1);
+  } finally {
+    store.mockRestore();
+  }
 });
 
 it('does not persist an unsupported result from a receiver invalidated by rotation', async () => {

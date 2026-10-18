@@ -1209,15 +1209,16 @@ function ChatPageContent({
   );
 
   // Can we actually deliver to this conversation's counterparties? Gates the
-  // composer: until both their encryption key and DM relays are known we don't
-  // let the user type, and if either is missing we explain why instead of
-  // letting a send fail silently.
+  // composer: a standard direct-text peer needs an announced inbox, while
+  // extension media and groups still need their authenticated messaging key.
   // Reachability is part of composer readiness, so resolve it immediately while
   // the rest of the live data waits for transitionEnd. The local state stays
   // visually identical to ready; a cached verdict therefore causes no flash.
   const dmSupport = useDmSupport(
     accountPubkey ?? '',
     isProximity || isGroup ? [] : counterparties,
+    true,
+    !isProximity && !isGroup,
   );
   const [showUnsupported, setShowUnsupported] = useState(false);
   const [cardSheetOpen, setCardSheetOpen] = useState(false);
@@ -2350,8 +2351,8 @@ function ChatPageContent({
         model={{
           mode: composerMode,
           disabled: guideReadOnly || (isProximity && proximityHistoryReadOnly) || groupReadOnly,
-          attachmentSources: guideReadOnly ? [] : attachmentSources,
-          supportsVoice: !guideReadOnly && supportsVoice,
+          attachmentSources: guideReadOnly || dmSupport.standardTextOnly ? [] : attachmentSources,
+          supportsVoice: !guideReadOnly && !dmSupport.standardTextOnly && supportsVoice,
           replyTo: composerReplyTo,
           focusRequestVersion: replyFocusRequestVersion,
           gateStatus: composerGateStatus,

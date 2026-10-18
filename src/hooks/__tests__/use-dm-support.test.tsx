@@ -29,8 +29,8 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function Harness({ onValue }: { onValue: (value: DmSupport) => void }) {
-  const value = useDmSupport('account', ['peer']);
+function Harness({ onValue, standard = false, peers = ['peer'] }: { onValue: (value: DmSupport) => void; standard?: boolean; peers?: string[] }) {
+  const value = useDmSupport('account', peers, true, standard);
   useEffect(() => onValue(value), [onValue, value]);
   return null;
 }
@@ -48,6 +48,23 @@ describe('useDmSupport', () => {
       act(() => renderer?.unmount());
       renderer = null;
     }
+  });
+
+  it('allows standard direct text with a verified inbox but keeps extension controls off', async () => {
+    const onValue = jest.fn<void, [DmSupport]>();
+    jest.mocked(dmService.getCachedDmSupport).mockResolvedValue({encryptionKey:false,relays:true,at:Date.now()});
+    await act(async()=>{renderer=create(<Harness onValue={onValue} standard />);await Promise.resolve();});
+    expect(onValue.mock.calls.at(-1)?.[0]).toMatchObject({status:'ready',standardTextOnly:true,missingEncryptionKey:true});
+  });
+
+  it('never treats a missing inbox or multi-peer extension group as standard-ready', async () => {
+    const onValue = jest.fn<void, [DmSupport]>();
+    jest.mocked(dmService.getCachedDmSupport).mockResolvedValue({encryptionKey:false,relays:false,at:Date.now()});
+    await act(async()=>{renderer=create(<Harness onValue={onValue} standard />);await Promise.resolve();});
+    expect(onValue.mock.calls.at(-1)?.[0].status).toBe('unsupported');
+    jest.mocked(dmService.getCachedDmSupport).mockResolvedValue({encryptionKey:false,relays:true,at:Date.now()});
+    await act(async()=>{renderer?.update(<Harness onValue={onValue} standard peers={['peer','other']} />);await Promise.resolve();});
+    expect(onValue.mock.calls.at(-1)?.[0]).toMatchObject({status:'unsupported',standardTextOnly:false});
   });
 
   it('stays silent while reading the local cache and checks only before a relay query', async () => {

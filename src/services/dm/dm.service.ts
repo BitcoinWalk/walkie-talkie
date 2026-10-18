@@ -43,6 +43,7 @@ import {
   KIND_KEY_TRANSFER,
   KIND_REACTION,
   unwrapGiftWrapWithKeys,
+  unwrapGiftWrapWithSigner,
   type SignSeal,
 } from '../crypto/nip17-gift-wrap';
 import { nextRumorTimestamp, type RumorTimestamp } from './rumor-clock';
@@ -280,6 +281,9 @@ export class DmService {
   private drainingGiftWraps = false;
   /** Retry failures after key reload; bound repeated work within one receive session. */
   private failedGiftWrapIds = new Set<string>();
+  /** Small foreground retry window; never retain an unbounded encrypted history. */
+  private deferredIdentityWraps = new Map<string, Event>();
+  private standardRecoveryTask: Promise<{ checked: number; recovered: number }> | null = null;
   /** Gift-wrap jobs that have crossed an async boundary. Account removal waits
    * for this set after invalidating the session so no stale write can race the
    * deletion of that account's rows. */
@@ -475,6 +479,10 @@ export class DmService {
         const enteredForeground = state === 'active' && previousState !== 'active';
         previousState = state;
         if (enteredForeground && this.syncEpoch === epoch) {
+          this.failedGiftWrapIds.clear();
+          const deferred = [...this.deferredIdentityWraps.values()];
+          this.deferredIdentityWraps.clear();
+          for (const event of deferred) this.enqueueGiftWrap(event, 'recovery', undefined);
           this.startHistoryBackfill();
           relayMessageOutbox.wake(opts.accountPubkey);
         }
@@ -539,6 +547,8 @@ export class DmService {
     this.giftWrapQueue = [];
     this.giftWrapSeenOn.clear();
     this.failedGiftWrapIds.clear();
+    this.deferredIdentityWraps.clear();
+    this.standardRecoveryTask = null;
     this.rumorToGiftWrap.clear();
     this.signAuth = null;
     this.signSeal = null;
@@ -1252,8 +1262,8 @@ export class DmService {
    * Unwrap + store one gift wrap, **skipping decryption for ids we've already
    * processed** (dedup). NIP-44 + schnorr decryption is the expensive part, and
    * relays replay the same wraps on every connect; the id check is a cheap PK
-   * lookup that avoids redoing it. Verified seals without an n tag are marked
-   * processed without decrypting their content. Failed decryption stays retryable
+   * lookup that avoids redoing it. Standard envelopes use the identity signer
+   * while the user is present. Failed decryption stays retryable
    * when another device has rotated to a key not yet synchronized locally.
    */
   private processGiftWrap(
@@ -1284,11 +1294,56 @@ export class DmService {
       : markGiftWrapProcessed(id, accountPubkey);
   }
 
+  /** Explicit foreground-only repair of a small recent inbox window. Old
+   * processed IDs remain intact; only standard text is re-decoded and canonical
+   * rumor IDs still deduplicate storage. Never scans full account history. */
+  recoverStandardInbox(): Promise<{ checked: number; recovered: number }> {
+    if (this.standardRecoveryTask) return this.standardRecoveryTask;
+    const accountPubkey = this.accountPubkey, epoch = this.syncEpoch;
+    const isCurrent = () => this.accountPubkey === accountPubkey && this.syncEpoch === epoch &&
+      !platform.notifications.shouldNotifyNow();
+    if (!accountPubkey || this.independentReceiver || !isCurrent() || !this.dmRelays.length) {
+      return Promise.reject(new Error('Open the active account before recovering private messages.'));
+    }
+    const task = (async () => {
+      let complete = false;
+      const events = await relayPool.query({
+        label: 'dm.standard-recovery', relays: this.dmRelays,
+        filter: { kinds: [KIND_GIFT_WRAP], '#p': [accountPubkey], limit: 32 },
+        timeoutMs: BACKFILL_QUERY_TIMEOUT_MS, abort: this.receiveAbort?.signal,
+        signAuth: this.signAuth ?? undefined,
+        onComplete: info => { complete = info.relays.some(relay => relay.status === 'eose' && !relay.reason); },
+      });
+      if (!isCurrent()) throw new Error('Private-message recovery account changed.');
+      if (!complete) throw new Error('No inbox relay completed private-message recovery. Retry later.');
+      const bounded = [...new Map(events.map(event => [event.id, event])).values()]
+        .sort((a, b) => b.created_at - a.created_at).slice(0, 32);
+      let checked = 0, recovered = 0;
+      for (const event of bounded) {
+        if (!isCurrent()) break;
+        const work = this.processGiftWrapWithContext(event, 'history', {
+          accountPubkey, encryptionKeys: this.encryptionKeys, sourceRelays: this.dmRelays,
+          userPresent: true, activeConversation: this.activeConversation, isCurrent,
+        }, undefined, true);
+        this.inFlightGiftWrapTasks.add(work);
+        try { const stored = await work; checked++; recovered += stored?.length ?? 0; }
+        finally { this.inFlightGiftWrapTasks.delete(work); }
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+      }
+      if (!isCurrent()) throw new Error('Private-message recovery account changed.');
+      return { checked, recovered };
+    })();
+    this.standardRecoveryTask = task;
+    void task.finally(() => { if (this.standardRecoveryTask === task) this.standardRecoveryTask = null; }).catch(() => {});
+    return task;
+  }
+
   private async processGiftWrapWithContext(
     giftWrap: Event,
     intake: RumorIntake,
     context: GiftWrapReceiveContext,
     syncCursor?: ReturnType<typeof peekSyncCursor>,
+    standardReplay = false,
   ): Promise<Rumor[] | null> {
     const profile = createPerfSpan('dm.processGiftWrap', { kind: giftWrap.kind });
     let outcome = 'unknown';
@@ -1309,7 +1364,7 @@ export class DmService {
         outcome = 'stale';
         return null;
       }
-      if (alreadyProcessed) {
+      if (alreadyProcessed && !standardReplay) {
         outcome = 'duplicate';
         return null;
       }
@@ -1317,18 +1372,48 @@ export class DmService {
         outcome = 'wrong-recipient';
         return null;
       }
-      if (this.failedGiftWrapIds.has(giftWrap.id)) {
+      if (this.failedGiftWrapIds.has(giftWrap.id) && !standardReplay) {
         outcome = 'failed-in-session';
         return null;
       }
       // Try keys newest-first: the current key (the common case, one attempt),
       // then older keys so a peer still encrypting to a rotated-away key can be read.
-      const unwrap = await profileAsync(profile, 'crypto.unwrapGiftWrap', () =>
+      let unwrap = standardReplay ? { status: 'failed' as const } : await profileAsync(profile, 'crypto.unwrapGiftWrap', () =>
         unwrapGiftWrapWithKeys(giftWrap, encryptionKeys, profile),
       );
       if (!isCurrent()) {
         outcome = 'stale';
         return null;
+      }
+      if (unwrap.status !== 'decrypted') {
+        // Never launch an interactive signer from background notification work.
+        // Leave these envelopes unprocessed so a foreground replay can try them.
+        if (!context.userPresent || this.independentReceiver) {
+          this.failedGiftWrapIds.add(giftWrap.id);
+          if (this.failedGiftWrapIds.size > GIFT_WRAP_SEEN_LIMIT) {
+            this.failedGiftWrapIds.delete(this.failedGiftWrapIds.values().next().value!);
+          }
+          if (!this.independentReceiver && giftWrap.content?.length <= 100_000) {
+            this.deferredIdentityWraps.set(giftWrap.id, giftWrap);
+            if (this.deferredIdentityWraps.size > 32) {
+              this.deferredIdentityWraps.delete(this.deferredIdentityWraps.keys().next().value!);
+            }
+          }
+          outcome = 'identity-signer-deferred';
+          return null;
+        }
+        try {
+          const signer = await buildSigner(accountPubkey);
+          try {
+            if (!isCurrent()) return null;
+            unwrap = await unwrapGiftWrapWithSigner(giftWrap, accountPubkey, signer, isCurrent);
+          } finally {
+            await signer.destroy?.();
+          }
+        } catch {
+          unwrap = { status: 'failed' };
+        }
+        if (!isCurrent()) return null;
       }
       if (unwrap.status === 'failed') {
         // Missing or rotated keys are retryable; an unsuccessful decode is not completion.
@@ -1339,13 +1424,7 @@ export class DmService {
         outcome = 'decrypt-failed';
         return null;
       }
-      if (unwrap.status !== 'decrypted') {
-        await profileAsync(profile, 'db.markProcessed', () =>
-          this.markProcessedGiftWrap(giftWrap.id, accountPubkey),
-        );
-        outcome = unwrap.reason;
-        return null;
-      }
+      if (unwrap.status !== 'decrypted') return null;
       const result = unwrap.value;
       let stored: Rumor[] | null = null;
       if (isRumorTooFarInFuture(result.rumor)) {
@@ -1358,7 +1437,7 @@ export class DmService {
       const blocked = profileSync(profile, 'block.isBlocked', () =>
         isBlocked(accountPubkey, result.rumor.pubkey),
       );
-      if (!blocked && result.rumor.pubkey !== accountPubkey) {
+      if (!blocked && result.protocol !== 'nip17' && result.rumor.pubkey !== accountPubkey) {
         // The decoder verified the identity-signed seal and bound it to this
         // rumor author. Advance the account-scoped reply key by authenticated
         // message order, never by relay arrival order.

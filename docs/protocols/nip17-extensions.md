@@ -100,6 +100,21 @@ older key while delayed history cannot roll the key back.
 A relay-delivered seal without a valid `n` tag is not a PsstPsst split-key
 envelope.
 
+Walkie Talkie additionally accepts standard NIP-17 kind-14 text in foreground
+intake using the account signer's NIP-44 decryption. Both envelope signatures,
+the rumor hash, author binding and recipient are checked; the standard seal must
+have empty tags and cannot carry the private stable-group `h` extension. This
+receive path does not advertise identity keys as NIP-4E encryption keys. Direct
+kind-14 text to peers without an extension encryption key can use standard
+identity-key NIP-44 encryption through the signer when a signed inbox is known.
+Both seal and gift-wrap timestamps are randomized; standard seals have no tags.
+Extension-key peers, self copies, private groups and extended payloads retain
+their existing routing; unsupported extension payloads never silently downgrade.
+The foreground Guide recovery action scans at most 32 recent encrypted wrappers,
+does not clear processed history and deduplicates by canonical rumor ID. It does
+not emit historical arrival alerts. Real-device/client acceptance remains a
+separate gate from these source and automated-test contracts.
+
 ## `ms` tag
 
 Nostr `created_at` has one-second precision, but a user may create several
