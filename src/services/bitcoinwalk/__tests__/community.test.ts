@@ -3,6 +3,7 @@ import type { Event, EventTemplate } from 'nostr-tools';
 import {
   joinCommunity,
   loadCommunity,
+  loadCommunityMetadata,
   mergeCommunityMessages,
   sendCommunityMessage,
 } from '../community';
@@ -58,6 +59,25 @@ describe('BitcoinWalk NIP-29 community service', () => {
     }));
     const filters = jest.mocked(relayPool.query).mock.calls[0][0].filters;
     expect(filters).not.toContainEqual(expect.objectContaining({ kinds: [39002] }));
+  });
+
+  it('loads public metadata without requesting member-only messages', async () => {
+    jest.mocked(relayPool.query).mockResolvedValue([
+      event(39000, '', [
+        ['d', destination.groupId],
+        ['name', 'BitcoinWalk Madeira'],
+        ['about', 'Walk together'],
+      ], 9),
+    ]);
+
+    await expect(loadCommunityMetadata(destination)).resolves.toEqual({
+      name: 'BitcoinWalk Madeira',
+      about: 'Walk together',
+    });
+    expect(relayPool.query).toHaveBeenCalledWith(expect.objectContaining({
+      relays: [destination.relay],
+      filter: { kinds: [39000], '#d': [destination.groupId], limit: 1 },
+    }));
   });
 
   it('uses the connected identity for a private community relay challenge', async () => {

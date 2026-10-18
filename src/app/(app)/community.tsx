@@ -18,6 +18,7 @@ import {
 } from '@/services/bitcoinwalk/community-membership';
 import {
   loadCommunity,
+  loadCommunityMetadata,
   mergeCommunityMessageModels,
   mergeCommunityMessages,
   sendCommunityMessage,
@@ -56,13 +57,13 @@ export default function CommunityScreen() {
   const [name, setName] = useState<string | null>(null);
   const [about, setAbout] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadedDestinationKey, setLoadedDestinationKey] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [joinedDestinationKey, setJoinedDestinationKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const resolvingDestination = scope === 'hosts' && chatDirectory === null && loading;
+  const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
 
   useEffect(() => {
     if (scope !== 'hosts') return;
@@ -102,18 +103,23 @@ export default function CommunityScreen() {
     if (!quiet) setRefreshing(true);
     let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
     try {
-      if (scope === 'hosts') {
+      if (scope === 'hosts' || joined) {
         if (!accountPubkey) throw new Error('No active account');
         signer = await buildSigner(accountPubkey);
       }
-      const result = await loadCommunity(destination, undefined, signer ?? undefined);
-      if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
-        throw new Error(HOSTS_ACCESS_DENIED);
+      if (!signer) {
+        const metadata = await loadCommunityMetadata(destination);
+        setName(metadata.name);
+        setAbout(metadata.about);
+      } else {
+        const result = await loadCommunity(destination, undefined, signer);
+        if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
+          throw new Error(HOSTS_ACCESS_DENIED);
+        }
+        setName(result.metadata.name);
+        setAbout(result.metadata.about);
+        setMessages((current) => mergeCommunityMessageModels(current, result.messages));
       }
-      setName(result.metadata.name);
-      setAbout(result.metadata.about);
-      setMessages((current) => mergeCommunityMessageModels(current, result.messages));
-      setLoadedDestinationKey(`${destination.relay}\n${destination.groupId}`);
       setError(null);
     } catch (cause: unknown) {
       setError(cause instanceof Error && cause.message === HOSTS_ACCESS_DENIED
@@ -124,7 +130,7 @@ export default function CommunityScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accountPubkey, destination, scope, t]);
+  }, [accountPubkey, destination, joined, scope, t]);
 
   useEffect(() => {
     if (!destination) return;
@@ -133,11 +139,24 @@ export default function CommunityScreen() {
     let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
     void (async () => {
       try {
-        if (scope === 'hosts') {
+        const savedMembership = scope !== 'hosts' && accountPubkey
+          ? await hasCommunityMembership(accountPubkey, destination)
+          : false;
+        const hasAccess = scope === 'hosts' || joined || savedMembership;
+        if (hasAccess) {
           if (!accountPubkey) throw new Error('No active account');
           signer = await buildSigner(accountPubkey);
         }
-        const result = await loadCommunity(destination, controller.signal, signer ?? undefined);
+        if (controller.signal.aborted) return;
+        if (!signer) {
+          const metadata = await loadCommunityMetadata(destination, controller.signal);
+          if (controller.signal.aborted) return;
+          setName(metadata.name);
+          setAbout(metadata.about);
+          setError(null);
+          return;
+        }
+        const result = await loadCommunity(destination, controller.signal, signer);
         if (controller.signal.aborted) return;
         if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
           throw new Error(HOSTS_ACCESS_DENIED);
@@ -145,8 +164,7 @@ export default function CommunityScreen() {
         setName(result.metadata.name);
         setAbout(result.metadata.about);
         setMessages((current) => mergeCommunityMessageModels(current, result.messages));
-        setLoadedDestinationKey(`${destination.relay}\n${destination.groupId}`);
-        if (scope === 'hosts') setJoinedDestinationKey(destinationKey);
+        setJoinedDestinationKey(destinationKey);
         setError(null);
         unsubscribe = subscribeCommunity(destination, (event) => {
           setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
@@ -161,20 +179,19 @@ export default function CommunityScreen() {
         if (!controller.signal.aborted) setLoading(false);
       }
     })();
-    if (accountPubkey && scope !== 'hosts') {
-      void hasCommunityMembership(accountPubkey, destination).then((joined) => {
-        if (joined && !controller.signal.aborted) setJoinedDestinationKey(destinationKey);
-      });
-    }
     return () => {
       controller.abort();
       unsubscribe();
       void signer?.destroy?.();
     };
-  }, [accountPubkey, destination, destinationKey, scope, t]);
+  }, [accountPubkey, destination, destinationKey, joined, scope, t]);
 
   async function join() {
-    if (!destination || !accountPubkey || busy) return;
+    if (!destination || busy) return;
+    if (!accountPubkey) {
+      setError(t('community.join_error'));
+      return;
+    }
     setBusy(true);
     try {
       const result = await ensureCommunityMemberships(accountPubkey, [destination]);
@@ -219,8 +236,6 @@ export default function CommunityScreen() {
     : scope === 'hosts'
       ? t('community.hosts_full_title')
       : city ? t('community.city_title', { city: city.name }) : t('community.title'));
-  const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
-  const resolved = destinationKey !== null && loadedDestinationKey === destinationKey;
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage, {
     dateStyle: 'short', timeStyle: 'short',
   }), [i18n.resolvedLanguage]);
@@ -228,7 +243,7 @@ export default function CommunityScreen() {
   return (
     <AppScreen edges={['bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
-        {resolvingCity || resolvingDestination || !!destination && (loading || !resolved) ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        {resolvingCity || resolvingDestination || !!destination && loading ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={c.accent} />
         </View> : !destination ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center',
           gap: spacing.md, padding: spacing.xl }}>

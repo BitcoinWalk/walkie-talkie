@@ -29,6 +29,35 @@ function messagesFilter(groupId: string): Filter {
   return { kinds: [9], '#h': [groupId], limit: MAX_MESSAGES };
 }
 
+function latestMetadata(
+  events: Event[],
+  groupId: string,
+): BitcoinWalkCommunityMetadata {
+  const metadata = events
+    .filter((event) => event.kind === 39000 && tag(event, 'd') === groupId)
+    .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
+  return {
+    name: metadata ? tag(metadata, 'name') : null,
+    about: metadata ? tag(metadata, 'about') : null,
+  };
+}
+
+/** Public channel details used before a person joins. Message history is kept
+ * out of this query because BitcoinWalk communities restrict it to members. */
+export async function loadCommunityMetadata(
+  destination: BitcoinWalkCommunityDestination,
+  abort?: AbortSignal,
+): Promise<BitcoinWalkCommunityMetadata> {
+  const events = await relayPool.query({
+    relays: [destination.relay],
+    filter: { kinds: [39000], '#d': [destination.groupId], limit: 1 },
+    label: 'bitcoinwalk-community-metadata',
+    timeoutMs: 8_000,
+    abort,
+  });
+  return latestMetadata(events, destination.groupId);
+}
+
 export function mergeCommunityMessages(
   current: BitcoinWalkCommunityMessage[],
   events: Event[],
@@ -81,14 +110,11 @@ export async function loadCommunity(
     abort,
     signAuth: signer ? (template) => signer.signEvent(template) : undefined,
   });
-  const metadata = events
-    .filter((event) => event.kind === 39000 && tag(event, 'd') === destination.groupId)
-    .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
   const roster = events
     .filter((event) => event.kind === 39002 && tag(event, 'd') === destination.groupId)
     .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
   return {
-    metadata: { name: metadata ? tag(metadata, 'name') : null, about: metadata ? tag(metadata, 'about') : null },
+    metadata: latestMetadata(events, destination.groupId),
     roster: {
       memberPubkeys: [...new Set((roster?.tags ?? [])
         .filter((item) => item[0] === 'p' && /^[0-9a-f]{64}$/.test(item[1] ?? ''))
