@@ -1,10 +1,11 @@
-import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, View } from 'react-native';
+import { Image } from 'expo-image';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { AppBrandMark } from '@/components/common/AppBrandMark';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
-import { spacing, useThemeColors } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
+
+const BITCOINWALK_SPLASH_SOURCE = require('../../../assets/images/bitcoinwalk-splash.png');
 
 type Props = {
   /** A plain-language line naming what's happening (a `boot.*` string). */
@@ -13,31 +14,47 @@ type Props = {
 
 /**
  * The startup / sign-in screen shown while the app or an account is loading.
- * Themed and branded so it reads as an intentional launch screen — continuing
- * the native splash and the welcome hero — rather than a bare spinner on a void
- * background (which, in dark mode, looked like a frozen phone). It always names
- * the current step so the user knows the app is working, not stuck. DESIGN §11.
+ * The bundled BitcoinWalk photograph continues the native launch experience
+ * while a compact progress pill keeps longer startup work explicit. DESIGN §11.
  */
 export function AppBootScreen({ message }: Props) {
-  const { t } = useTranslation();
   const c = useThemeColors();
 
   return (
-    <AppScreen>
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg }}>
-        <View style={{ alignItems: 'center', gap: spacing.sm }}>
-          <AppBrandMark />
-          <AppText variant="display" weight="bold">
-            {t('welcome.title')}
-          </AppText>
-        </View>
-        {/* Spinner + status share one muted row at the bottom of the hero so the
-            mark/wordmark stay visually centered. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <ActivityIndicator size="small" color={c.textMuted} />
-          <AppText variant="body" tone="muted">
-            {message}
-          </AppText>
+    <AppScreen edges={[]}>
+      <View style={{ flex: 1 }}>
+        <Image
+          source={BITCOINWALK_SPLASH_SOURCE}
+          accessible={false}
+          cachePolicy="memory"
+          contentFit="cover"
+          contentPosition="center"
+          style={StyleSheet.absoluteFill}
+        />
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            padding: spacing['2xl'],
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.sm,
+              borderRadius: radius.full,
+              backgroundColor: c.overlayControl,
+            }}
+          >
+            <ActivityIndicator size="small" color={c.onOverlay} />
+            <AppText variant="body" style={{ color: c.onOverlay }}>
+              {message}
+            </AppText>
+          </View>
         </View>
       </View>
     </AppScreen>
