@@ -8,6 +8,9 @@ export type BitcoinWalkCommunityMetadata = {
   name: string | null;
   about: string | null;
 };
+export type BitcoinWalkCommunityRoster = {
+  memberPubkeys: string[];
+};
 export type BitcoinWalkCommunityMessage = {
   id: string;
   pubkey: string;
@@ -59,22 +62,38 @@ export function mergeCommunityMessageModels(
 export async function loadCommunity(
   destination: BitcoinWalkCommunityDestination,
   abort?: AbortSignal,
-): Promise<{ metadata: BitcoinWalkCommunityMetadata; messages: BitcoinWalkCommunityMessage[] }> {
+  signer?: Signer,
+): Promise<{
+  metadata: BitcoinWalkCommunityMetadata;
+  roster: BitcoinWalkCommunityRoster;
+  messages: BitcoinWalkCommunityMessage[];
+}> {
+  const filters: Filter[] = [
+    { kinds: [39000], '#d': [destination.groupId], limit: 1 },
+    ...(signer ? [{ kinds: [39002], '#d': [destination.groupId], limit: 1 } satisfies Filter] : []),
+    messagesFilter(destination.groupId),
+  ];
   const events = await relayPool.query({
     relays: [destination.relay],
-    filters: [
-      { kinds: [39000], '#d': [destination.groupId], limit: 1 },
-      messagesFilter(destination.groupId),
-    ],
+    filters,
     label: 'bitcoinwalk-community',
     timeoutMs: 8_000,
     abort,
+    signAuth: signer ? (template) => signer.signEvent(template) : undefined,
   });
   const metadata = events
     .filter((event) => event.kind === 39000 && tag(event, 'd') === destination.groupId)
     .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
+  const roster = events
+    .filter((event) => event.kind === 39002 && tag(event, 'd') === destination.groupId)
+    .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
   return {
     metadata: { name: metadata ? tag(metadata, 'name') : null, about: metadata ? tag(metadata, 'about') : null },
+    roster: {
+      memberPubkeys: [...new Set((roster?.tags ?? [])
+        .filter((item) => item[0] === 'p' && /^[0-9a-f]{64}$/.test(item[1] ?? ''))
+        .map((item) => item[1]))],
+    },
     messages: mergeCommunityMessages([], events, destination.groupId),
   };
 }
@@ -82,12 +101,14 @@ export async function loadCommunity(
 export function subscribeCommunity(
   destination: BitcoinWalkCommunityDestination,
   onMessage: (event: Event) => void,
+  signer?: Signer,
 ): () => void {
   return relayPool.subscribe({
     relays: [destination.relay],
     filter: messagesFilter(destination.groupId),
     label: 'bitcoinwalk-community-live',
     onEvent: onMessage,
+    signAuth: signer ? (template) => signer.signEvent(template) : undefined,
   });
 }
 

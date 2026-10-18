@@ -43,6 +43,7 @@ describe('BitcoinWalk NIP-29 community service', () => {
     ]);
     await expect(loadCommunity(destination)).resolves.toEqual({
       metadata: { name: 'BitcoinWalk in Madeira', about: 'Walk together' },
+      roster: { memberPubkeys: [] },
       messages: [
         expect.objectContaining({ content: 'First', createdAt: 10 }),
         expect.objectContaining({ content: 'Second', createdAt: 12 }),
@@ -55,6 +56,23 @@ describe('BitcoinWalk NIP-29 community service', () => {
         expect.objectContaining({ kinds: [9], '#h': [destination.groupId] }),
       ]),
     }));
+    const filters = jest.mocked(relayPool.query).mock.calls[0][0].filters;
+    expect(filters).not.toContainEqual(expect.objectContaining({ kinds: [39002] }));
+  });
+
+  it('uses the connected identity for a private community relay challenge', async () => {
+    jest.mocked(relayPool.query).mockResolvedValue([
+      event(39002, '', [['d', destination.groupId], ['p', 'd'.repeat(64)]], 9),
+    ]);
+    await expect(loadCommunity(destination, undefined, signer)).resolves.toEqual(expect.objectContaining({
+      roster: { memberPubkeys: ['d'.repeat(64)] },
+    }));
+    const request = jest.mocked(relayPool.query).mock.calls[0][0];
+    expect(request.filters).toContainEqual(expect.objectContaining({
+      kinds: [39002], '#d': [destination.groupId],
+    }));
+    await request.signAuth?.({ kind: 22242, created_at: 10, tags: [], content: 'challenge' });
+    expect(signer.signEvent).toHaveBeenCalledWith(expect.objectContaining({ kind: 22242 }));
   });
 
   it('deduplicates messages and rejects another group or oversized content', () => {

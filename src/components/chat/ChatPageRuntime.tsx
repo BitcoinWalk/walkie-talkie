@@ -43,6 +43,7 @@ import {
 import { ChatFileDropZone } from '@/components/chat/ChatFileDropZone';
 import { ChatComposerGate } from '@/components/chat/ChatComposerGate';
 import { ChatBlockedNotice } from '@/components/chat/ChatBlockedNotice';
+import { BitcoinWalkGuideNotice } from '@/components/chat/BitcoinWalkGuideNotice';
 import { ChatContactPrompt } from '@/components/chat/ChatContactPrompt';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -180,7 +181,7 @@ const CHAT_ENTER_EASE_OUT = Easing.bezier(1 / 3, 2 / 3, 2 / 3, 1);
 type MessageRow = typeof messagesSchema.$inferSelect;
 
 type ChatComposerModel = {
-  mode: 'input' | 'gate';
+  mode: 'input' | 'gate' | 'hidden';
   disabled: boolean;
   attachmentSources: readonly AttachmentSource[];
   supportsVoice: boolean;
@@ -275,8 +276,10 @@ export default function ChatPageRuntime() {
     name?: string | string[];
     focus?: string | string[];
     from?: string | string[];
+    mode?: string | string[];
   }>();
   const route = parseConversationRouteParams(params);
+  const guideReadOnly = params.mode === 'guide';
   const conversationKey = route?.key ?? '';
   const accountPubkey = useActiveAccount((state) => state.activePubkey) ?? '';
   const navigation = useNavigation();
@@ -454,7 +457,8 @@ export default function ChatPageRuntime() {
       : liveRelationship?.key === relationshipKey && liveRelationship.value !== 'unknown'
         ? liveRelationship.value
         : cachedRelationship;
-  const relationshipBarVisible = relationship === 'stranger' || relationship === 'blocked';
+  const relationshipBarVisible = !guideReadOnly &&
+    (relationship === 'stranger' || relationship === 'blocked');
   const titleClearance = headerHeight + insets.top;
   const topNoticeRef = useRef<View>(null);
   const graduatedHereRef = useRef(false);
@@ -508,7 +512,7 @@ export default function ChatPageRuntime() {
           : null
       : null;
   const reconnectNoticeVisible = reconnectNoticeReason != null;
-  const topNoticeVisible = relationshipBarVisible || reconnectNoticeVisible;
+  const topNoticeVisible = guideReadOnly || relationshipBarVisible || reconnectNoticeVisible;
   const contentTopInset = topNoticeVisible ? 0 : titleClearance;
 
   useEffect(() => {
@@ -672,7 +676,7 @@ export default function ChatPageRuntime() {
         <ChatComposerPanelProvider>
           <ChatComposerPanelBackHandler />
           <ChatSelectionCancelHandler active={selectionMode} onCancel={exitSelection} />
-          {liveDataReady && routeActive && isRelationshipEligible ? (
+          {liveDataReady && routeActive && isRelationshipEligible && !guideReadOnly ? (
             <ChatRelationshipLiveSync
               key={relationshipKey}
               accountPubkey={accountPubkey}
@@ -686,7 +690,9 @@ export default function ChatPageRuntime() {
               collapsable={false}
               style={{ marginTop: titleClearance }}
             >
-              {reconnectNoticeVisible ? (
+              {guideReadOnly ? (
+                <BitcoinWalkGuideNotice message={t('community.guide_notice')} />
+              ) : reconnectNoticeVisible ? (
                 <NearbyReconnectNotice
                   reason={reconnectNoticeReason}
                   reconnecting={manualReconnectPending}
@@ -726,6 +732,7 @@ export default function ChatPageRuntime() {
                   routeActive={routeActive}
                   unreadIndicatorsEnabled={unreadIndicatorsEnabled}
                   manualReconnectPending={manualReconnectPending}
+                  guideReadOnly={guideReadOnly}
                   composerControllerRef={composerControllerRef}
                   onComposerModelChange={handleComposerModelChange}
                   onComposerControllerAttach={attachComposerController}
@@ -814,6 +821,7 @@ type ChatPageContentProps = {
   routeActive: boolean;
   unreadIndicatorsEnabled: boolean;
   manualReconnectPending: boolean;
+  guideReadOnly: boolean;
   composerControllerRef: MutableRefObject<ChatComposerController | null>;
   onComposerModelChange: (model: ChatComposerModel) => void;
   onComposerControllerAttach: (controller: ChatComposerController) => void;
@@ -837,6 +845,7 @@ function ChatPageContent({
   routeActive,
   unreadIndicatorsEnabled,
   manualReconnectPending,
+  guideReadOnly,
   composerControllerRef,
   onComposerModelChange,
   onComposerControllerAttach,
@@ -2302,8 +2311,9 @@ function ChatPageContent({
             : replyingTo.content,
       }
     : null;
-  const composerMode =
-    (isProximity && !proximityHistoryReadOnly) ||
+  const composerMode = guideReadOnly
+    ? 'hidden'
+    : (isProximity && !proximityHistoryReadOnly) ||
     (isGroup && !groupMembershipPending && !groupReadOnly) ||
     (!isProximity && (dmSupport.status === 'ready' || dmSupport.status === 'local'))
       ? 'input'
@@ -2339,9 +2349,9 @@ function ChatPageContent({
         }}
         model={{
           mode: composerMode,
-          disabled: (isProximity && proximityHistoryReadOnly) || groupReadOnly,
-          attachmentSources,
-          supportsVoice,
+          disabled: guideReadOnly || (isProximity && proximityHistoryReadOnly) || groupReadOnly,
+          attachmentSources: guideReadOnly ? [] : attachmentSources,
+          supportsVoice: !guideReadOnly && supportsVoice,
           replyTo: composerReplyTo,
           focusRequestVersion: replyFocusRequestVersion,
           gateStatus: composerGateStatus,

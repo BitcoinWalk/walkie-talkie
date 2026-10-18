@@ -143,6 +143,12 @@ between a message bubble and its reaction row.
   logical-end fades appear only while content remains hidden beyond that edge;
   native and Electron overlay scrollbars stay hidden because the fades are the
   rail's overflow affordance.
+- The Chats root keeps one compact BitcoinWalk destination rail above the
+  ordinary inbox, ordered City, Guide, Global, Hosts. Each destination uses an
+  avatar, short label, and plain-language privacy or scope subtitle. Guide is a
+  notification-only thread without a composer. Hosts remains visible but inert
+  until its verified private-room destination is available; relay membership
+  remains the access boundary.
 - Single-line names and titles truncate within the available width. Adjacent
   status marks, timestamps, and actions retain their space, including in selection mode.
 - In a wide layout, opening a conversation freezes any existing draft preview

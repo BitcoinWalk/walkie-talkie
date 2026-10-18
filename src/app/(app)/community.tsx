@@ -27,7 +27,13 @@ import {
 import { useActiveAccount } from '@/stores/active-account.store';
 import { loadCities } from '@/services/bitcoinwalk/cities';
 import { useSelectedCity } from '@/stores/selected-city.store';
+import {
+  loadBitcoinWalkChatDirectory,
+  type BitcoinWalkChatDirectory,
+} from '@/services/bitcoinwalk/chat-directory';
 import { spacing, uiDensity, useThemeColors } from '@/theme';
+
+const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
 
 export default function CommunityScreen() {
   const { t, i18n } = useTranslation();
@@ -37,11 +43,14 @@ export default function CommunityScreen() {
   const selectCity = useSelectedCity((state) => state.select);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
   const params = useLocalSearchParams<{ scope?: string; city?: string | string[] }>();
-  const scope = params.scope === 'global' ? 'global' : 'city';
+  const scope = params.scope === 'global' || params.scope === 'hosts' ? params.scope : 'city';
   const requestedCity = (Array.isArray(params.city) ? params.city[0] : params.city)?.toLowerCase();
   const city = !requestedCity || selectedCity?.slug === requestedCity ? selectedCity : null;
   const resolvingCity = !!requestedCity && !city;
-  const destination = city?.chat.communities[scope] ?? null;
+  const [chatDirectory, setChatDirectory] = useState<BitcoinWalkChatDirectory | null>(null);
+  const destination = scope === 'hosts'
+    ? chatDirectory?.communities.hosts ?? null
+    : city?.chat.communities[scope] ?? null;
   const destinationKey = destination ? `${destination.relay}\n${destination.groupId}` : null;
   const [messages, setMessages] = useState<BitcoinWalkCommunityMessage[]>([]);
   const [name, setName] = useState<string | null>(null);
@@ -53,6 +62,21 @@ export default function CommunityScreen() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const resolvingDestination = scope === 'hosts' && chatDirectory === null && loading;
+
+  useEffect(() => {
+    if (scope !== 'hosts') return;
+    const controller = new AbortController();
+    void loadBitcoinWalkChatDirectory(controller.signal).then((directory) => {
+      if (!controller.signal.aborted) setChatDirectory(directory);
+    }).catch((cause: unknown) => {
+      if ((cause as { name?: string })?.name !== 'AbortError') {
+        setLoading(false);
+        setError(t('community.load_error'));
+      }
+    });
+    return () => controller.abort();
+  }, [scope, t]);
 
   useEffect(() => {
     if (!requestedCity || selectedCity?.slug === requestedCity) return;
@@ -76,46 +100,78 @@ export default function CommunityScreen() {
       return;
     }
     if (!quiet) setRefreshing(true);
+    let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
     try {
-      const result = await loadCommunity(destination);
+      if (scope === 'hosts') {
+        if (!accountPubkey) throw new Error('No active account');
+        signer = await buildSigner(accountPubkey);
+      }
+      const result = await loadCommunity(destination, undefined, signer ?? undefined);
+      if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
+        throw new Error(HOSTS_ACCESS_DENIED);
+      }
       setName(result.metadata.name);
       setAbout(result.metadata.about);
       setMessages((current) => mergeCommunityMessageModels(current, result.messages));
       setLoadedDestinationKey(`${destination.relay}\n${destination.groupId}`);
       setError(null);
-    } catch {
-      setError(t('community.load_error'));
+    } catch (cause: unknown) {
+      setError(cause instanceof Error && cause.message === HOSTS_ACCESS_DENIED
+        ? t('community.hosts_access_required')
+        : t('community.load_error'));
     } finally {
+      await signer?.destroy?.();
       setLoading(false);
       setRefreshing(false);
     }
-  }, [destination, t]);
+  }, [accountPubkey, destination, scope, t]);
 
   useEffect(() => {
     if (!destination) return;
     const controller = new AbortController();
-    void loadCommunity(destination, controller.signal).then((result) => {
-      setName(result.metadata.name);
-      setAbout(result.metadata.about);
-      setMessages((current) => mergeCommunityMessageModels(current, result.messages));
-      setLoadedDestinationKey(`${destination.relay}\n${destination.groupId}`);
-      setError(null);
-    }).catch((cause: unknown) => {
-      if ((cause as { name?: string })?.name !== 'AbortError') setError(t('community.load_error'));
-    }).finally(() => setLoading(false));
-    if (accountPubkey) {
+    let unsubscribe = () => {};
+    let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
+    void (async () => {
+      try {
+        if (scope === 'hosts') {
+          if (!accountPubkey) throw new Error('No active account');
+          signer = await buildSigner(accountPubkey);
+        }
+        const result = await loadCommunity(destination, controller.signal, signer ?? undefined);
+        if (controller.signal.aborted) return;
+        if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
+          throw new Error(HOSTS_ACCESS_DENIED);
+        }
+        setName(result.metadata.name);
+        setAbout(result.metadata.about);
+        setMessages((current) => mergeCommunityMessageModels(current, result.messages));
+        setLoadedDestinationKey(`${destination.relay}\n${destination.groupId}`);
+        if (scope === 'hosts') setJoinedDestinationKey(destinationKey);
+        setError(null);
+        unsubscribe = subscribeCommunity(destination, (event) => {
+          setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
+        }, signer ?? undefined);
+      } catch (cause: unknown) {
+        if ((cause as { name?: string })?.name !== 'AbortError') {
+          setError(cause instanceof Error && cause.message === HOSTS_ACCESS_DENIED
+            ? t('community.hosts_access_required')
+            : t('community.load_error'));
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    })();
+    if (accountPubkey && scope !== 'hosts') {
       void hasCommunityMembership(accountPubkey, destination).then((joined) => {
         if (joined && !controller.signal.aborted) setJoinedDestinationKey(destinationKey);
       });
     }
-    const unsubscribe = subscribeCommunity(destination, (event) => {
-      setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
-    });
     return () => {
       controller.abort();
       unsubscribe();
+      void signer?.destroy?.();
     };
-  }, [accountPubkey, destination, destinationKey, t]);
+  }, [accountPubkey, destination, destinationKey, scope, t]);
 
   async function join() {
     if (!destination || !accountPubkey || busy) return;
@@ -160,7 +216,9 @@ export default function CommunityScreen() {
 
   const title = name ?? (scope === 'global'
     ? t('community.global_title')
-    : city ? t('community.city_title', { city: city.name }) : t('community.title'));
+    : scope === 'hosts'
+      ? t('community.hosts_full_title')
+      : city ? t('community.city_title', { city: city.name }) : t('community.title'));
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
   const resolved = destinationKey !== null && loadedDestinationKey === destinationKey;
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(i18n.resolvedLanguage, {
@@ -170,7 +228,7 @@ export default function CommunityScreen() {
   return (
     <AppScreen edges={['bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
-        {resolvingCity || !!destination && (loading || !resolved) ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        {resolvingCity || resolvingDestination || !!destination && (loading || !resolved) ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={c.accent} />
         </View> : !destination ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center',
           gap: spacing.md, padding: spacing.xl }}>
@@ -193,7 +251,9 @@ export default function CommunityScreen() {
             ListEmptyComponent={<View style={{ alignItems: 'center', gap: spacing.sm, padding: spacing.xl }}>
               <MessagesSquare color={c.textMuted} size={uiDensity.tabIconSize} />
               <AppText variant="subtitle">{t('community.empty')}</AppText>
-              <AppText tone="muted" align="center">{t('community.empty_hint')}</AppText>
+              <AppText tone="muted" align="center">
+                {joined ? t('community.empty_joined_hint') : t('community.empty_hint')}
+              </AppText>
             </View>}
             renderItem={({ item }) => <AppCard style={{ gap: spacing.xs }}>
               <AppText variant="caption" tone="muted" numberOfLines={1}>
@@ -207,13 +267,17 @@ export default function CommunityScreen() {
           />
           <View style={{ padding: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth,
             borderTopColor: c.border, gap: spacing.sm }}>
-            {error ? <AppText tone="danger">{error}</AppText> : null}
+            {error && (joined || scope !== 'hosts') ? <AppText tone="danger">{error}</AppText> : null}
             {joined ? <>
               <AppInput value={draft} onChangeText={setDraft} placeholder={t('community.message_placeholder')}
                 maxLength={4_000} multiline />
               <AppButton label={t('community.send')} loading={busy} disabled={!draft.trim()}
                 onPress={() => void send()} />
-            </> : <>
+            </> : scope === 'hosts' ? (
+              <AppText tone={error ? 'danger' : 'muted'}>
+                {error ?? t('community.hosts_access_required')}
+              </AppText>
+            ) : <>
               <AppText tone="muted">{t('community.join_hint')}</AppText>
               <AppButton label={t('community.join')} loading={busy} onPress={() => void join()} />
             </>}

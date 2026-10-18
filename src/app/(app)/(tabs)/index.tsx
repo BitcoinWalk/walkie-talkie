@@ -22,7 +22,10 @@ import { IconButton } from '@/components/common/IconButton';
 import { QrScanButton, type QrScanButtonHandle } from '@/components/common/QrScanButton';
 import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { ConversationListItem } from '@/components/conversation/ConversationListItem';
-import { BitcoinWalkCommunityRow } from '@/components/bitcoinwalk/BitcoinWalkCommunityRow';
+import {
+  BitcoinWalkChatRail,
+  type BitcoinWalkChatDestination,
+} from '@/components/bitcoinwalk/BitcoinWalkChatRail';
 import { ScreenshotConversations } from '@/components/marketing/ScreenshotConversations';
 import { usePrimaryPaneNavigation } from '@/components/navigation/primary-pane-navigation';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
@@ -47,6 +50,11 @@ import {
 import { dmService } from '@/services/dm/dm.service';
 import { getProximityEnabled } from '@/services/proximity/proximity-preferences';
 import { communityChoicesForCity } from '@/services/bitcoinwalk/cities';
+import {
+  loadBitcoinWalkChatDirectory,
+  type BitcoinWalkChatDirectory,
+} from '@/services/bitcoinwalk/chat-directory';
+import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 import { syncPersonalConfigs } from '@/services/relay/personal-configs.service';
 import { useActiveAccount } from '@/stores/active-account.store';
 import { useSelectedCity } from '@/stores/selected-city.store';
@@ -87,8 +95,8 @@ function RealConversations() {
     () => selectedCity ? communityChoicesForCity(selectedCity) : [],
     [selectedCity],
   );
-  const communityRowsHeight = communityChoices.length * CONV_ROW_HEIGHT;
-  const listHeaderHeight = searchHeaderHeight + communityRowsHeight;
+  const [bitcoinWalkRailHeight, setBitcoinWalkRailHeight] = useState(0);
+  const listHeaderHeight = searchHeaderHeight + bitcoinWalkRailHeight;
   // Conversation rows already warm each visible peer. Keep our own profile in
   // the same session cache so transition reply previews authored by us also
   // have their final name without doing navigation-time SQLite work.
@@ -164,6 +172,18 @@ function RealConversations() {
     [activeConversationKey, currentMinute, unreadIndicatorsEnabled],
   );
   const navigation = useNavigation();
+  const [bitcoinWalkChatDirectory, setBitcoinWalkChatDirectory] =
+    useState<BitcoinWalkChatDirectory | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadBitcoinWalkChatDirectory(controller.signal).then((directory) => {
+      if (!controller.signal.aborted) setBitcoinWalkChatDirectory(directory);
+    }).catch(() => {
+      if (!controller.signal.aborted) setBitcoinWalkChatDirectory(null);
+    });
+    return () => controller.abort();
+  }, [accountPubkey]);
 
   // Native production bundles already contain the route bytecode, but module
   // evaluation still walks the chat runtime's large dependency graph. Pay that
@@ -200,9 +220,70 @@ function RealConversations() {
     [openInDetailPane],
   );
 
-  const openCommunity = useCallback((scope: 'city' | 'global') => {
+  const openCommunity = useCallback((scope: 'city' | 'global' | 'hosts') => {
     openInDetailPane(`/community?scope=${scope}`);
   }, [openInDetailPane]);
+
+  const bitcoinWalkDestinations = useMemo<BitcoinWalkChatDestination[]>(() => {
+    const city = communityChoices.find((choice) => choice.scope === 'city') ?? null;
+    const global = communityChoices.find((choice) => choice.scope === 'global')?.destination ??
+      bitcoinWalkChatDirectory?.communities.global ?? null;
+    const guidePubkey = bitcoinWalkChatDirectory?.guidePubkey ?? null;
+    const guideConversation = guidePubkey
+      ? items.find((item) => item.conversation.conversationKey === guidePubkey)?.conversation
+      : null;
+    return [
+      {
+        key: 'city',
+        title: t('community.city_short'),
+        subtitle: selectedCity?.name ?? t('community.unavailable'),
+        picture: selectedCity?.avatarUrl ?? GLOBAL_COMMUNITY_AVATAR,
+        available: city !== null,
+        onPress: () => openCommunity('city'),
+      },
+      {
+        key: 'guide',
+        title: t('community.guide_title'),
+        subtitle: t('community.guide_subtitle'),
+        picture: bitcoinWalkChatDirectory
+          ? `${BITCOINWALK_ORIGIN}/brand/bitcoinwalk-admin-favicon.png`
+          : null,
+        unreadCount: unreadIndicatorsEnabled ? guideConversation?.unreadCount ?? 0 : 0,
+        active: guidePubkey === activeConversationKey,
+        available: guidePubkey !== null,
+        onPress: () => {
+          if (!guidePubkey) return;
+          openInDetailPane(`/chat/${guidePubkey}?mode=guide&name=${encodeURIComponent(t('community.guide_full_title'))}`);
+        },
+      },
+      {
+        key: 'global',
+        title: t('community.global_short'),
+        subtitle: t('community.global_subtitle'),
+        picture: GLOBAL_COMMUNITY_AVATAR,
+        available: global !== null,
+        onPress: () => openCommunity('global'),
+      },
+      {
+        key: 'hosts',
+        title: t('community.hosts_title'),
+        subtitle: t('community.hosts_subtitle'),
+        fallbackLabel: 'BW',
+        available: bitcoinWalkChatDirectory?.communities.hosts != null,
+        onPress: () => openCommunity('hosts'),
+      },
+    ];
+  }, [
+    activeConversationKey,
+    bitcoinWalkChatDirectory,
+    communityChoices,
+    items,
+    openCommunity,
+    openInDetailPane,
+    selectedCity,
+    t,
+    unreadIndicatorsEnabled,
+  ]);
 
   const dropFilesIntoConversation = useCallback(
     (
@@ -407,7 +488,7 @@ function RealConversations() {
           before the empty state is trustworthy. */}
         {!loaded && items.length === 0 ? (
           <View style={{ flex: 1 }} />
-        ) : items.length === 0 && communityChoices.length === 0 ? (
+        ) : items.length === 0 && !bitcoinWalkDestinations.some((destination) => destination.available) ? (
           <View
             style={{
               flex: 1,
@@ -478,9 +559,15 @@ function RealConversations() {
               // it's a button — tapping opens the real (autofocused) search.
               ListHeaderComponent={
                 <View>
+                  <View style={{ paddingTop: topClearance }}>
+                    <BitcoinWalkChatRail
+                      label={t('community.rail_label')}
+                      destinations={bitcoinWalkDestinations}
+                      onLayout={setBitcoinWalkRailHeight}
+                    />
+                  </View>
                   <View style={{
                     paddingHorizontal: SEARCH_BAR_SCREEN_GUTTER,
-                    paddingTop: topClearance,
                     paddingBottom: spacing.sm,
                   }}>
                     <SearchBar
@@ -490,19 +577,6 @@ function RealConversations() {
                       onPress={openSearch}
                     />
                   </View>
-                  {communityChoices.map((choice) => (
-                    <BitcoinWalkCommunityRow
-                      key={choice.scope}
-                      title={choice.scope === 'city'
-                        ? t('community.city_title', { city: selectedCity?.name })
-                        : t('community.global_title')}
-                      subtitle={t('community.list_preview')}
-                      picture={choice.scope === 'city'
-                        ? selectedCity?.avatarUrl ?? GLOBAL_COMMUNITY_AVATAR
-                        : GLOBAL_COMMUNITY_AVATAR}
-                      onPress={() => openCommunity(choice.scope)}
-                    />
-                  ))}
                 </View>
               }
               // Footer fills the blank below the rows (viewport − search header −
