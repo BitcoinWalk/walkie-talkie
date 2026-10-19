@@ -56,6 +56,8 @@ jest.mock('@/stores/theme.store', () => ({
 import ChooseCity from '@/app/(onboarding)/city';
 // eslint-disable-next-line import/first
 import { AppButton } from '@/components/common/AppButton';
+// eslint-disable-next-line import/first
+import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 
 async function renderCityScreen(): Promise<ReactTestRenderer> {
   let renderer!: ReactTestRenderer;
@@ -105,6 +107,6 @@ describe('anonymous city selection flow', () => {
 
     act(() => { void addCity!.props.onPress(); });
 
-    expect(mockOpenExternalUrl).toHaveBeenCalledWith('https://bitcoinwalk.org/start');
+    expect(mockOpenExternalUrl).toHaveBeenCalledWith(`${BITCOINWALK_ORIGIN}/start`);
   });
 });
