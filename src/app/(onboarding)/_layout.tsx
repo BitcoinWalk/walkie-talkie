@@ -10,9 +10,9 @@ import { useThemeColors } from '@/theme';
 /**
  * The sign-in flow. Deliberately *not* guarded against an already-active account:
  * the same screens are reused to **add a second account** while logged in (the
- * account switcher routes here). On launch a signed-in user is sent straight to
- * the app by the `(app)` group's own guard, so they never land here unless they
- * explicitly chose to add an account — at which point each screen's
+ * account switcher routes here). City and walk discovery deliberately remain
+ * available without an account, so this group is entered only from an explicit
+ * sign-in or add-account action. Each screen's
  * `addAccount* → setActive` switches the session over to the new identity.
  */
 export default function OnboardingLayout() {

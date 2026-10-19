@@ -8,6 +8,8 @@ const mockLoadCommunity = jest.fn();
 const mockLoadMetadata = jest.fn();
 const mockSubscribeCommunity = jest.fn();
 const mockSelectCity = jest.fn();
+const mockRouterPush = jest.fn();
+let mockActivePubkey: string | null = 'a'.repeat(64);
 const mockSelectedCity = {
   id: 'madeira',
   name: 'Madeira',
@@ -16,6 +18,7 @@ const mockSelectedCity = {
 };
 
 jest.mock('expo-router', () => ({
+  router: { push: (...args: unknown[]) => mockRouterPush(...args) },
   useLocalSearchParams: () => ({ scope: 'global' }),
 }));
 jest.mock('lucide-react-native/icons/messages-square', () => () => null);
@@ -53,8 +56,8 @@ jest.mock('@/services/bitcoinwalk/chat-directory', () => ({
   loadBitcoinWalkChatDirectory: jest.fn(),
 }));
 jest.mock('@/stores/active-account.store', () => ({
-  useActiveAccount: (selector: (state: { activePubkey: string }) => unknown) =>
-    selector({ activePubkey: 'a'.repeat(64) }),
+  useActiveAccount: (selector: (state: { activePubkey: string | null }) => unknown) =>
+    selector({ activePubkey: mockActivePubkey }),
 }));
 jest.mock('@/stores/selected-city.store', () => ({
   useSelectedCity: (selector: (state: {
@@ -83,6 +86,7 @@ describe('BitcoinWalk community join screen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockActivePubkey = 'a'.repeat(64);
     mockHasMembership.mockResolvedValue(false);
     mockLoadMetadata.mockResolvedValue({ name: 'BitcoinWalk Global', about: 'Everyone can join.' });
     mockLoadCommunity.mockResolvedValue({
@@ -137,5 +141,23 @@ describe('BitcoinWalk community join screen', () => {
       expect.any(AbortSignal),
       expect.anything(),
     );
+  });
+
+  it('opens Nostr sign-in instead of attempting a membership when signed out', async () => {
+    mockActivePubkey = null;
+    await act(async () => {
+      renderer = create(<CommunityScreen />);
+      await settle();
+    });
+    const signIn = renderer!.root.findAllByType(AppButton).find(
+      (button) => button.props.label === 'community.sign_in',
+    );
+
+    await act(async () => {
+      await signIn!.props.onPress();
+    });
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/welcome');
+    expect(mockEnsureMemberships).not.toHaveBeenCalled();
   });
 });

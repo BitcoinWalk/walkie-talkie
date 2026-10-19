@@ -37,13 +37,13 @@ export default function OnboardingNip05() {
   async function finish() {
     if (leaving) return;
     if (!pubkey) {
-      router.replace('/');
+      router.replace('/walks');
       return;
     }
     setLeaving(true);
     try {
       await setActive(pubkey);
-      router.replace('/');
+      router.replace('/walks');
     } finally {
       setLeaving(false);
     }

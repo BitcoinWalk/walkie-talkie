@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -5,22 +6,21 @@ import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/common/AppButton';
-import { AppCard } from '@/components/common/AppCard';
 import { AppInput } from '@/components/common/AppInput';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
+import { InteractionOverlay } from '@/components/common/InteractionOverlay';
+import { InteractivePressable } from '@/components/common/InteractivePressable';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
 import { loadCities, type BitcoinWalkCity } from '@/services/bitcoinwalk/cities';
-import { useActiveAccount } from '@/stores/active-account.store';
 import { useSelectedCity } from '@/stores/selected-city.store';
-import { spacing, useThemeColors } from '@/theme';
+import { radius, spacing, useThemeColors } from '@/theme';
 
 export default function ChooseCity() {
   const { t } = useTranslation();
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
   const top = useScreenHeaderClearance();
-  const activePubkey = useActiveAccount((state) => state.activePubkey);
   const select = useSelectedCity((state) => state.select);
   const [cities, setCities] = useState<BitcoinWalkCity[]>([]);
   const [query, setQuery] = useState('');
@@ -64,15 +64,17 @@ export default function ChooseCity() {
 
   function choose(city: BitcoinWalkCity) {
     select(city);
-    router.replace(activePubkey ? '/' : '/welcome');
+    router.replace('/walks');
   }
 
   return (
     <AppScreen edges={[]}>
-      <ScreenHeader title={t('city_select.title')} back={false} />
+      <ScreenHeader title={t('city_select.title')} back={router.canGoBack()} />
       <FlatList
         data={visible}
         keyExtractor={(city) => city.id}
+        numColumns={2}
+        columnWrapperStyle={{ gap: spacing.md }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingHorizontal: spacing.lg,
@@ -97,12 +99,38 @@ export default function ChooseCity() {
         </View>}
         ListEmptyComponent={loading ? <ActivityIndicator color={c.accent} /> : !failed ?
           <AppText tone="muted" align="center">{t('city_select.empty')}</AppText> : null}
-        renderItem={({ item }) => <AppCard style={{ gap: spacing.sm }}>
-          <AppText variant="subtitle">BitcoinWalk in {item.name}</AppText>
-          <AppText variant="caption" tone="muted">/{item.slug}</AppText>
-          <AppButton variant="secondary" label={t('city_select.choose', { city: item.name })}
-            onPress={() => choose(item)} />
-        </AppCard>}
+        renderItem={({ item }) => (
+          <InteractivePressable
+            accessibilityRole="button"
+            accessibilityLabel={t('city_select.choose', { city: item.name })}
+            fallbackHoverOpacity={false}
+            onPress={() => choose(item)}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              borderWidth: 1,
+              borderColor: c.border,
+              borderRadius: radius.xl,
+              backgroundColor: c.surfaceElevated,
+              overflow: 'hidden',
+            }}
+          >
+            {({ pressed }) => (
+              <>
+                <Image
+                  source={{ uri: item.avatarUrl }}
+                  contentFit="cover"
+                  style={{ width: '100%', aspectRatio: 1 }}
+                />
+                <View style={{ gap: spacing.xs, padding: spacing.md }}>
+                  <AppText variant="subtitle" numberOfLines={2}>{item.name}</AppText>
+                  <AppText variant="caption" tone="muted" numberOfLines={1}>/{item.slug}</AppText>
+                </View>
+                {pressed ? <InteractionOverlay borderRadius={radius.xl} /> : null}
+              </>
+            )}
+          </InteractivePressable>
+        )}
       />
     </AppScreen>
   );

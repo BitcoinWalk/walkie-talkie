@@ -1,4 +1,4 @@
-import { useIsFocused, useNavigation } from 'expo-router';
+import { router, useIsFocused, useNavigation } from 'expo-router';
 import { ChatRound as MessageCircle } from '@solar-icons/react-native/category/messages/Linear/ChatRound';
 import Plus from 'lucide-react-native/icons/plus';
 import { Scanner } from '@solar-icons/react-native/category/security/Linear/Scanner';
@@ -11,6 +11,7 @@ import { FlatList, Keyboard, Platform, StyleSheet, View, type ViewToken } from '
 import { InteractivePressable as Pressable } from '@/components/common/InteractivePressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppButton } from '@/components/common/AppButton';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
 import {
@@ -79,7 +80,96 @@ const CONVERSATION_VIEWABILITY_CONFIG = {
 
 export default function Conversations() {
   const screenshotPreviewEnabled = useScreenshotPreviewStore((state) => state.enabled);
-  return screenshotPreviewEnabled ? <ScreenshotConversations /> : <RealConversations />;
+  const accountPubkey = useActiveAccount((state) => state.activePubkey);
+  return screenshotPreviewEnabled
+    ? <ScreenshotConversations />
+    : accountPubkey
+      ? <RealConversations />
+      : <GuestConversations />;
+}
+
+function GuestConversations() {
+  const { t } = useTranslation();
+  const c = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const selectedCity = useSelectedCity((state) => state.selectedCity);
+  const choices = useMemo(
+    () => selectedCity ? communityChoicesForCity(selectedCity) : [],
+    [selectedCity],
+  );
+  const cityAvailable = choices.some((choice) => choice.scope === 'city');
+  const globalAvailable = choices.some((choice) => choice.scope === 'global');
+  const destinations = useMemo<BitcoinWalkChatDestination[]>(() => [
+    {
+      key: 'city',
+      title: t('community.city_short'),
+      subtitle: selectedCity?.name ?? t('community.unavailable'),
+      picture: selectedCity?.avatarUrl ?? GLOBAL_COMMUNITY_AVATAR,
+      available: cityAvailable,
+      active: true,
+      onPress: () => router.push('/community?scope=city'),
+    },
+    {
+      key: 'guide',
+      title: t('community.guide_title'),
+      subtitle: t('community.sign_in_required_short'),
+      picture: `${BITCOINWALK_ORIGIN}/brand/bitcoinwalk-admin-favicon.png`,
+      available: false,
+      onPress: () => {},
+    },
+    {
+      key: 'global',
+      title: t('community.global_short'),
+      subtitle: t('community.global_subtitle'),
+      picture: GLOBAL_COMMUNITY_AVATAR,
+      available: globalAvailable,
+      onPress: () => router.push('/community?scope=global'),
+    },
+    {
+      key: 'hosts',
+      title: t('community.hosts_title'),
+      subtitle: t('community.sign_in_required_short'),
+      fallbackLabel: 'BW',
+      available: false,
+      onPress: () => {},
+    },
+  ], [cityAvailable, globalAvailable, selectedCity, t]);
+
+  return (
+    <AppScreen edges={[]}>
+      <View style={{
+        flex: 1,
+        paddingTop: headerHeight + insets.top,
+        paddingBottom: bottomBarHeight + insets.bottom,
+      }}>
+        <BitcoinWalkChatRail label={t('community.rail_label')} destinations={destinations} />
+        <View style={{ flex: 1, justifyContent: 'center', padding: spacing.lg }}>
+          <View style={{ gap: spacing.lg, alignItems: 'center' }}>
+            <MessageCircle size={uiDensity.contactAvatarSize} color={c.accent} />
+            <View style={{ gap: spacing.sm }}>
+              <AppText variant="title" align="center">
+                {selectedCity
+                  ? t('community.city_title', { city: selectedCity.name })
+                  : t('community.title')}
+              </AppText>
+              <AppText tone="muted" align="center">{t('community.guest_intro')}</AppText>
+            </View>
+            <AppButton
+              label={t('community.open_city_chat')}
+              disabled={!cityAvailable}
+              onPress={() => router.push('/community?scope=city')}
+            />
+            <AppButton
+              variant="text"
+              label={t('walks.change_city')}
+              onPress={() => router.push('/city')}
+            />
+          </View>
+        </View>
+      </View>
+      <ScreenHeader back={false} title={t('tabs.conversations')} />
+    </AppScreen>
+  );
 }
 
 function RealConversations() {

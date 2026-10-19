@@ -1,5 +1,5 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, StyleSheet, View } from 'react-native';
@@ -189,7 +189,7 @@ export default function CommunityScreen() {
   async function join() {
     if (!destination || busy) return;
     if (!accountPubkey) {
-      setError(t('community.join_error'));
+      router.push('/welcome');
       return;
     }
     setBusy(true);
@@ -293,8 +293,14 @@ export default function CommunityScreen() {
                 {error ?? t('community.hosts_access_required')}
               </AppText>
             ) : <>
-              <AppText tone="muted">{t('community.join_hint')}</AppText>
-              <AppButton label={t('community.join')} loading={busy} onPress={() => void join()} />
+              <AppText tone="muted">{accountPubkey
+                ? t('community.join_hint')
+                : t('community.sign_in_hint')}</AppText>
+              <AppButton
+                label={accountPubkey ? t('community.join') : t('community.sign_in')}
+                loading={busy}
+                onPress={() => void join()}
+              />
             </>}
           </View>
         </>}

@@ -33,6 +33,10 @@ import {
   useThemeColors,
 } from '@/theme';
 
+export const unstable_settings = {
+  initialRouteName: 'walks',
+};
+
 export default function TabsLayout() {
   const { t } = useTranslation();
   const c = useThemeColors();
@@ -124,6 +128,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="contacts"
           options={{
+            href: accountPubkey ? undefined : null,
             title: t('tabs.contacts'),
             tabBarIcon: ({ color, focused, size }) => {
               const Icon = focused ? UserCircleBold : UserCircleLinear;
@@ -146,6 +151,7 @@ export default function TabsLayout() {
             tabLongPress: () => setSwitcherOpen(true),
           }}
           options={{
+            href: accountPubkey ? undefined : null,
             title: t('tabs.me'),
             // Electron adds a right-click entry to the account switcher,
             // mirroring the long-press entry; the button is otherwise the

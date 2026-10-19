@@ -74,7 +74,7 @@ export default function LoginNostrConnect() {
       .then(async ({ pubkey }) => {
         if (!active) return;
         await setActive(pubkey);
-        router.replace('/');
+        router.replace('/walks');
       })
       .catch(() => {
         if (active) setErrored(true);

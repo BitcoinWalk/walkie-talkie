@@ -79,7 +79,11 @@ shell and remote-signer path on that device; it does not yet prove city groups,
 background notifications or Bluetooth mesh.
 
 The city-first slice uses one persisted approved city as the app context.
-A new installation chooses its city before Nostr sign-in. The Walks tab is then
+A new installation chooses its city from a visual mosaic before Nostr sign-in.
+That selection opens the Walks and Chats tabs immediately: public walk and
+community discovery stay readable without an identity, while joining or posting
+opens the standard Nostr sign-in flow. After sign-in, the app provisions the
+verified city membership for the selected identity. The Walks tab is then
 scoped to that city and leads with the canonical `bitcoinwalk.org/<city>` page.
 The website exposes the versioned, fail-closed `/api/cities` projection so the
 mobile app never invents cities or chat destinations. Each approved city may

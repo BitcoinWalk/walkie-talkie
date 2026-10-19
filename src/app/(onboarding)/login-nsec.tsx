@@ -30,7 +30,7 @@ export default function LoginNsec() {
     try {
       const { pubkey } = await addAccountFromNsec(nsec.trim());
       await setActive(pubkey);
-      router.replace('/');
+      router.replace('/walks');
     } catch (e) {
       setError((e as Error).message || t('login.nsec.invalid'));
       setLoading(false);

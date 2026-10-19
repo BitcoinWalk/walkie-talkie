@@ -101,7 +101,7 @@ export default function Welcome() {
 
   function enterAccount(pubkey: string) {
     void setActive(pubkey);
-    router.replace('/');
+    router.replace('/walks');
   }
 
   function renderAccountRows() {

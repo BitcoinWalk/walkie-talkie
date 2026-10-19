@@ -17,11 +17,10 @@ export default function AppLayout() {
   const c = useThemeColors();
 
   if (!selectedCity) return <Redirect href="/city" />;
-  if (!activePubkey) return <Redirect href="/welcome" />;
 
   return (
     <>
-      <BitcoinWalkCommunityBootstrap />
+      {activePubkey ? <BitcoinWalkCommunityBootstrap /> : null}
       <ResponsiveAppNavigator backgroundColor={c.background} />
       <KeySyncRequestSheet />
       <NearbyChatRequestSheet />

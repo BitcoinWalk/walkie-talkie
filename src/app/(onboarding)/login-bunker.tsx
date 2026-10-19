@@ -33,7 +33,7 @@ export default function LoginBunker() {
     try {
       const { pubkey } = await loginWithBunker(input.trim());
       await setActive(pubkey);
-      router.replace('/');
+      router.replace('/walks');
     } catch {
       setError(t('login.bunker.invalid'));
       setLoading(false);
