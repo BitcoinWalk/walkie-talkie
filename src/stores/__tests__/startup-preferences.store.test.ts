@@ -1,4 +1,7 @@
-import { getDevicePreference } from '@/services/preferences/device-preferences.service';
+import {
+  getDevicePreference,
+  trySetDevicePreference,
+} from '@/services/preferences/device-preferences.service';
 import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 import { useLanguageStore } from '../language.store';
 import { useSelectedCity } from '../selected-city.store';
@@ -57,7 +60,9 @@ describe('startup preference recovery', () => {
       canonicalUrl: `${BITCOINWALK_ORIGIN}/madeira`,
       chat: { scope: 'global', url: 'https://bitcoinwalk.org/join' },
     };
-    jest.mocked(getDevicePreference).mockResolvedValue(JSON.stringify(city));
+    jest.mocked(getDevicePreference).mockImplementation(async (key) => key === 'bitcoinwalk.cityEntryVersion'
+      ? '1'
+      : JSON.stringify(city));
 
     await expect(useSelectedCity.getState().load()).resolves.toBeUndefined();
     expect(useSelectedCity.getState()).toMatchObject({ selectedCity: city, loaded: true });
@@ -72,12 +77,52 @@ describe('startup preference recovery', () => {
         nip29: { relay: 'wss://london.bitcoinwalk.org/', groupId: 'bitcoinwalk-london' },
       },
     };
-    jest.mocked(getDevicePreference).mockResolvedValue(JSON.stringify(city));
+    jest.mocked(getDevicePreference).mockImplementation(async (key) => key === 'bitcoinwalk.cityEntryVersion'
+      ? '1'
+      : JSON.stringify(city));
 
     await expect(useSelectedCity.getState().load()).resolves.toBeUndefined();
     expect(useSelectedCity.getState().selectedCity?.chat).toMatchObject({
       nip29: null,
       communities: { global: null, city: null },
     });
+  });
+
+  it('opens the city mosaic once when upgrading from the earlier city flow', async () => {
+    jest.mocked(getDevicePreference).mockImplementation(async (key) => key === 'bitcoinwalk.selectedCity'
+      ? JSON.stringify({
+        id: 'warszawa', name: 'Warszawa', slug: 'warszawa', aliases: [],
+        canonicalUrl: `${BITCOINWALK_ORIGIN}/warszawa`,
+        chat: { scope: 'global', url: 'https://bitcoinwalk.org/join' },
+      })
+      : null);
+
+    await expect(useSelectedCity.getState().load()).resolves.toBeUndefined();
+
+    expect(useSelectedCity.getState()).toMatchObject({ selectedCity: null, loaded: true });
+    expect(getDevicePreference).toHaveBeenCalledWith('bitcoinwalk.cityEntryVersion');
+    expect(getDevicePreference).not.toHaveBeenCalledWith('bitcoinwalk.selectedCity');
+  });
+
+  it('marks a city chosen from the current mosaic so it is restored next time', () => {
+    const city = {
+      id: 'madeira', name: 'Madeira', slug: 'madeira', aliases: [],
+      canonicalUrl: `${BITCOINWALK_ORIGIN}/madeira`,
+      avatarUrl: `${BITCOINWALK_ORIGIN}/brand/bitcoinwalk-share-fallback.jpg`,
+      chat: {
+        scope: 'global' as const,
+        url: 'https://bitcoinwalk.org/join',
+        nip29: null,
+        communities: { global: null, city: null },
+      },
+    };
+
+    useSelectedCity.getState().select(city);
+
+    expect(trySetDevicePreference).toHaveBeenCalledWith(
+      'bitcoinwalk.selectedCity',
+      JSON.stringify(city),
+    );
+    expect(trySetDevicePreference).toHaveBeenCalledWith('bitcoinwalk.cityEntryVersion', '1');
   });
 });

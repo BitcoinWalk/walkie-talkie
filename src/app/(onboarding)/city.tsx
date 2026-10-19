@@ -83,8 +83,6 @@ export default function ChooseCity() {
           gap: spacing.md,
         }}
         ListHeaderComponent={<View style={{ gap: spacing.md }}>
-          <AppText variant="title">{t('city_select.heading')}</AppText>
-          <AppText tone="muted">{t('city_select.intro')}</AppText>
           <AppInput
             value={query}
             onChangeText={setQuery}

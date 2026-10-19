@@ -11,6 +11,8 @@ import {
 } from '@/services/preferences/device-preferences.service';
 
 const PREFERENCE_KEY = 'bitcoinwalk.selectedCity';
+const CITY_ENTRY_VERSION_KEY = 'bitcoinwalk.cityEntryVersion';
+const CITY_ENTRY_VERSION = '1';
 
 function storedCity(value: string | null): BitcoinWalkCity | null {
   if (!value) return null;
@@ -59,7 +61,11 @@ export const useSelectedCity = create<State>((set) => ({
   loaded: false,
   load: async () => {
     try {
-      set({ selectedCity: storedCity(await getDevicePreference(PREFERENCE_KEY)) });
+      const entryVersion = await getDevicePreference(CITY_ENTRY_VERSION_KEY);
+      const selectedCity = entryVersion === CITY_ENTRY_VERSION
+        ? storedCity(await getDevicePreference(PREFERENCE_KEY))
+        : null;
+      set({ selectedCity });
     } catch (error) {
       console.warn('[bitcoinwalk] Failed to restore selected city.', error);
     } finally {
@@ -69,5 +75,6 @@ export const useSelectedCity = create<State>((set) => ({
   select: (city) => {
     set({ selectedCity: city });
     void trySetDevicePreference(PREFERENCE_KEY, JSON.stringify(city));
+    void trySetDevicePreference(CITY_ENTRY_VERSION_KEY, CITY_ENTRY_VERSION);
   },
 }));

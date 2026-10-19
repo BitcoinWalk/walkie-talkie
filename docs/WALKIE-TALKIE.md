@@ -80,6 +80,8 @@ background notifications or Bluetooth mesh.
 
 The city-first slice uses one persisted approved city as the app context.
 A new installation chooses its city from a visual mosaic before Nostr sign-in.
+The first city-first upgrade also opens that mosaic once instead of silently
+reusing a choice saved by the earlier flow; the next explicit choice persists.
 That selection opens the Walks and Chats tabs immediately: public walk and
 community discovery stay readable without an identity, while joining or posting
 opens the standard Nostr sign-in flow. After sign-in, the app provisions the

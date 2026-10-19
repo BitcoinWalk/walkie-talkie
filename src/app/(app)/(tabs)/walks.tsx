@@ -58,7 +58,8 @@ export default function WalksTab() {
           <AppText tone="muted">{t('walks.city_intro')}</AppText>
           {selectedCity ? <AppButton variant="primary" label={t('walks.city_page')}
             onPress={() => void open(selectedCity.canonicalUrl)} /> : null}
-          <AppButton variant="text" label={t('walks.change_city')} onPress={() => router.push('/city')} />
+          <AppButton variant="secondary" label={t('walks.change_city')}
+            onPress={() => router.replace('/city')} />
           {selectedCity ? <AppCard style={{ gap: spacing.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <MessagesSquare color={c.accent} size={uiDensity.tabIconSize} />
