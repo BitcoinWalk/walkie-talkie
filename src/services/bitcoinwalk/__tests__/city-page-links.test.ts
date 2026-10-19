@@ -1,4 +1,4 @@
-import { communityScopeForCityPageUrl } from '../city-page-links';
+import { appCityPageUrl, communityScopeForCityPageUrl } from '../city-page-links';
 import type { BitcoinWalkCity } from '../cities';
 
 const city = {
@@ -17,6 +17,10 @@ const city = {
 } satisfies BitcoinWalkCity;
 
 describe('BitcoinWalk city-page link routing', () => {
+  it('requests the compact app presentation without changing the city path', () => {
+    expect(appCityPageUrl(city.canonicalUrl)).toBe('https://bitcoinwalk.org/madeira?view=app');
+  });
+
   it('opens the exact city and global destinations in native chat', () => {
     expect(communityScopeForCityPageUrl(city, city.chat.url!)).toBe('city');
     expect(communityScopeForCityPageUrl(city,

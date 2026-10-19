@@ -1,14 +1,14 @@
 import MapPin from 'lucide-react-native/icons/map-pin';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import type { WebViewOpenWindowEvent } from 'react-native-webview/lib/WebViewTypes';
 
 import { AppButton } from '@/components/common/AppButton';
 import { AppText } from '@/components/common/AppText';
 import { platform } from '@/platform';
-import { communityScopeForCityPageUrl, type PublicCommunityScope } from '@/services/bitcoinwalk/city-page-links';
+import { appCityPageUrl, communityScopeForCityPageUrl, type PublicCommunityScope } from '@/services/bitcoinwalk/city-page-links';
 import type { BitcoinWalkCity } from '@/services/bitcoinwalk/cities';
 import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 import { iconStrokeWidth } from '@/theme/icons';
@@ -68,7 +68,7 @@ export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpe
       ) : (
         <WebView
           ref={webView}
-          source={{ uri: city.canonicalUrl }}
+          source={{ uri: appCityPageUrl(city.canonicalUrl) }}
           originWhitelist={['https://*']}
           onShouldStartLoadWithRequest={(request: WebViewNavigation) => handleUrl(request.url)}
           onOpenWindow={(event: WebViewOpenWindowEvent) => { handleUrl(event.nativeEvent.targetUrl); }}
@@ -83,11 +83,11 @@ export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpe
           style={{ flex: 1, backgroundColor: c.background }}
         />
       )}
-      <View pointerEvents="box-none" style={{ position: 'absolute', bottom: bottomClearance + spacing.md,
-        insetInlineEnd: spacing.md }}>
-        <AppButton variant="overlay" size="sm" compact corner="full" fullWidth={false}
+      <View style={{ alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+        borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border, backgroundColor: c.background }}>
+        <AppButton variant="secondary" size="sm" compact corner="full" fullWidth={false}
           label={t('walks.change_city')}
-          iconLeft={<MapPin color={c.onOverlay} size={uiDensity.headerActionIconSize}
+          iconLeft={<MapPin color={c.text} size={uiDensity.headerActionIconSize}
             strokeWidth={iconStrokeWidth.default} />}
           onPress={onChangeCity} />
       </View>

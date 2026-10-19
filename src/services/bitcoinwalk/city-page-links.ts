@@ -2,6 +2,13 @@ import type { BitcoinWalkCity } from './cities';
 
 export type PublicCommunityScope = 'city' | 'global';
 
+/** Requests the compact city-page presentation intended for the native shell. */
+export function appCityPageUrl(canonicalUrl: string): string {
+  const url = new URL(canonicalUrl);
+  url.searchParams.set('view', 'app');
+  return url.toString();
+}
+
 function normalizedUrl(value: string): string | null {
   try {
     const url = new URL(value);
