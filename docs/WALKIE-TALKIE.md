@@ -105,6 +105,10 @@ approved city OG artwork.
 Branding now defaults to black/white with exact BitcoinWalk orange `#F7931A` and
 uses the approved BitcoinWalk mark on a black native loading screen. Red, green
 and amber remain available only for semantic error, success and warning states.
+The sign-in experience continues with the approved shoe-circle photograph and
+its embedded white BitcoinWalk mark. It does not repeat the inherited Walkie
+Talkie lockup or show upstream privacy and terms links that do not apply to this
+fork.
 
 The first mobile slice adds a Walks tab backed by BitcoinWalk's public
 `/api/events` feed. Test APKs use staging; production packages default to

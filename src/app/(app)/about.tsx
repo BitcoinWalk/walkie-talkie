@@ -8,7 +8,6 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { InteractivePressable as Pressable } from '@/components/common/InteractivePressable';
 
 import { AppBrandMark } from '@/components/common/AppBrandMark';
-import { LEGAL_LINKS } from '@/components/common/LegalLinks';
 import {
   BrandArtworkImage,
   prepareBrandArtworkUri,
@@ -154,9 +153,6 @@ export default function AboutSettings() {
             trailing={chevron}
             onPress={() => router.push('/open-source')}
           />
-          {LEGAL_LINKS.map(({ label, url }) => (
-            <ListRow key={label} title={t(label)} trailing={externalLink} onPress={() => openUrl(url)} />
-          ))}
         </ListGroup>
       </ScrollView>
       <ScreenHeader title={t('settings.about')} bordered={scrolled} />

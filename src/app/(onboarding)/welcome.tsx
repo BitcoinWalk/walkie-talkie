@@ -1,11 +1,10 @@
 import { router } from 'expo-router';
 import ChevronLeft from 'lucide-react-native/icons/chevron-left';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { InteractivePressable as Pressable } from '@/components/common/InteractivePressable';
 
-import { AppBrandMark } from '@/components/common/AppBrandMark';
 import { AppButton } from '@/components/common/AppButton';
 import { AppContentColumn } from '@/components/common/AppContentColumn';
 import { AppScreen } from '@/components/common/AppScreen';
@@ -14,9 +13,8 @@ import { Avatar } from '@/components/common/Avatar';
 import { useImmersiveDesktopTitlebar } from '@/components/common/DesktopWindowFrame';
 import { EdgeFade } from '@/components/common/EdgeFade';
 import { InteractionOverlay } from '@/components/common/InteractionOverlay';
-import { LegalLinks } from '@/components/common/LegalLinks';
 import { OrDivider } from '@/components/common/OrDivider';
-import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
+import { ScreenHeader } from '@/components/common/ScreenHeader';
 import { SectionLabel } from '@/components/common/SectionLabel';
 import { OnboardingArtwork } from '@/components/onboarding/OnboardingArtwork';
 import { useAccountList } from '@/hooks/use-account-list';
@@ -40,8 +38,6 @@ import {
 // Height of the soft fade at each end of the account list, and the matching
 // scroll-content inset so the first/last row still clears the fade at rest.
 const FADE_H = 24;
-const WELCOME_BRAND_MARK_SIZE = 48;
-const WELCOME_ARTWORK_BRAND_MARK_SIZE = 64;
 
 function WelcomeBackButton() {
   const { t } = useTranslation();
@@ -92,7 +88,6 @@ export default function Welcome() {
   // re-enter one directly — not just the sign-in options. Hidden while logged in
   // (the add-account push), where the intent is specifically a *new* account.
   const showAccounts = !activePubkey && accounts.length > 0;
-  const titleClearance = useScreenHeaderClearance();
   const { width, height } = useWindowDimensions();
   const wide = isWideLayoutSize(width, height);
   const immersiveTitlebar = wide || !showAccounts;
@@ -169,8 +164,7 @@ export default function Welcome() {
   }
 
   if (showAccounts && wide) {
-    // Wide layout mirrors the sign-in hero: centered bounded column, brand row
-    // up top, the account list shrinking to fit (and scrolling when long), and
+    // Wide layout keeps the account list shrinking to fit (and scrolling when long), and
     // the same actions block at the shared focused-form width.
     return (
       <AppScreen edges={['bottom']}>
@@ -183,20 +177,6 @@ export default function Welcome() {
             paddingVertical: spacing['3xl'],
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.sm,
-            }}
-          >
-            <AppBrandMark size={WELCOME_BRAND_MARK_SIZE} />
-            <AppText variant="title" weight="semibold">
-              {t('welcome.title')}
-            </AppText>
-          </View>
-
           <View style={{ flexShrink: 1, minHeight: 0, width: '100%' }}>
             <SectionLabel>{t('account.switch_title')}</SectionLabel>
             <View style={{ flexShrink: 1, minHeight: 0, position: 'relative' }}>
@@ -224,7 +204,6 @@ export default function Welcome() {
               size="md"
               onPress={() => router.push('/login-bunker')}
             />
-            <LegalLinks />
           </View>
         </AppContentColumn>
         {canCancel ? (
@@ -241,18 +220,6 @@ export default function Welcome() {
     return (
       <AppScreen edges={['bottom']}>
         <AppContentColumn>
-        {/* Brand mark remains page content; navigation chrome stays in ScreenHeader. */}
-        <View
-          style={{
-            alignItems: 'center',
-            paddingHorizontal: spacing.lg,
-            paddingTop: titleClearance + titlebarClearance + spacing.sm,
-            paddingBottom: spacing.md,
-          }}
-        >
-          <AppBrandMark />
-        </View>
-
         {/* Account list — fills the middle and scrolls when long, so the actions
             below never get pushed off-screen. Soft top/bottom fades dissolve the
             rows into the screen at the scroll edges, with matching content insets
@@ -285,7 +252,6 @@ export default function Welcome() {
             size="lg"
             onPress={() => router.push('/login-bunker')}
           />
-          <LegalLinks />
         </View>
         </AppContentColumn>
         <ScreenHeader
@@ -304,27 +270,6 @@ export default function Welcome() {
         {wide ? null : (
           <View style={{ flex: 1 }}>
             <OnboardingArtwork wide={false} fadeColor={c.background} />
-            <View
-              pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  // Center the lockup at 38% of the artwork height.
-                  bottom: '24%',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: spacing.lg,
-                },
-              ]}
-            >
-              {/* Account for the SVG's built-in whitespace below the visible mark. */}
-              <View style={{ marginBottom: -spacing.xs }}>
-                <AppBrandMark size={WELCOME_ARTWORK_BRAND_MARK_SIZE} tone="overlay" />
-              </View>
-              <AppText variant="title" weight="semibold" align="center" style={{ color: c.onOverlay }}>
-                {t('welcome.title')}
-              </AppText>
-            </View>
           </View>
         )}
 
@@ -354,22 +299,6 @@ export default function Welcome() {
                 }
             }
           >
-            {wide ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: spacing.sm,
-                }}
-              >
-                <AppBrandMark size={WELCOME_BRAND_MARK_SIZE} />
-                <AppText variant="title" weight="semibold">
-                  {t('welcome.title')}
-                </AppText>
-              </View>
-            ) : null}
-
             {/* Actions */}
             <View style={{ gap: spacing.md }}>
               <AppButton
@@ -390,7 +319,6 @@ export default function Welcome() {
                 size={wide ? 'md' : 'lg'}
                 onPress={() => router.push('/login-bunker')}
               />
-              <LegalLinks />
             </View>
           </AppContentColumn>
         </View>
