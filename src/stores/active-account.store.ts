@@ -36,6 +36,11 @@ import {
   publishEncryptionKeyAnnouncement,
 } from '@/services/dm/encryption-key.service';
 import {
+  clearDeferredDmSync,
+  deferDmSync,
+  isDmSyncDeferred,
+} from '@/services/dm/dm-sync-preferences';
+import {
   loadAccountDmRelays,
   ownKeyAnnouncementRelays,
   queueInitialDmRelays,
@@ -76,6 +81,8 @@ type State = {
    * onboarding when none are left). */
   removeAccount: (pubkey: string) => Promise<void>;
   completeSync: () => Promise<void>;
+  /** Enter BitcoinWalk without changing the account's remote private-DM key. */
+  continueWithoutDmSync: () => Promise<void>;
   /** Keep local key history and re-enter sync after another device rotated the
    * current encryption key. */
   requireResync: (newEncryptionPubkey: string) => Promise<void>;
@@ -265,6 +272,22 @@ async function comeOnline(pubkey: string, minHoldMs = 0): Promise<void> {
       loadEncryptionKeys(pubkey),
     );
     checkBootstrap(signal);
+    if (keys.length === 0 && await isDmSyncDeferred(pubkey)) {
+      failMessagingSendPreparation(
+        pubkey,
+        new Error('Private messages are unavailable until the encryption key is synchronized.'),
+      );
+      useActiveAccount.setState({
+        activePubkey: pubkey,
+        status: 'ready',
+        bootPhase: null,
+        switchingTo: null,
+        syncTargetPubkey: null,
+        error: null,
+      });
+      outcome = 'dm-sync-deferred';
+      return;
+    }
     if (keys.length > 0) {
       await profileAsync(profile, 'holdAtLeast', () => holdAtLeast(startedAt, minHoldMs));
       checkBootstrap(signal);
@@ -286,6 +309,13 @@ async function comeOnline(pubkey: string, minHoldMs = 0): Promise<void> {
     await profileAsync(profile, 'holdAtLeast', () => holdAtLeast(startedAt, minHoldMs));
     checkBootstrap(signal);
     if (result.kind === 'need_sync') {
+      if (await isDmSyncDeferred(pubkey)) {
+        failMessagingSendPreparation(
+          pubkey,
+          new Error('Private messages are unavailable until the encryption key is synchronized.'),
+        );
+        return;
+      }
       failMessagingSendPreparation(
         pubkey,
         new Error('The current messaging encryption key must be synchronized before sending messages.'),
@@ -354,6 +384,7 @@ async function backgroundSync(pubkey: string, signal: AbortSignal, localMetadata
       });
       return;
     }
+    await clearDeferredDmSync(pubkey);
     completeMessagingSendPreparation(pubkey);
     const account = await getAccount(pubkey);
     if (!isCurrent()) return;
@@ -532,6 +563,7 @@ export const useActiveAccount = create<State>((set, get) => ({
         set({ status: 'need_sync', bootPhase: null });
         return;
       }
+      await clearDeferredDmSync(pk);
       completeMessagingSendPreparation(pk);
       set({ activePubkey: pk, status: 'ready', bootPhase: null, syncTargetPubkey: null });
     } catch (e) {
@@ -540,6 +572,25 @@ export const useActiveAccount = create<State>((set, get) => ({
         set({ status: 'error', bootPhase: null, error: (e as Error).message });
       }
     }
+  },
+
+  async continueWithoutDmSync() {
+    const pk = get().syncTargetPubkey;
+    if (!pk) return;
+    await deferDmSync(pk);
+    bootstrapAbort?.abort();
+    failMessagingSendPreparation(
+      pk,
+      new Error('Private messages are unavailable until the encryption key is synchronized.'),
+    );
+    set({
+      activePubkey: pk,
+      status: 'ready',
+      bootPhase: null,
+      syncTargetPubkey: null,
+      switchingTo: null,
+      error: null,
+    });
   },
 
   async requireResync(newEncryptionPubkey) {

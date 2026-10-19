@@ -33,6 +33,7 @@ import { deleteAllAccountArchives } from '../dm/dm-backup-storage';
 import { clearSyncCursorCache } from '../dm/sync-store';
 import { clearAccountKeyMaterial } from '../dm/encryption-key.service';
 import { removeKeyRotationInterval } from '../dm/encryption-key-rotation-prefs';
+import { clearDeferredDmSync } from '../dm/dm-sync-preferences';
 import { deleteAccountAttachments } from '../files/file-attachment.service';
 import { deletePendingAttachmentFile } from '../files/pending-attachment-file.service';
 import { deleteAccountNearbyFileData } from '../files/nearby-file-upload.service';
@@ -244,6 +245,7 @@ export async function removeAccount(pubkey: string): Promise<void> {
   await clearAccountKeyMaterial(pubkey);
   await removeProximityIdentity(pubkey);
   await removeKeyRotationInterval(pubkey);
+  await clearDeferredDmSync(pubkey);
   await deleteDevicePreference(accountRemovalPreferenceKey(pubkey));
   await deleteDevicePreference(
     walletBalanceVisiblePreferenceKey(pubkey),

@@ -717,6 +717,11 @@
     "system": "Follow system"
   },
   "key_sync": {
+    "continue_title": "Continue to BitcoinWalk",
+    "continue_message": "Your BitcoinWalk city and community chats are ready. Private message history needs a separate encryption key from another device and will stay unavailable for now.",
+    "continue_action": "Continue to BitcoinWalk",
+    "continue_hint": "This does not replace, publish or delete your existing private-message key.",
+    "continue_failed": "Couldn't continue. Try again.",
     "title": "Sync encryption key",
     "subtitle": "This account already has an encryption key. Approve this request from another of your devices that already has it.",
     "pairing_code": "Pairing code",

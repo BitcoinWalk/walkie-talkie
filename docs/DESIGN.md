@@ -157,6 +157,9 @@ between a message bubble and its reaction row.
   publicly readable rooms; posting still requires membership. Hosts is omitted
   entirely unless the signed-in identity has active membership in the verified
   private room, and relay membership remains the final access boundary.
+- Optional private-message key recovery never blocks BitcoinWalk city pages or
+  NIP-29 communities. Deferring recovery must not generate, rotate, publish, or
+  delete a messaging key, and the per-account choice persists across launches.
 - Single-line names and titles truncate within the available width. Adjacent
   status marks, timestamps, and actions retain their space, including in selection mode.
 - In a wide layout, opening a conversation freezes any existing draft preview

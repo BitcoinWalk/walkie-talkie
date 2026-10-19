@@ -7,6 +7,11 @@ import { initializeGeneratedAccount } from '@/services/account/generated-account
 import { getAccount } from '@/services/account/account.service';
 import { loadEncryptionKeys } from '@/services/dm/encryption-key.service';
 import { waitForMessagingSendReadiness } from '@/services/dm/messaging-send-readiness';
+import {
+  clearDeferredDmSync,
+  deferDmSync,
+  isDmSyncDeferred,
+} from '@/services/dm/dm-sync-preferences';
 
 jest.mock('@/services/account/generated-account-setup', () => ({ initializeGeneratedAccount: jest.fn() }));
 jest.mock('@/services/relay/configuration-publish.service', () => ({ configurationPublisher: { start: jest.fn(), stop: jest.fn() } }));
@@ -18,6 +23,11 @@ jest.mock('@/services/account/account.service', () => ({
 }));
 jest.mock('@/services/dm/dm.service', () => ({ dmService: { init: jest.fn(), destroy: jest.fn() } }));
 jest.mock('@/services/dm/encryption-key-rotation.service', () => ({ rotateEncryptionKeyIfDue: jest.fn() }));
+jest.mock('@/services/dm/dm-sync-preferences', () => ({
+  clearDeferredDmSync: jest.fn(),
+  deferDmSync: jest.fn(),
+  isDmSyncDeferred: jest.fn(async () => false),
+}));
 jest.mock('@/services/relay/relay-pool', () => ({ relayPool: { destroy: jest.fn() } }));
 jest.mock('@/services/relay/relay-list.service', () => ({
   loadAccountDmRelays: async () => ['wss://fresh.example'],
@@ -56,6 +66,9 @@ beforeEach(() => {
   useActiveAccount.setState({ activePubkey: null, status: 'idle', syncTargetPubkey: null, error: null });
   loadKeys.mockResolvedValue([{ pubkey: 'old-key', privkey: new Uint8Array(32), createdAt: 1 }]);
   resolveMetadata.mockResolvedValue(metadata());
+  jest.mocked(isDmSyncDeferred).mockResolvedValue(false);
+  jest.mocked(deferDmSync).mockResolvedValue();
+  jest.mocked(clearDeferredDmSync).mockResolvedValue();
 });
 afterEach(async () => { await useActiveAccount.getState().signOut(); });
 
@@ -160,6 +173,36 @@ it('keeps an imported account without a local key waiting for remote key discove
   await signingIn;
   expect(useActiveAccount.getState().status).toBe('need_sync');
   expect(dmService.init).not.toHaveBeenCalled();
+});
+
+it('continues into BitcoinWalk without replacing a remote private-message key', async () => {
+  loadKeys.mockResolvedValue([]);
+  resolveMetadata.mockResolvedValue(metadata('remote-key'));
+  await useActiveAccount.getState().setActive('account');
+  expect(useActiveAccount.getState()).toMatchObject({
+    status: 'need_sync', activePubkey: null, syncTargetPubkey: 'account',
+  });
+
+  await useActiveAccount.getState().continueWithoutDmSync();
+
+  expect(deferDmSync).toHaveBeenCalledWith('account');
+  expect(dmService.init).not.toHaveBeenCalled();
+  expect(useActiveAccount.getState()).toMatchObject({
+    status: 'ready', activePubkey: 'account', syncTargetPubkey: null,
+  });
+});
+
+it('remembers the BitcoinWalk-only choice on the next launch', async () => {
+  loadKeys.mockResolvedValue([]);
+  jest.mocked(isDmSyncDeferred).mockResolvedValue(true);
+
+  await useActiveAccount.getState().loadFromStorage();
+
+  expect(resolveMetadata).not.toHaveBeenCalled();
+  expect(dmService.init).not.toHaveBeenCalled();
+  expect(useActiveAccount.getState()).toMatchObject({
+    status: 'ready', activePubkey: 'account', syncTargetPubkey: null,
+  });
 });
 
 it('does not reopen or replace a signed-out session when local setup finishes or rejects', async () => {
