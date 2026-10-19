@@ -21,6 +21,16 @@ type Props = {
   onOpenCommunity: (scope: PublicCommunityScope) => void;
 };
 
+// The canonical website currently uses CSS system colours. Android WebView
+// otherwise resolves those against the app's dark appearance while parts of
+// the page remain explicitly light, producing black text on a black canvas.
+const LIGHT_CITY_PAGE_SCRIPT = `
+  (function () {
+    document.documentElement.style.colorScheme = 'light';
+  })();
+  true;
+`;
+
 export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpenCommunity }: Props) {
   const { t } = useTranslation();
   const c = useThemeColors();
@@ -63,6 +73,9 @@ export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpe
           onShouldStartLoadWithRequest={(request: WebViewNavigation) => handleUrl(request.url)}
           onOpenWindow={(event: WebViewOpenWindowEvent) => { handleUrl(event.nativeEvent.targetUrl); }}
           onError={() => setFailed(true)}
+          forceDarkOn={false}
+          injectedJavaScriptBeforeContentLoaded={LIGHT_CITY_PAGE_SCRIPT}
+          injectedJavaScript={LIGHT_CITY_PAGE_SCRIPT}
           startInLoadingState
           renderLoading={() => <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center',
             backgroundColor: c.background }}><ActivityIndicator color={c.accent} /></View>}
@@ -70,7 +83,7 @@ export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpe
           style={{ flex: 1, backgroundColor: c.background }}
         />
       )}
-      <View pointerEvents="box-none" style={{ position: 'absolute', top: spacing.md,
+      <View pointerEvents="box-none" style={{ position: 'absolute', bottom: bottomClearance + spacing.md,
         insetInlineEnd: spacing.md }}>
         <AppButton variant="overlay" size="sm" compact corner="full" fullWidth={false}
           label={t('walks.change_city')}

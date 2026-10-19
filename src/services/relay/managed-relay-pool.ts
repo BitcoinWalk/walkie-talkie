@@ -19,7 +19,10 @@ import { platform, type AppStateStatus, type NetworkStateSnapshot } from '@/plat
 import { RelayQueryError } from './relay-query-error';
 
 const CONNECTION_TIMEOUT_MS = 5_000;
-const AUTH_TIMEOUT_MS = 8_000;
+// NIP-42 authentication can require a second approval in a remote signer after
+// the user approves the event itself. Keep the relay operation bounded, but do
+// not expire while the signer is still presenting that approval.
+const AUTH_TIMEOUT_MS = 65_000;
 const RELAY_IDLE_TIMEOUT_MS = 30_000;
 const LONG_LIVED_EOSE_TIMEOUT_MS = 2_147_000_000;
 const LIVE_DEDUP_LIMIT = 8_192;

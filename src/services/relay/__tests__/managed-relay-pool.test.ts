@@ -77,6 +77,30 @@ describe('ManagedRelayPool', () => {
     harness.pool.destroy();
   });
 
+  test('allows an interactive signer to finish relay authentication before retrying a publish', async () => {
+    const harness = createHarness();
+    await harness.pool.ensureRelay(RELAY_A);
+    const relay = harness.relays[0];
+    jest.spyOn(relay, 'publish')
+      .mockRejectedValueOnce(new Error('auth-required: authenticate as author'))
+      .mockResolvedValueOnce('saved');
+    let authenticate!: (value: string) => void;
+    jest.spyOn(relay, 'auth').mockReturnValue(new Promise((resolve) => { authenticate = resolve; }));
+
+    const pending = harness.pool.publishToRelay({
+      url: RELAY_A,
+      event: eventAt('publish', 100),
+      signAuth: async () => eventAt('auth', 100),
+      timeoutMs: 1_000,
+    });
+    await jest.advanceTimersByTimeAsync(10_000);
+    authenticate('authenticated');
+
+    await expect(pending).resolves.toEqual({ ok: true, message: 'saved' });
+    expect(relay.publish).toHaveBeenCalledTimes(2);
+    harness.pool.destroy();
+  });
+
   test('uses the native background pulse to settle a suspended publish timer', async () => {
     const harness = createHarness();
     await harness.pool.ensureRelay(RELAY_A);
@@ -690,7 +714,7 @@ describe('ManagedRelayPool', () => {
     let authenticate!: (value: string) => void;
     jest.spyOn(relay, 'auth').mockReturnValue(new Promise((resolve) => { authenticate = resolve; }));
     relay.serverClose('auth-required: authenticate to read');
-    await jest.advanceTimersByTimeAsync(8_000);
+    await jest.advanceTimersByTimeAsync(65_000);
     await expect(pending).resolves.toMatchObject({
       status: 'complete', relays: [{ status: 'eose', reason: 'auth failed: auth timed out' }],
     });
