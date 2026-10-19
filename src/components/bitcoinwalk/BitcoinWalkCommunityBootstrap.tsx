@@ -27,12 +27,14 @@ export function BitcoinWalkCommunityBootstrap() {
         if ((error as { name?: string })?.name === 'AbortError') return;
       }
       if (controller.signal.aborted) return;
-      const cityDestination = communityChoicesForCity(city)
-        .find((choice) => choice.scope === 'city')?.destination;
-      if (!cityDestination) return;
-      // A signed-in profile follows its selected city automatically. Global is
-      // deliberately left as an explicit choice in the Chats tab.
-      await ensureCommunityMemberships(accountPubkey, [cityDestination]).catch(() => {});
+      const destinations = communityChoicesForCity(city)
+        .filter((choice) => choice.scope === 'city' || choice.scope === 'global')
+        .map((choice) => choice.destination);
+      if (destinations.length === 0) return;
+      // Choosing a city establishes the signed-in profile's two public
+      // BitcoinWalk contexts. The membership service keeps remote-signer
+      // approvals sequential and remembers only confirmed relay state.
+      await ensureCommunityMemberships(accountPubkey, destinations).catch(() => {});
     })();
 
     return () => controller.abort();

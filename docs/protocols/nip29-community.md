@@ -24,6 +24,9 @@ city's room.
   tag. Deduplicate by signed event ID and order by signed timestamp plus ID.
 - Show the selected city group first and BitcoinWalk Global second in Chats.
   The city avatar centre-crops the city's approved OG artwork.
+- After an anonymous visitor chooses a city, Nostr sign-in is the boundary for
+  automatically requesting membership in both that city's room and BitcoinWalk
+  Global. The city room remains selected in Chats; Global is available beside it.
 - On the first authenticated launch for an account and destination, read that
   account's own kind `9000`/`9001` membership history first. This deliberately
   triggers NIP-42 authentication before the user signs a fresh kind `9021`
@@ -32,7 +35,7 @@ city's room.
   locally so later launches do not ask again.
 - A relay `duplicate:` response means the connected identity is already a
   member.
-- Post kind `9` messages only after the explicit join action. Include up to
+- Post kind `9` messages only after confirmed membership. Include up to
   three recent, other-author event prefixes in the `previous` tag.
 - Use the existing account signer, including NIP-46, and the existing managed
   relay pool. The signer remains responsible for relay authentication and the

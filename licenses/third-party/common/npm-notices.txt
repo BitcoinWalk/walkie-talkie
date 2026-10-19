@@ -5322,6 +5322,13 @@ LICENSE
   Text: f961d81b4027c179ccd9200e72fa141f8c0575c1f3c93593f36645dc72bf5216
 ========================================
 
+react-native-webview@13.16.1
+License: MIT
+Source: https://github.com/react-native-webview/react-native-webview.git
+LICENSE
+  Text: 22a28f29cff8f5ecf9f463301d9c03b8245a2952ebae0bcab633fd654c0792fb
+========================================
+
 react-native-worklets@0.10.1
 License: MIT
 Source: git+https://github.com/software-mansion/react-native-reanimated.git

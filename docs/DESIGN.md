@@ -146,6 +146,9 @@ between a message bubble and its reaction row.
 - After city selection, the Walks root is the canonical mobile city page rather
   than a parallel native summary. A compact native change-city action remains
   available without competing with the page content.
+- City discovery precedes authentication. Choosing a city opens Nostr sign-in
+  when needed, then returns to its city page with City preselected in Chats;
+  adding a missing city opens the existing BitcoinWalk walk-creation flow.
 - The Chats root keeps one compact BitcoinWalk destination rail above the
   active community, ordered City, Guide, Global, Hosts, and opens City by
   default. Each destination uses an

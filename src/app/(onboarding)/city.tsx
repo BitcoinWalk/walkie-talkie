@@ -12,7 +12,11 @@ import { AppText } from '@/components/common/AppText';
 import { InteractionOverlay } from '@/components/common/InteractionOverlay';
 import { InteractivePressable } from '@/components/common/InteractivePressable';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
+import { platform } from '@/platform';
 import { loadCities, type BitcoinWalkCity } from '@/services/bitcoinwalk/cities';
+import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
+import { useActiveAccount } from '@/stores/active-account.store';
+import { useBitcoinWalkCommunity } from '@/stores/bitcoinwalk-community.store';
 import { useSelectedCity } from '@/stores/selected-city.store';
 import { radius, spacing, useThemeColors } from '@/theme';
 
@@ -21,11 +25,14 @@ export default function ChooseCity() {
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
   const top = useScreenHeaderClearance();
+  const accountPubkey = useActiveAccount((state) => state.activePubkey);
+  const selectCommunity = useBitcoinWalkCommunity((state) => state.select);
   const select = useSelectedCity((state) => state.select);
   const [cities, setCities] = useState<BitcoinWalkCity[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [linkFailed, setLinkFailed] = useState(false);
   const active = useRef<AbortController | null>(null);
 
   const refresh = useCallback(() => {
@@ -64,7 +71,19 @@ export default function ChooseCity() {
 
   function choose(city: BitcoinWalkCity) {
     select(city);
-    router.replace('/walks');
+    selectCommunity('city');
+    if (accountPubkey) {
+      router.replace('/walks');
+    } else {
+      router.push('/welcome');
+    }
+  }
+
+  function addCity() {
+    setLinkFailed(false);
+    void platform.urlOpener.openExternalUrl(`${BITCOINWALK_ORIGIN}/start`).catch(() => {
+      setLinkFailed(true);
+    });
   }
 
   return (
@@ -83,6 +102,16 @@ export default function ChooseCity() {
           gap: spacing.md,
         }}
         ListHeaderComponent={<View style={{ gap: spacing.md }}>
+          <View style={{ gap: spacing.xs }}>
+            <AppText variant="title">{t('city_select.heading')}</AppText>
+            <AppText tone="muted">{t('city_select.intro')}</AppText>
+          </View>
+          <AppButton
+            variant="secondary"
+            label={t('city_select.add_city')}
+            onPress={addCity}
+          />
+          {linkFailed ? <AppText tone="danger">{t('walks.link_error')}</AppText> : null}
           <AppInput
             value={query}
             onChangeText={setQuery}

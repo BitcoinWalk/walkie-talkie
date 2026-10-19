@@ -133,9 +133,11 @@ they do not reuse the encrypted private-group tables or imply end-to-end
 encryption. The current bounded native read, join and publish behavior is
 specified in [`protocols/nip29-community.md`](./protocols/nip29-community.md).
 The selected city is device-local navigation context and is available before an
-account exists. Public city and walk discovery must not require a signer. Joining
-or publishing is the authentication boundary; after sign-in the verified city
-destination is associated with that account through its NIP-29 membership.
+account exists. Public city and walk discovery must not require a signer. Choosing
+a city hands an anonymous visitor to Nostr sign-in; after sign-in the client
+requests the verified city and BitcoinWalk Global NIP-29 memberships sequentially.
+The city destination is associated with that account through confirmed relay
+membership and remains the default chat; publishing is still membership-gated.
 
 The rumor is the canonical business message. Seals and gift wraps belong to
 relay delivery and ingestion boundaries; UI, conversation, archive, reply,

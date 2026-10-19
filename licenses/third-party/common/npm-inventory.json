@@ -1,6 +1,6 @@
 {
-  "reviewed": "2026-10-11",
-  "lockfileSha256": "f39abc9180e27fce2b69bfa4dbee66230a67f5c61114910bff1e892f44a7d76f",
+  "reviewed": "2026-10-19",
+  "lockfileSha256": "07c3eaf114e433d3d622380b8b71e2b4d1150ba021eee149d855ae41e34b6d73",
   "scope": "All locked non-development npm packages on all platforms, plus the shipped Electron runtime. Includes build utilities; not an exact binary inventory.",
   "packages": [
     {
@@ -10008,6 +10008,20 @@
         {
           "source": "LICENSE",
           "sha256": "f961d81b4027c179ccd9200e72fa141f8c0575c1f3c93593f36645dc72bf5216"
+        }
+      ]
+    },
+    {
+      "name": "react-native-webview",
+      "version": "13.16.1",
+      "license": "MIT",
+      "integrity": "sha512-If0eHhoEdOYDcHsX+xBFwHMbWBGK1BvGDQDQdVkwtSIXiq1uiqjkpWVP2uQ1as94J0CzvFE9PUNDuhiX0Z6ubw==",
+      "repository": "https://github.com/react-native-webview/react-native-webview.git",
+      "homepage": "https://github.com/react-native-webview/react-native-webview#readme",
+      "licenseFiles": [
+        {
+          "source": "LICENSE",
+          "sha256": "22a28f29cff8f5ecf9f463301d9c03b8245a2952ebae0bcab633fd654c0792fb"
         }
       ]
     },

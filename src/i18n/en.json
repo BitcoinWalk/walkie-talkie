@@ -3,6 +3,7 @@
     "title": "Choose your city",
     "heading": "Which BitcoinWalk are you interested in?",
     "intro": "Choose where you walk. We’ll open its upcoming walks and city chat. You can change cities anytime.",
+    "add_city": "Add your city",
     "search": "Search cities",
     "error": "We couldn’t load the verified city list.",
     "empty": "No matching cities",
