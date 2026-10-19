@@ -138,10 +138,11 @@ export function subscribeCommunity(
   });
 }
 
-export async function joinCommunity(
+export async function hasActiveCommunityMembership(
   destination: BitcoinWalkCommunityDestination,
   signer: Signer,
-): Promise<'joined' | 'already-joined'> {
+  abort?: AbortSignal,
+): Promise<boolean> {
   const pubkey = await signer.getPublicKey();
   const membership = await relayPool.query({
     relays: [destination.relay],
@@ -153,6 +154,7 @@ export async function joinCommunity(
     },
     label: 'bitcoinwalk-community-membership',
     timeoutMs: 8_000,
+    abort,
     signAuth: (template) => signer.signEvent(template),
   });
   const latestMembership = membership
@@ -160,7 +162,14 @@ export async function joinCommunity(
       tag(event, 'h') === destination.groupId &&
       event.tags.some((item) => item[0] === 'p' && item[1] === pubkey))
     .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
-  if (latestMembership?.kind === 9000) return 'already-joined';
+  return latestMembership?.kind === 9000;
+}
+
+export async function joinCommunity(
+  destination: BitcoinWalkCommunityDestination,
+  signer: Signer,
+): Promise<'joined' | 'already-joined'> {
+  if (await hasActiveCommunityMembership(destination, signer)) return 'already-joined';
 
   const event = await signer.signEvent({
     kind: 9021,

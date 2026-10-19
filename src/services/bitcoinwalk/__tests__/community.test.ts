@@ -2,6 +2,7 @@ import type { Event, EventTemplate } from 'nostr-tools';
 
 import {
   joinCommunity,
+  hasActiveCommunityMembership,
   loadCommunity,
   loadCommunityMetadata,
   mergeCommunityMessages,
@@ -154,6 +155,24 @@ describe('BitcoinWalk NIP-29 community service', () => {
     await expect(joinCommunity(destination, signer)).resolves.toBe('already-joined');
     expect(relayPool.publishEvent).not.toHaveBeenCalled();
     expect(signer.signEvent).not.toHaveBeenCalled();
+  });
+
+  it('reports only the latest exact membership transition as active', async () => {
+    jest.mocked(relayPool.query).mockResolvedValue([
+      event(9000, '', [['h', destination.groupId], ['p', 'a'.repeat(64)]], 10),
+      event(9001, '', [['h', destination.groupId], ['p', 'a'.repeat(64)]], 12),
+      event(9000, '', [['h', 'another-group'], ['p', 'a'.repeat(64)]], 14),
+    ]);
+
+    await expect(hasActiveCommunityMembership(destination, signer)).resolves.toBe(false);
+    expect(relayPool.query).toHaveBeenCalledWith(expect.objectContaining({
+      filter: expect.objectContaining({
+        kinds: [9000, 9001],
+        '#h': [destination.groupId],
+        '#p': ['a'.repeat(64)],
+      }),
+      signAuth: expect.any(Function),
+    }));
   });
 
   it('publishes the exact kind 9 profile accepted by populated BitcoinWalk groups', async () => {

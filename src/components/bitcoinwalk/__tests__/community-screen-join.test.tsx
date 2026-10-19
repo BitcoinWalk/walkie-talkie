@@ -5,7 +5,6 @@ const mockBuildSigner = jest.fn();
 const mockEnsureMemberships = jest.fn();
 const mockHasMembership = jest.fn();
 const mockLoadCommunity = jest.fn();
-const mockLoadMetadata = jest.fn();
 const mockSubscribeCommunity = jest.fn();
 const mockSelectCity = jest.fn();
 const mockRouterPush = jest.fn();
@@ -45,7 +44,6 @@ jest.mock('@/services/bitcoinwalk/community-membership', () => ({
 }));
 jest.mock('@/services/bitcoinwalk/community', () => ({
   loadCommunity: (...args: unknown[]) => mockLoadCommunity(...args),
-  loadCommunityMetadata: (...args: unknown[]) => mockLoadMetadata(...args),
   mergeCommunityMessageModels: (_current: unknown[], incoming: unknown[]) => incoming,
   mergeCommunityMessages: (current: unknown[]) => current,
   sendCommunityMessage: jest.fn(),
@@ -88,7 +86,6 @@ describe('BitcoinWalk community join screen', () => {
     jest.clearAllMocks();
     mockActivePubkey = 'a'.repeat(64);
     mockHasMembership.mockResolvedValue(false);
-    mockLoadMetadata.mockResolvedValue({ name: 'BitcoinWalk Global', about: 'Everyone can join.' });
     mockLoadCommunity.mockResolvedValue({
       metadata: { name: 'BitcoinWalk Global', about: 'Everyone can join.' },
       roster: { memberPubkeys: [] },
@@ -108,14 +105,18 @@ describe('BitcoinWalk community join screen', () => {
     renderer = undefined;
   });
 
-  it('renders Join after loading public metadata without requesting restricted history', async () => {
+  it('renders public history before joining, without asking the signer to authenticate', async () => {
     await act(async () => {
       renderer = create(<CommunityScreen />);
       await settle();
     });
 
-    expect(mockLoadMetadata).toHaveBeenCalledWith(mockDestination, expect.any(AbortSignal));
-    expect(mockLoadCommunity).not.toHaveBeenCalled();
+    expect(mockLoadCommunity).toHaveBeenCalledWith(
+      mockDestination,
+      expect.any(AbortSignal),
+      undefined,
+    );
+    expect(mockBuildSigner).not.toHaveBeenCalled();
     expect(renderer!.root.findAllByType(AppButton).some(
       (button) => button.props.label === 'community.join',
     )).toBe(true);

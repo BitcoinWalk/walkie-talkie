@@ -18,8 +18,6 @@ import {
 } from '@/services/bitcoinwalk/community-membership';
 import {
   loadCommunity,
-  loadCommunityMetadata,
-  mergeCommunityMessageModels,
   mergeCommunityMessages,
   sendCommunityMessage,
   subscribeCommunity,
@@ -61,6 +59,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
     : city?.chat.communities[scope] ?? null;
   const destinationKey = destination ? `${destination.relay}\n${destination.groupId}` : null;
   const [messages, setMessages] = useState<BitcoinWalkCommunityMessage[]>([]);
+  const [loadedDestinationKey, setLoadedDestinationKey] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [about, setAbout] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +70,9 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const [error, setError] = useState<string | null>(null);
   const resolvingDestination = scope === 'hosts' && chatDirectory === null && loading;
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
+  const visibleMessages = loadedDestinationKey === destinationKey ? messages : [];
+  const visibleName = loadedDestinationKey === destinationKey ? name : null;
+  const visibleAbout = loadedDestinationKey === destinationKey ? about : null;
 
   useEffect(() => {
     if (scope !== 'hosts') return;
@@ -114,19 +116,14 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
         if (!accountPubkey) throw new Error('No active account');
         signer = await buildSigner(accountPubkey);
       }
-      if (!signer) {
-        const metadata = await loadCommunityMetadata(destination);
-        setName(metadata.name);
-        setAbout(metadata.about);
-      } else {
-        const result = await loadCommunity(destination, undefined, signer);
-        if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
-          throw new Error(HOSTS_ACCESS_DENIED);
-        }
-        setName(result.metadata.name);
-        setAbout(result.metadata.about);
-        setMessages((current) => mergeCommunityMessageModels(current, result.messages));
+      const result = await loadCommunity(destination, undefined, signer ?? undefined);
+      if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
+        throw new Error(HOSTS_ACCESS_DENIED);
       }
+      setName(result.metadata.name);
+      setAbout(result.metadata.about);
+      setMessages(result.messages);
+      setLoadedDestinationKey(destinationKey);
       setError(null);
     } catch (cause: unknown) {
       setError(cause instanceof Error && cause.message === HOSTS_ACCESS_DENIED
@@ -137,7 +134,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
       setLoading(false);
       setRefreshing(false);
     }
-  }, [accountPubkey, destination, joined, scope, t]);
+  }, [accountPubkey, destination, destinationKey, joined, scope, t]);
 
   useEffect(() => {
     if (!destination) return;
@@ -155,23 +152,16 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           signer = await buildSigner(accountPubkey);
         }
         if (controller.signal.aborted) return;
-        if (!signer) {
-          const metadata = await loadCommunityMetadata(destination, controller.signal);
-          if (controller.signal.aborted) return;
-          setName(metadata.name);
-          setAbout(metadata.about);
-          setError(null);
-          return;
-        }
-        const result = await loadCommunity(destination, controller.signal, signer);
+        const result = await loadCommunity(destination, controller.signal, signer ?? undefined);
         if (controller.signal.aborted) return;
         if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
           throw new Error(HOSTS_ACCESS_DENIED);
         }
         setName(result.metadata.name);
         setAbout(result.metadata.about);
-        setMessages((current) => mergeCommunityMessageModels(current, result.messages));
-        setJoinedDestinationKey(destinationKey);
+        setMessages(result.messages);
+        setLoadedDestinationKey(destinationKey);
+        if (signer) setJoinedDestinationKey(destinationKey);
         setError(null);
         unsubscribe = subscribeCommunity(destination, (event) => {
           setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
@@ -226,7 +216,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           destination,
           signer,
           content: draft,
-          previousEventIds: messages.filter((message) => message.pubkey !== accountPubkey)
+          previousEventIds: visibleMessages.filter((message) => message.pubkey !== accountPubkey)
             .map((message) => message.id),
         });
         setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
@@ -242,7 +232,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
     }
   }
 
-  const title = name ?? (scope === 'global'
+  const title = visibleName ?? (scope === 'global'
     ? t('community.global_title')
     : scope === 'hosts'
       ? t('community.hosts_full_title')
@@ -262,7 +252,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           <AppText tone="muted" align="center">{t('community.unavailable_hint')}</AppText>
         </View> : <>
           <FlatList
-            data={messages}
+            data={visibleMessages}
             keyExtractor={(message) => message.id}
             refreshing={refreshing}
             onRefresh={() => void refresh()}
@@ -271,7 +261,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
               paddingTop: clearance + spacing.sm, paddingBottom: spacing.lg, gap: spacing.sm }}
             ListHeaderComponent={<View style={{ gap: spacing.xs, paddingBottom: spacing.sm }}>
               <AppText variant="title">{title}</AppText>
-              <AppText tone="muted">{about ?? t('community.about')}</AppText>
+              <AppText tone="muted">{visibleAbout ?? t('community.about')}</AppText>
             </View>}
             ListEmptyComponent={<View style={{ alignItems: 'center', gap: spacing.sm, padding: spacing.xl }}>
               <MessagesSquare color={c.textMuted} size={uiDensity.tabIconSize} />

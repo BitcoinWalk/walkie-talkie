@@ -153,9 +153,10 @@ between a message bubble and its reaction row.
   active community, ordered City, Guide, Global, Hosts, and opens City by
   default. Each destination uses an
   avatar, short label, and plain-language privacy or scope subtitle. Guide is a
-  notification-only thread without a composer. Hosts remains visible but inert
-  until its verified private-room destination is available; relay membership
-  remains the access boundary.
+  notification-only thread without a composer. City and Global are distinct,
+  publicly readable rooms; posting still requires membership. Hosts is omitted
+  entirely unless the signed-in identity has active membership in the verified
+  private room, and relay membership remains the final access boundary.
 - Single-line names and titles truncate within the available width. Adjacent
   status marks, timestamps, and actions retain their space, including in selection mode.
 - In a wide layout, opening a conversation freezes any existing draft preview

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Walkie Talkie",
     "slug": "walkie-talkie",
-    "version": "26.10.8",
+    "version": "26.10.9",
     "orientation": "default",
     "icon": "./assets/images/bitcoinwalk-app-icon.png",
     "scheme": "walkietalkie",
