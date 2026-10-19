@@ -41,6 +41,7 @@ jobs:
           node --test tests/bitcoinwalk/core.test.mjs
           npx jest src/services/bitcoinwalk/__tests__/walks.test.ts --runInBand
           npx jest src/services/bitcoinwalk/__tests__/cities.test.ts src/services/bitcoinwalk/__tests__/config.test.ts --runInBand
+          npx jest src/services/bitcoinwalk/__tests__/community.test.ts src/services/bitcoinwalk/__tests__/community-membership.test.ts src/components/bitcoinwalk/__tests__/community-screen-join.test.tsx src/services/relay/__tests__/managed-relay-pool.test.ts --runInBand
           npx tsc --noEmit
       - name: Generate isolated development app
         run: |

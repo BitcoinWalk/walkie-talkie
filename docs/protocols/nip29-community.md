@@ -24,17 +24,19 @@ city's room.
   tag. Deduplicate by signed event ID and order by signed timestamp plus ID.
 - Show the selected city group first and BitcoinWalk Global second in Chats.
   The city avatar centre-crops the city's approved OG artwork.
-- On the first authenticated launch for an account and destination, submit a
-  kind `9021` join through the existing signer. Remote signers such as Amber may
-  ask the user to approve each request. Remember only successful or duplicate
-  joins locally so later launches do not ask again.
+- On the first authenticated launch for an account and destination, read that
+  account's own kind `9000`/`9001` membership history first. This deliberately
+  triggers NIP-42 authentication before the user signs a fresh kind `9021`
+  join. Remote signers such as Amber may ask the user to approve each request.
+  Remember only confirmed membership, successful joins, or duplicate joins
+  locally so later launches do not ask again.
 - A relay `duplicate:` response means the connected identity is already a
   member.
 - Post kind `9` messages only after the explicit join action. Include up to
   three recent, other-author event prefixes in the `previous` tag.
 - Use the existing account signer, including NIP-46, and the existing managed
-  relay pool. The signer remains responsible for relay authentication during
-  publication.
+  relay pool. The signer remains responsible for relay authentication and the
+  membership action; the join is signed only after authentication completes.
 
 Public community messages intentionally remain outside the encrypted
 private-message database. Profile hydration, offline history and notification

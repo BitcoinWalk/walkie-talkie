@@ -18,6 +18,7 @@ type SavedMemberships = { destinations: string[] };
 export type CommunityMembershipResult = {
   joined: string[];
   failed: string[];
+  failureReasons: Record<string, string>;
 };
 
 export function communityDestinationKey(destination: BitcoinWalkCommunityDestination): string {
@@ -67,10 +68,11 @@ export function ensureCommunityMemberships(
   const request = (async () => {
     const saved = await savedMemberships(accountPubkey);
     const missing = unique.filter((destination) => !saved.has(communityDestinationKey(destination)));
-    if (missing.length === 0) return { joined: [], failed: [] };
+    if (missing.length === 0) return { joined: [], failed: [], failureReasons: {} };
 
     const joined: string[] = [];
     const failed: string[] = [];
+    const failureReasons: Record<string, string> = {};
     const signer = await buildSigner(accountPubkey);
     try {
       // Keep remote-signer approvals sequential so Amber presents one clear
@@ -82,14 +84,21 @@ export function ensureCommunityMemberships(
           saved.add(key);
           joined.push(key);
           await saveMemberships(accountPubkey, saved);
-        } catch {
+        } catch (error) {
           failed.push(key);
+          const reason = error instanceof Error ? error.message : String(error);
+          failureReasons[key] = reason;
+          console.warn('[bitcoinwalk.community] Join failed.', {
+            relay: destination.relay,
+            groupId: destination.groupId,
+            reason,
+          });
         }
       }
     } finally {
       await signer.destroy?.();
     }
-    return { joined, failed };
+    return { joined, failed, failureReasons };
   })().finally(() => inFlight.delete(batchKey));
   inFlight.set(batchKey, request);
   return request;

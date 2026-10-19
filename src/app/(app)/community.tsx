@@ -202,10 +202,14 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
     setBusy(true);
     try {
       const result = await ensureCommunityMemberships(accountPubkey, [destination]);
-      if (result.failed.length > 0) throw new Error('Community join failed');
+      if (result.failed.length > 0) {
+        const key = result.failed[0];
+        throw new Error(result.failureReasons[key] ?? 'Community join failed');
+      }
       setJoinedDestinationKey(destinationKey);
       setError(null);
-    } catch {
+    } catch (cause) {
+      console.warn('[bitcoinwalk.community] Join action failed.', cause);
       setError(t('community.join_error'));
     } finally {
       setBusy(false);

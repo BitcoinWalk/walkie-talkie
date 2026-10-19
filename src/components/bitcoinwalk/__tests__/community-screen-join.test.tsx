@@ -99,6 +99,7 @@ describe('BitcoinWalk community join screen', () => {
     mockEnsureMemberships.mockResolvedValue({
       joined: [`${mockDestination.relay}\n${mockDestination.groupId}`],
       failed: [],
+      failureReasons: {},
     });
   });
 

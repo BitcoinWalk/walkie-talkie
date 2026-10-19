@@ -37,10 +37,23 @@ describe('BitcoinWalk automatic community membership', () => {
     await expect(ensureCommunityMemberships('pubkey', [city, global])).resolves.toEqual({
       joined: [expect.stringContaining('bitcoinwalk-madeira'), expect.stringContaining('global')],
       failed: [],
+      failureReasons: {},
     });
     expect(mockJoinCommunity.mock.calls.map((call) => call[0])).toEqual([city, global]);
     expect(mockSetPreference).toHaveBeenCalledTimes(2);
     expect(mockBuildSigner.mock.results[0].value).toBeDefined();
+  });
+
+  it('retains the relay reason when a join fails', async () => {
+    mockJoinCommunity.mockRejectedValueOnce(new Error('auth failed: approval was cancelled'));
+
+    await expect(ensureCommunityMemberships('failed-pubkey', [city])).resolves.toEqual({
+      joined: [],
+      failed: [`${city.relay}\n${city.groupId}`],
+      failureReasons: {
+        [`${city.relay}\n${city.groupId}`]: 'auth failed: approval was cancelled',
+      },
+    });
   });
 
   it('does not ask the signer to join a previously confirmed group', async () => {

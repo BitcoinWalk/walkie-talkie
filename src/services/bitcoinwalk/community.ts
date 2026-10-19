@@ -142,6 +142,26 @@ export async function joinCommunity(
   destination: BitcoinWalkCommunityDestination,
   signer: Signer,
 ): Promise<'joined' | 'already-joined'> {
+  const pubkey = await signer.getPublicKey();
+  const membership = await relayPool.query({
+    relays: [destination.relay],
+    filter: {
+      kinds: [9000, 9001],
+      '#h': [destination.groupId],
+      '#p': [pubkey],
+      limit: 10,
+    },
+    label: 'bitcoinwalk-community-membership',
+    timeoutMs: 8_000,
+    signAuth: (template) => signer.signEvent(template),
+  });
+  const latestMembership = membership
+    .filter((event) => (event.kind === 9000 || event.kind === 9001) &&
+      tag(event, 'h') === destination.groupId &&
+      event.tags.some((item) => item[0] === 'p' && item[1] === pubkey))
+    .sort((a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id))[0];
+  if (latestMembership?.kind === 9000) return 'already-joined';
+
   const event = await signer.signEvent({
     kind: 9021,
     created_at: Math.floor(Date.now() / 1_000),

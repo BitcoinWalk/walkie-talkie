@@ -11,7 +11,11 @@ import { relayPool } from '@/services/relay/relay-pool';
 import type { Signer } from '@/services/signer/signer.interface';
 
 jest.mock('@/services/relay/relay-pool', () => ({
-  relayPool: { query: jest.fn(), publishEvent: jest.fn(), subscribe: jest.fn() },
+  relayPool: {
+    query: jest.fn(),
+    publishEvent: jest.fn(),
+    subscribe: jest.fn(),
+  },
 }));
 
 const destination = { relay: 'wss://madeira.bitcoinwalk.org', groupId: 'bitcoinwalk-madeira' };
@@ -33,7 +37,10 @@ function event(
 }
 
 describe('BitcoinWalk NIP-29 community service', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(relayPool.query).mockResolvedValue([]);
+  });
 
   it('reads exact metadata and chronological messages from one verified destination', async () => {
     jest.mocked(relayPool.query).mockResolvedValue([
@@ -112,9 +119,41 @@ describe('BitcoinWalk NIP-29 community service', () => {
       { url: destination.relay, outcome: { ok: false, reason: 'duplicate: already a member' } },
     ]);
     await expect(joinCommunity(destination, signer)).resolves.toBe('already-joined');
+    expect(relayPool.query).toHaveBeenCalledWith(expect.objectContaining({
+      relays: [destination.relay],
+      filter: expect.objectContaining({
+        kinds: [9000, 9001],
+        '#h': [destination.groupId],
+        '#p': ['a'.repeat(64)],
+      }),
+      signAuth: expect.any(Function),
+    }));
+    expect(jest.mocked(relayPool.query).mock.invocationCallOrder[0])
+      .toBeLessThan(jest.mocked(signer.signEvent).mock.invocationCallOrder[0]);
     expect(signer.signEvent).toHaveBeenCalledWith(expect.objectContaining({
       kind: 9021, tags: [['h', destination.groupId]], content: '',
     }));
+  });
+
+  it('does not ask for the join signature when relay authentication fails', async () => {
+    jest.mocked(relayPool.query).mockRejectedValue(new Error('auth failed: approval was cancelled'));
+
+    await expect(joinCommunity(destination, signer)).rejects.toThrow('approval was cancelled');
+    expect(signer.signEvent).not.toHaveBeenCalled();
+    expect(relayPool.publishEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not publish another join when authenticated membership is already active', async () => {
+    jest.mocked(relayPool.query).mockResolvedValue([
+      event(9000, '', [
+        ['h', destination.groupId],
+        ['p', 'a'.repeat(64)],
+      ], 15),
+    ]);
+
+    await expect(joinCommunity(destination, signer)).resolves.toBe('already-joined');
+    expect(relayPool.publishEvent).not.toHaveBeenCalled();
+    expect(signer.signEvent).not.toHaveBeenCalled();
   });
 
   it('publishes a kind 9 message with bounded timeline references', async () => {
