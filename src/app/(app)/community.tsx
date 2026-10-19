@@ -36,15 +36,22 @@ import { spacing, uiDensity, useThemeColors } from '@/theme';
 
 const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
 
-export default function CommunityScreen() {
+type Props = {
+  embedded?: boolean;
+  embeddedScope?: 'city' | 'global' | 'hosts';
+};
+
+export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Props) {
   const { t, i18n } = useTranslation();
   const c = useThemeColors();
-  const clearance = useScreenHeaderClearance();
+  const screenClearance = useScreenHeaderClearance();
+  const clearance = embedded ? 0 : screenClearance;
   const selectedCity = useSelectedCity((state) => state.selectedCity);
   const selectCity = useSelectedCity((state) => state.select);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
   const params = useLocalSearchParams<{ scope?: string; city?: string | string[] }>();
-  const scope = params.scope === 'global' || params.scope === 'hosts' ? params.scope : 'city';
+  const routeScope = params.scope === 'global' || params.scope === 'hosts' ? params.scope : 'city';
+  const scope = embeddedScope ?? routeScope;
   const requestedCity = (Array.isArray(params.city) ? params.city[0] : params.city)?.toLowerCase();
   const city = !requestedCity || selectedCity?.slug === requestedCity ? selectedCity : null;
   const resolvingCity = !!requestedCity && !city;
@@ -240,8 +247,7 @@ export default function CommunityScreen() {
     dateStyle: 'short', timeStyle: 'short',
   }), [i18n.resolvedLanguage]);
 
-  return (
-    <AppScreen edges={['bottom']}>
+  const content = (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
         {resolvingCity || resolvingDestination || !!destination && loading ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={c.accent} />
@@ -305,7 +311,18 @@ export default function CommunityScreen() {
           </View>
         </>}
       </KeyboardAvoidingView>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <AppScreen edges={['bottom']}>
+      {content}
       <ScreenHeader title={title} />
     </AppScreen>
   );
+}
+
+export default function CommunityScreen() {
+  return <BitcoinWalkCommunityView />;
 }

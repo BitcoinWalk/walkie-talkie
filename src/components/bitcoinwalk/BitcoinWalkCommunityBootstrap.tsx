@@ -27,9 +27,12 @@ export function BitcoinWalkCommunityBootstrap() {
         if ((error as { name?: string })?.name === 'AbortError') return;
       }
       if (controller.signal.aborted) return;
-      const destinations = communityChoicesForCity(city).map((choice) => choice.destination);
-      if (destinations.length === 0) return;
-      await ensureCommunityMemberships(accountPubkey, destinations).catch(() => {});
+      const cityDestination = communityChoicesForCity(city)
+        .find((choice) => choice.scope === 'city')?.destination;
+      if (!cityDestination) return;
+      // A signed-in profile follows its selected city automatically. Global is
+      // deliberately left as an explicit choice in the Chats tab.
+      await ensureCommunityMemberships(accountPubkey, [cityDestination]).catch(() => {});
     })();
 
     return () => controller.abort();

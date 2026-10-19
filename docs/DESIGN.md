@@ -143,8 +143,12 @@ between a message bubble and its reaction row.
   logical-end fades appear only while content remains hidden beyond that edge;
   native and Electron overlay scrollbars stay hidden because the fades are the
   rail's overflow affordance.
+- After city selection, the Walks root is the canonical mobile city page rather
+  than a parallel native summary. A compact native change-city action remains
+  available without competing with the page content.
 - The Chats root keeps one compact BitcoinWalk destination rail above the
-  ordinary inbox, ordered City, Guide, Global, Hosts. Each destination uses an
+  active community, ordered City, Guide, Global, Hosts, and opens City by
+  default. Each destination uses an
   avatar, short label, and plain-language privacy or scope subtitle. Guide is a
   notification-only thread without a composer. Hosts remains visible but inert
   until its verified private-room destination is available; relay membership
@@ -791,9 +795,6 @@ message bubbles, reaction pills, and action menus.
 Do not use em dashes in UI strings. Localize every visible string. Preserve
 logical reading order, accessible labels, dynamic text growth, and sufficiently
 large touch targets.
-
-Legal policy links use a quiet text footer on welcome and standard rows in
-About, available before sign-in and during everyday use.
 
 Generated Nearby names follow the current app language's word order and grammar.
 Saved names remain stable across language changes; explicit regeneration uses

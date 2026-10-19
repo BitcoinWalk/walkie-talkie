@@ -14,6 +14,8 @@
     "intro": "Upcoming community walks. Times are shown in the meeting place’s time zone.",
     "city_intro": "Your selected city page and its upcoming walks.",
     "city_page": "Open city page",
+    "city_page_error": "This city page could not be loaded",
+    "city_page_error_hint": "Check your connection and try again.",
     "change_city": "Change city",
     "community_city_title": "BitcoinWalk in {{city}} community",
     "community_global_title": "BitcoinWalk community",

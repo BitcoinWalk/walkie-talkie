@@ -85,8 +85,11 @@ reusing a choice saved by the earlier flow; the next explicit choice persists.
 That selection opens the Walks and Chats tabs immediately: public walk and
 community discovery stay readable without an identity, while joining or posting
 opens the standard Nostr sign-in flow. After sign-in, the app provisions the
-verified city membership for the selected identity. The Walks tab is then
-scoped to that city and leads with the canonical `bitcoinwalk.org/<city>` page.
+verified city membership for the selected identity. The Walks tab is the
+canonical `bitcoinwalk.org/<city>` page itself; no parallel native walk-summary
+screen sits between the person and the city page. The persisted city page is the
+returning user's default screen, and a compact overlay action reopens the mosaic
+to change city.
 The website exposes the versioned, fail-closed `/api/cities` projection so the
 mobile app never invents cities or chat destinations. Each approved city may
 point at its own verified NIP-29 group on the shared BitcoinWalk community
@@ -95,12 +98,15 @@ available as a separate second conversation.
 The projection carries the verified public NIP-29 relay and group identifier
 separately from the optional external-client link. Walkie Talkie validates both
 against the selected city and shows the community entry only when that evidence
-is present. This bridge does not yet make the inherited private-group transport
-NIP-29-compatible. Chats now pins the verified city group and BitcoinWalk
-Global above private conversations. After sign-in the app submits each missing
-membership request once through the connected signer and remembers successful
-joins on that device. The city group avatar uses a centred circular crop of the
-approved city OG artwork.
+is present. Verified City and Global community links on the city page switch to
+the native Chats tab; unrelated external links still leave the app. This bridge
+does not yet make the inherited private-group transport NIP-29-compatible.
+Chats opens the verified city group first and keeps Guide, BitcoinWalk Global,
+and Hosts available in its conversation rail. After sign-in the app submits the
+missing city membership request once through the connected signer and remembers
+the successful join on that device. Global remains an explicit choice and join,
+not an automatic subscription. The city group avatar uses a centred circular
+crop of the approved city OG artwork.
 
 Branding now defaults to black/white with exact BitcoinWalk orange `#F7931A` and
 uses the approved BitcoinWalk mark on a black native loading screen. Red, green
