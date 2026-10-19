@@ -57,17 +57,21 @@ jobs:
           -PreactNativeArchitectures=arm64-v8a
           -PreactNativeDevServerIp=127.0.0.1
       - name: Verify and label test artifact
+        id: package
         run: |
+          app_version="$(node -p "require('./app.json').expo.version")"
+          apk_name="WalkieTalkie-${app_version}-test-arm64.apk"
           mkdir -p test-artifact
-          cp android/app/build/outputs/apk/release/app-release.apk test-artifact/WalkieTalkie-test-arm64.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs test-artifact/WalkieTalkie-test-arm64.apk
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging test-artifact/WalkieTalkie-test-arm64.apk | head -1 | grep "name='org.bitcoinwalk.walkietalkie.dev'"
+          cp android/app/build/outputs/apk/release/app-release.apk "test-artifact/$apk_name"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "test-artifact/$apk_name"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "test-artifact/$apk_name" | head -1 | grep "name='org.bitcoinwalk.walkietalkie.dev'"
           cd test-artifact
-          sha256sum WalkieTalkie-test-arm64.apk > SHA256SUMS
-          printf '%s\n' "Commit: $GITHUB_SHA" 'TEST ONLY: arm64 Android, development identity, debug signing certificate.' 'No production accounts, private keys or funded wallets. Not a Zapstore release.' > BUILD-INFO.txt
+          sha256sum "$apk_name" > SHA256SUMS
+          printf '%s\n' "Version: $app_version" "Commit: $GITHUB_SHA" 'TEST ONLY: arm64 Android, development identity, debug signing certificate.' 'No production accounts, private keys or funded wallets. Not a Zapstore release.' > BUILD-INFO.txt
+          printf 'app_version=%s\n' "$app_version" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: WalkieTalkie-test-arm64-${{ github.run_number }}
+          name: WalkieTalkie-${{ steps.package.outputs.app_version }}-test-arm64-${{ github.run_number }}
           path: test-artifact/
           if-no-files-found: error
           retention-days: 14
