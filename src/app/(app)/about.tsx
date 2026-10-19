@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { SquareArrowRightUp } from '@solar-icons/react-native/category/arrows/Linear/SquareArrowRightUp';
 import { useState } from 'react';
@@ -7,7 +8,6 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { InteractivePressable as Pressable } from '@/components/common/InteractivePressable';
 
-import { AppBrandMark } from '@/components/common/AppBrandMark';
 import {
   BrandArtworkImage,
   prepareBrandArtworkUri,
@@ -28,7 +28,7 @@ import { platform } from '@/platform';
 import { mediaViewer } from '@/stores/media-viewer.store';
 import { radius, spacing, useThemeColors } from '@/theme';
 
-const SOURCE_CODE_URL = 'https://github.com/codytseng/psstpsst';
+const SOURCE_CODE_URL = 'https://github.com/BitcoinWalk/walkie-talkie';
 // The author's public identity, so users can open a direct message from About.
 const AUTHOR_NPUB = 'npub1syjmjy0dp62dhccq3g97fr87tngvpvzey08llyt6ul58m2zqpzps9wf6wl';
 const AUTHOR_PUBKEY = npubToPubkey(AUTHOR_NPUB);
@@ -117,10 +117,14 @@ export default function AboutSettings() {
               ]}
             >
               <View style={{ alignItems: 'center', gap: spacing.sm }}>
-                <AppBrandMark size={ABOUT_BRAND_MARK_SIZE} tone="overlay" />
+                <Image
+                  source={require('../../../assets/images/bitcoinwalk-icon.png')}
+                  contentFit="contain"
+                  style={{ width: ABOUT_BRAND_MARK_SIZE, height: ABOUT_BRAND_MARK_SIZE }}
+                />
                 <View style={{ alignItems: 'center', gap: spacing.xs }}>
                   <AppText variant="title" weight="semibold" style={{ color: c.onOverlay }}>
-                    PsstPsst
+                    Walkie Talkie
                   </AppText>
                   {version ? (
                     <AppText variant="caption" style={{ color: c.onOverlay }}>
@@ -142,7 +146,7 @@ export default function AboutSettings() {
           />
           <ListRow
             title={t('about.source_code')}
-            value="codytseng/psstpsst"
+            value="BitcoinWalk/walkie-talkie"
             trailing={externalLink}
             onPress={() => openUrl(SOURCE_CODE_URL)}
           />

@@ -35,7 +35,7 @@ for (const variant of ['development', 'production', undefined, 'unknown']) {
         assert.equal(desktop.publish.repo, 'psstpsst');
         assert.equal(desktop.directories.output, '../release');
       }
-      assert.equal(base.name, 'PsstPsst');
+      assert.equal(base.name, 'Walkie Talkie');
     } finally {
       if (previous === undefined) delete process.env.EXPO_PUBLIC_APP_ENV;
       else process.env.EXPO_PUBLIC_APP_ENV = previous;
@@ -43,8 +43,10 @@ for (const variant of ['development', 'production', undefined, 'unknown']) {
   });
 }
 
-test('installed variants do not share identifiers, names, or protocols', () => {
-  for (const key of ['name', 'id', 'scheme', 'packageName']) {
+test('installed variants keep isolated identifiers and protocols', () => {
+  assert.equal(identities.production.name, 'Walkie Talkie');
+  assert.equal(identities.development.name, 'Walkie Talkie');
+  for (const key of ['id', 'scheme', 'packageName']) {
     assert.notEqual(identities.production[key], identities.development[key]);
   }
 });

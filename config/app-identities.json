@@ -6,7 +6,7 @@
     "packageName": "walkietalkie-desktop"
   },
   "development": {
-    "name": "Walkie Talkie Dev",
+    "name": "Walkie Talkie",
     "id": "org.bitcoinwalk.walkietalkie.dev",
     "scheme": "walkietalkie-dev",
     "packageName": "walkietalkie-desktop-dev"

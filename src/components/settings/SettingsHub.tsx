@@ -288,7 +288,7 @@ export function SettingsHub() {
           <ListRow
             icon={<InfoCircle size={22} color={c.text} />}
             title={t('settings.about')}
-            value={appVersion}
+            value={appVersion ? t('about.version', { version: appVersion }) : undefined}
             trailing={chevron}
             onPress={() => openInDetailPane('/about')}
             active={selection.settingsItem === 'about'}
