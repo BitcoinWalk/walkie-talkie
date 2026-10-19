@@ -24,9 +24,10 @@ function openAuthUrl(url: string): void {
  * already speaks the kind-24133 request/response protocol over a relay and
  * implements NIP-44 — and adapts it to our {@link Signer} interface.
  *
- * The bunker connection (relay subscription + handshake) is established **lazily
- * on first use** and memoised, so constructing a signer during bootstrap is
- * cheap and we only pay the round-trip when something actually needs signing.
+ * `Nip46Signer` is created only from an already-authorised, persisted bunker
+ * connection. `BunkerSigner.fromBunker` opens the relay subscription; replaying
+ * `connect` here would incorrectly reuse the one-time secret from the original
+ * login and compliant remote signers may reject or ignore it.
  * Every method is a network round-trip to the remote signer; nothing here
  * touches a local private key (there is none for a remote account).
  */
@@ -40,9 +41,9 @@ export class Nip46Signer implements Signer {
     private readonly pointer: BunkerPointer,
   ) {}
 
-  /** Build the bunker signer and complete the handshake once; concurrent callers
-   * share the in-flight promise. A failed connect clears the cache so a later
-   * call can retry. */
+  /** Restore the already-authorised bunker session once; concurrent callers
+   * share it. The initial `connect` handshake happens in loginWithBunker before
+   * the account and client key are persisted. */
   private ensureConnected(): Promise<BunkerSigner> {
     if (this.inner) return Promise.resolve(this.inner);
     if (this.connecting) return this.connecting;
@@ -55,19 +56,14 @@ export class Nip46Signer implements Signer {
       pool: relayPool.underlyingPool,
       onauth: openAuthUrl,
     });
-    const pending = (async () => {
-      try {
-        await withNip46Timeout(signer.connect(), 'connection');
-        if (this.connectionGeneration !== generation) {
-          throw new Error('NIP-46 connection was superseded.');
-        }
-        this.inner = signer;
-        return signer;
-      } catch (error) {
+    const pending = Promise.resolve().then(async () => {
+      if (this.connectionGeneration !== generation) {
         await signer.close().catch(() => {});
-        throw error;
+        throw new Error('NIP-46 connection was superseded.');
       }
-    })();
+      this.inner = signer;
+      return signer;
+    });
     void pending.finally(() => {
       if (this.connecting === pending) this.connecting = null;
     }).catch(() => {});

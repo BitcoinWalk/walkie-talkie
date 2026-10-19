@@ -79,7 +79,7 @@ describe('Nip46Signer request bounds', () => {
     jest.useRealTimers();
   });
 
-  test('normalizes persisted bunker relays before reconnecting', async () => {
+  test('normalizes persisted bunker relays before restoring the session', async () => {
     mockFromBunker.mockReturnValue(createBunker());
     const pointer = { ...POINTER, relays: ['https://RELAY.example//?b=2&a=1#fragment', 'wss://relay.example/?a=1&b=2'] };
     const signer = new Nip46Signer(new Uint8Array(32), pointer);
@@ -91,25 +91,38 @@ describe('Nip46Signer request bounds', () => {
     await signer.destroy();
   });
 
-  test('times out a stalled connection and reconnects on the next request', async () => {
-    const stalled = createBunker({ connect: jest.fn(() => pending<void>()) });
+  test('times out a stalled request and restores a fresh session on the next request', async () => {
+    const stalled = createBunker({ getPublicKey: jest.fn(() => pending<string>()) });
     const recovered = createBunker();
     mockFromBunker.mockReturnValueOnce(stalled).mockReturnValueOnce(recovered);
     const signer = createSigner();
 
-    const first = signer.signEvent(TEMPLATE);
+    const first = signer.getPublicKey();
     const firstResult = expect(first).rejects.toThrow(
-      'NIP-46 connection timed out after 60 seconds.',
+      'NIP-46 get_public_key timed out after 60 seconds.',
     );
     await jest.advanceTimersByTimeAsync(NIP46_REQUEST_TIMEOUT_MS);
     await firstResult;
 
     expect(warnSpy).toHaveBeenCalledWith(
-      '[nip46] connection timed out after 60000ms at 2026-08-30T05:01:00.000Z.',
+      '[nip46] get_public_key timed out after 60000ms at 2026-08-30T05:01:00.000Z.',
     );
     expect(stalled.close).toHaveBeenCalledTimes(1);
-    await expect(signer.signEvent(TEMPLATE)).resolves.toBe(EVENT);
+    await expect(signer.getPublicKey()).resolves.toBe('pubkey');
     expect(mockFromBunker).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not replay the one-time connect secret for a persisted account', async () => {
+    const bunker = createBunker({
+      connect: jest.fn(async () => {
+        throw new Error('one-time secret already used');
+      }),
+    });
+    mockFromBunker.mockReturnValue(bunker);
+    const signer = createSigner();
+
+    await expect(signer.getPublicKey()).resolves.toBe('pubkey');
+    expect(bunker.connect).not.toHaveBeenCalled();
   });
 
   test('times out a stalled signing request and discards the cached session', async () => {
@@ -143,6 +156,6 @@ describe('Nip46Signer request bounds', () => {
     await expect(signer.nip44Decrypt('peer', 'ciphertext')).resolves.toBe('plaintext');
 
     expect(mockFromBunker).toHaveBeenCalledTimes(1);
-    expect(bunker.connect).toHaveBeenCalledTimes(1);
+    expect(bunker.connect).not.toHaveBeenCalled();
   });
 });

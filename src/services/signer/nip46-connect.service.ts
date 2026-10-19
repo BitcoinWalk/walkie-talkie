@@ -23,6 +23,7 @@ import {
 export const NIP46_DEFAULT_RELAYS = ['wss://relay.damus.io/', 'wss://nos.lol/'];
 
 const APP_NAME = 'Walkie Talkie';
+const APP_URL = 'https://bitcoinwalk.org';
 
 function openAuthUrl(url: string): void {
   void platform.urlOpener.openExternalUrl(url).catch((error) => {
@@ -53,11 +54,16 @@ export async function loginWithBunker(input: string): Promise<{ pubkey: string }
     onauth: openAuthUrl,
   });
   try {
-    await withNip46Timeout(signer.connect(), 'connection');
+    await withNip46Timeout(
+      signer.connect({ name: APP_NAME, url: APP_URL }),
+      'connection',
+    );
     const pubkey = await withNip46Timeout(signer.getPublicKey(), 'get_public_key');
     await addRemoteAccount({
       pubkey,
-      pointer: signer.bp,
+      // The secret authorises this first handshake only. Persist the bunker and
+      // relay coordinates, but never retain or replay the consumed credential.
+      pointer: { ...signer.bp, secret: null },
       clientSecretKeyHex: bytesToHex(clientSecretKey),
     });
     return { pubkey };
