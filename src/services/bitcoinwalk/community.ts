@@ -181,21 +181,16 @@ export async function sendCommunityMessage(input: {
   destination: BitcoinWalkCommunityDestination;
   signer: Signer;
   content: string;
+  /** Reserved for relays that support NIP-29 timeline references. BitcoinWalk's
+   * current bounded relay profile accepts only the exact group tag on kind 9. */
   previousEventIds: string[];
 }): Promise<Event> {
   const content = input.content.trim();
   if (!content || content.length > MAX_MESSAGE_LENGTH) throw new Error('Enter a shorter message.');
-  const previous = [...new Set(input.previousEventIds)]
-    .filter((id) => /^[0-9a-f]{64}$/.test(id))
-    .slice(-3)
-    .map((id) => id.slice(0, 8));
   const event = await input.signer.signEvent({
     kind: 9,
     created_at: Math.floor(Date.now() / 1_000),
-    tags: [
-      ['h', input.destination.groupId],
-      ...(previous.length > 0 ? [['previous', ...previous]] : []),
-    ],
+    tags: [['h', input.destination.groupId]],
     content,
   });
   const [result] = await relayPool.publishEvent({

@@ -156,7 +156,7 @@ describe('BitcoinWalk NIP-29 community service', () => {
     expect(signer.signEvent).not.toHaveBeenCalled();
   });
 
-  it('publishes a kind 9 message with bounded timeline references', async () => {
+  it('publishes the exact kind 9 profile accepted by populated BitcoinWalk groups', async () => {
     jest.mocked(relayPool.publishEvent).mockResolvedValue([
       { url: destination.relay, outcome: { ok: true } },
     ]);
@@ -165,7 +165,7 @@ describe('BitcoinWalk NIP-29 community service', () => {
     expect(signer.signEvent).toHaveBeenLastCalledWith(expect.objectContaining({
       kind: 9,
       content: 'Hello',
-      tags: [['h', destination.groupId], ['previous', '22222222', '33333333', '44444444']],
+      tags: [['h', destination.groupId]],
     }));
   });
 });
