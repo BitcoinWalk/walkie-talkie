@@ -480,9 +480,28 @@ export class ManagedRelayPool {
   }
 
   /** Test and lifecycle hook: immediately replace every demanded connection. */
-  recoverConnections(): void {
+  recoverConnections(preserveHealthySigner = false): void {
     if (this.networkAvailable === false) return;
-    for (const url of this.subscriptionIdsByRelay.keys()) this.recoverRelay(url);
+    for (const url of this.subscriptionIdsByRelay.keys()) {
+      // A foreground event commonly means Amber just approved a request. Its
+      // kind-24133 reply is ephemeral: replacing a live socket here can lose it.
+      // Keep only recently responsive signer sessions; stale/disconnected sockets
+      // and explicit/network-change recovery still follow the normal path.
+      const connection = this.connections.get(url);
+      const recent = connection?.lastReceivedAt != null &&
+        Date.now() - connection.lastReceivedAt >= 0 &&
+        Date.now() - connection.lastReceivedAt <= HEALTH_RESPONSE_MAX_AGE_MS;
+      if (preserveHealthySigner && recent && connection?.relay?.connected &&
+          !connection.connectPromise &&
+          Array.from(this.subscriptionIdsByRelay.get(url) ?? []).some((id) => {
+            const logical = this.subscriptions.get(id);
+            const physical = logical?.physical.get(url);
+            return logical?.options.label === 'nip46.session' && !logical.closed &&
+              physical?.generation === connection.generation &&
+              !physical.subscription.closed && physical.subscription.eosed;
+          })) continue;
+      this.recoverRelay(url);
+    }
   }
 
   /** A socket flag alone cannot prove liveness. Require an actual EOSE for
@@ -517,7 +536,7 @@ export class ManagedRelayPool {
     platform.appState.addChangeListener((nextState) => {
       const previous = this.appState;
       this.appState = nextState;
-      if (nextState === 'active' && previous !== 'active') this.recoverConnections();
+      if (nextState === 'active' && previous !== 'active') this.recoverConnections(true);
     });
 
     platform.networkState.addStateListener((state) => this.handleNetworkState(state));
@@ -1091,7 +1110,7 @@ class ManagedAbstractPoolAdapter extends AbstractSimplePool {
     let abortCleanup: (() => void) | null = null;
 
     const unsubscribe = this.managed.subscribe({
-      label: params.label,
+      label: params.label ?? 'nip46.session',
       relays: urls,
       filter,
       onEvent: params.onevent ?? (() => {}),

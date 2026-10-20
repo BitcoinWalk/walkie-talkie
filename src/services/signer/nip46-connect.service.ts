@@ -16,6 +16,9 @@ import {
   NIP46_PAIRING_TIMEOUT_MS,
   withNip46Timeout,
 } from './nip46-timeout';
+import { BunkerLoginError, classifyBunkerLoginError } from './nip46-login-error';
+
+export type BunkerLoginPhase = 'approval' | 'public_key' | 'saving';
 
 /** Default relays the two sides rendezvous on for the Nostr Connect (app-
  * initiated) flow — widely-replicated public relays most signers already speak
@@ -39,14 +42,21 @@ function openAuthUrl(url: string): void {
  * temporary connection is closed afterwards; the next use (bootstrap) reconnects
  * lazily with the same authorised client key.
  */
-export async function loginWithBunker(input: string): Promise<{ pubkey: string }> {
+export async function loginWithBunker(
+  input: string,
+  onPhase?: (phase: BunkerLoginPhase) => void,
+): Promise<{ pubkey: string }> {
   const trimmed = input.trim();
   // Bunker links only — `parseBunkerInput` would also resolve a `name@domain`
   // NIP-05, which we deliberately don't accept here.
-  if (!BUNKER_REGEX.test(trimmed)) throw new Error('invalid');
+  if (!BUNKER_REGEX.test(trimmed)) throw new BunkerLoginError('invalid_link');
   const pointer = await parseBunkerInput(trimmed);
-  if (!pointer) throw new Error('invalid');
-  pointer.relays = Array.from(new Set(pointer.relays.map(normalizeRelayUrl)));
+  if (!pointer || pointer.relays.length === 0) throw new BunkerLoginError('invalid_link');
+  try {
+    pointer.relays = Array.from(new Set(pointer.relays.map(normalizeRelayUrl)));
+  } catch {
+    throw new BunkerLoginError('invalid_link');
+  }
 
   const clientSecretKey = generateSecretKey();
   const signer = BunkerSigner.fromBunker(clientSecretKey, pointer, {
@@ -54,19 +64,29 @@ export async function loginWithBunker(input: string): Promise<{ pubkey: string }
     onauth: openAuthUrl,
   });
   try {
+    onPhase?.('approval');
     await withNip46Timeout(
       signer.connect({ name: APP_NAME, url: APP_URL }),
       'connection',
+      NIP46_PAIRING_TIMEOUT_MS,
     );
+    onPhase?.('public_key');
     const pubkey = await withNip46Timeout(signer.getPublicKey(), 'get_public_key');
-    await addRemoteAccount({
-      pubkey,
-      // The secret authorises this first handshake only. Persist the bunker and
-      // relay coordinates, but never retain or replay the consumed credential.
-      pointer: { ...signer.bp, secret: null },
-      clientSecretKeyHex: bytesToHex(clientSecretKey),
-    });
+    onPhase?.('saving');
+    try {
+      await addRemoteAccount({
+        pubkey,
+        // The secret authorises this first handshake only. Persist the bunker and
+        // relay coordinates, but never retain or replay the consumed credential.
+        pointer: { ...signer.bp, secret: null },
+        clientSecretKeyHex: bytesToHex(clientSecretKey),
+      });
+    } catch {
+      throw new BunkerLoginError('save_failed');
+    }
     return { pubkey };
+  } catch (error) {
+    throw new BunkerLoginError(classifyBunkerLoginError(error));
   } finally {
     await signer.close().catch(() => {});
   }

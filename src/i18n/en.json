@@ -55,6 +55,21 @@
       "submit": "Connect",
       "connecting": "Connecting to your signer…",
       "invalid": "Couldn't connect with that link",
+      "progress": {
+        "approval": "Open your signer and approve the connection request. Waiting for approval…",
+        "public_key": "Connection approved. Confirm access to your public key in your signer if asked…",
+        "saving": "Saving your approved connection…"
+      },
+      "errors": {
+        "invalid_link": "Paste the complete bunker:// link, including its relay address.",
+        "expired_link": "Your signer says this connection link has expired or was already used. Create a new connection in your signer and paste its new link.",
+        "signer_locked": "Your signer is locked. Unlock it and try again.",
+        "rejected": "Your signer rejected the request. Check its permissions and approve the connection.",
+        "timeout": "Your signer did not reply in time. Check its pending requests, notifications and relay connection, then try with a new connection link.",
+        "relay_unavailable": "Couldn't send the request to your signer's relays. Check your connection and the relay addresses in your signer.",
+        "save_failed": "The signer approved the connection, but it couldn't be saved on this device. Try again with a new connection link.",
+        "connection_failed": "Couldn't complete the connection. Check your signer's requests and try again with a new connection link."
+      },
       "use_nostr_connect": "Nostr Connect"
     },
     "nostr_connect": {

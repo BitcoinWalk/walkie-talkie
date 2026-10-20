@@ -622,6 +622,10 @@ Back actions check navigation availability when dispatched. Stale events while
 session gates have unmounted the navigator are ignored, never deferred into the
 next session.
 
+Returning from a remote-signer approval preserves recently responsive NIP-46
+reply subscriptions. Their ephemeral responses cannot be replayed after a forced
+socket replacement; disconnected or stale connections still recover normally.
+
 Native modal presentation is serialized. A modal that opens another closes
 first and continues from `onClosed`; guessed delays are not a coordination
 mechanism. Gesture-heavy overlays keep animation and gesture arbitration on the

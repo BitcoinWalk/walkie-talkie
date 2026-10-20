@@ -16,10 +16,14 @@ jest.mock('@/platform', () => ({
   platform: {
     appState: {
       currentState: () => mockAppState,
-      addChangeListener: jest.fn((listener: () => void) => {
-        mockAppStateChange = listener;
+      addChangeListener: jest.fn((listener: (state: string) => void) => {
+        mockAppStateChange = () => listener(mockAppState);
         return () => {};
       }),
+    },
+    networkState: {
+      addStateListener: () => () => {},
+      getState: async () => ({ isConnected: true, isInternetReachable: true, type: 'wifi' }),
     },
     backgroundMessaging: {
       isAvailable: () => true,
@@ -40,6 +44,43 @@ describe('ManagedRelayPool', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  test('keeps a responsive bunker reply subscription while returning from Amber', async () => {
+    const { pool, relays } = createHarness([], undefined, true);
+    const received = jest.fn();
+    pool.underlyingPool.subscribe([RELAY_A], { kinds: [24133] }, { onevent: received });
+    await flushPromises();
+    const relay = relays[0];
+    relay.emitEose();
+
+    mockAppState = 'background';
+    mockAppStateChange!();
+    mockAppState = 'active';
+    mockAppStateChange!();
+    const reply = { ...eventAt('approval', 100), kind: 24133 };
+    relay.emitEvent(reply);
+    await flushPromises();
+
+    expect(relays).toHaveLength(1);
+    expect(received).toHaveBeenCalledWith(reply, RELAY_A);
+    pool.destroy();
+  });
+
+  test('still replaces stale bunker sockets and honors forced recovery', async () => {
+    const { pool, relays } = createHarness();
+    pool.underlyingPool.subscribe([RELAY_A], { kinds: [24133] }, { onevent: () => {} });
+    await flushPromises();
+    relays[0].emitEose();
+    jest.setSystemTime(Date.now() + 90_001);
+    pool.recoverConnections(true);
+    await flushPromises();
+    expect(relays).toHaveLength(2);
+    relays[1].emitEose();
+    pool.recoverConnections();
+    await flushPromises();
+    expect(relays).toHaveLength(3);
+    pool.destroy();
   });
 
   test('settles a publish whose connection promise never resolves', async () => {
@@ -1104,11 +1145,12 @@ describe('ManagedRelayPool', () => {
 function createHarness(
   connectResults: (Error | null)[] = [],
   maxConcurrentQueriesPerRelay?: number,
+  observeLifecycle = false,
 ) {
   const relays: FakeRelay[] = [];
   const pool = new ManagedRelayPool({
     verifyEvent: () => true,
-    observeLifecycle: false,
+    observeLifecycle,
     random: () => 0.5,
     maxConcurrentQueriesPerRelay,
     relayFactory: (url: string, _options: AbstractRelayConstructorOptions) => {
