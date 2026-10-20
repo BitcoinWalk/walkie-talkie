@@ -75,6 +75,11 @@ class RelayPool {
     return this.managed.underlyingPool;
   }
 
+  /** Re-read the native connectivity hint before an interactive relay flow. */
+  refreshNetworkState(): Promise<void> {
+    return this.managed.refreshNetworkState();
+  }
+
   /** Register a durable subscription that survives relay reconnects. */
   subscribe(opts: SubscribeOpts): () => void {
     return this.managed.subscribe(opts);

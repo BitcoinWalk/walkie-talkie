@@ -10,6 +10,8 @@ import { ManagedRelayPool } from '../managed-relay-pool';
 
 let mockAppState = 'active';
 let mockAppStateChange: (() => void) | undefined;
+let mockNetworkConnected = true;
+let mockNetworkStateChange: (() => void) | undefined;
 let mockPulse: (() => void) | undefined;
 jest.mock('@/lib/platform', () => ({ IS_ANDROID: true }));
 jest.mock('@/platform', () => ({
@@ -22,8 +24,19 @@ jest.mock('@/platform', () => ({
       }),
     },
     networkState: {
-      addStateListener: () => () => {},
-      getState: async () => ({ isConnected: true, isInternetReachable: true, type: 'wifi' }),
+      addStateListener: (listener: (state: object) => void) => {
+        mockNetworkStateChange = () => listener({
+          isConnected: mockNetworkConnected,
+          isInternetReachable: mockNetworkConnected,
+          type: 'wifi',
+        });
+        return () => {};
+      },
+      getState: async () => ({
+        isConnected: mockNetworkConnected,
+        isInternetReachable: mockNetworkConnected,
+        type: 'wifi',
+      }),
     },
     backgroundMessaging: {
       isAvailable: () => true,
@@ -40,6 +53,7 @@ describe('ManagedRelayPool', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockAppState = 'active';
+    mockNetworkConnected = true;
   });
 
   afterEach(() => {
@@ -64,6 +78,29 @@ describe('ManagedRelayPool', () => {
 
     expect(relays).toHaveLength(1);
     expect(received).toHaveBeenCalledWith(reply, RELAY_A);
+    pool.destroy();
+  });
+
+  test('refreshes a stale offline hint when returning from Amber', async () => {
+    const { pool, relays } = createHarness([], undefined, true);
+    pool.underlyingPool.subscribe([RELAY_A], { kinds: [24133] }, { onevent: () => {} });
+    await flushPromises();
+    relays[0].emitEose();
+
+    mockAppState = 'background';
+    mockAppStateChange!();
+    mockNetworkConnected = false;
+    mockNetworkStateChange!();
+    expect(relays[0].connected).toBe(false);
+
+    // Android has connectivity again but does not emit another network event.
+    mockNetworkConnected = true;
+    mockAppState = 'active';
+    mockAppStateChange!();
+    await flushPromises();
+
+    expect(relays).toHaveLength(2);
+    expect(relays[1].connected).toBe(true);
     pool.destroy();
   });
 

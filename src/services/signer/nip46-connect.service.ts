@@ -113,6 +113,11 @@ export async function loginWithBunker(
     throw new BunkerLoginError('invalid_link');
   }
 
+  // Android can leave the shared relay pool with the offline hint it emitted
+  // while Amber was in front. Refresh before the first interactive publish so
+  // a healthy signer transport is actually attempted.
+  await relayPool.refreshNetworkState();
+
   const clientSecretKey = generateSecretKey();
   const signer = BunkerSigner.fromBunker(clientSecretKey, pointer, {
     pool: relayPool.underlyingPool,

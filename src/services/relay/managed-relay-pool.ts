@@ -456,6 +456,18 @@ export class ManagedRelayPool {
     return result;
   }
 
+  /** Refresh Android's reachability hint before an interactive operation.
+   * The OS can report offline while a signer app is in front and does not
+   * always emit another network event when our activity resumes. */
+  async refreshNetworkState(): Promise<void> {
+    try {
+      this.handleNetworkState(await platform.networkState.getState(), true);
+    } catch {
+      // A missing OS hint must not replace the WebSocket as source of truth.
+      this.networkAvailable = undefined;
+    }
+  }
+
   destroy(): void {
     this.queryGeneration += 1;
     for (const [url, queue] of this.queuedQueriesByRelay) {
@@ -536,7 +548,9 @@ export class ManagedRelayPool {
     platform.appState.addChangeListener((nextState) => {
       const previous = this.appState;
       this.appState = nextState;
-      if (nextState === 'active' && previous !== 'active') this.recoverConnections(true);
+      if (nextState === 'active' && previous !== 'active') {
+        void this.refreshNetworkState().finally(() => this.recoverConnections(true));
+      }
     });
 
     platform.networkState.addStateListener((state) => this.handleNetworkState(state));

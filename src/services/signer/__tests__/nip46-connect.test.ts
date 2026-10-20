@@ -17,7 +17,7 @@ jest.mock('@/services/account/account.service', () => ({
 }));
 
 jest.mock('@/services/relay/relay-pool', () => ({
-  relayPool: { underlyingPool: {} },
+  relayPool: { underlyingPool: {}, refreshNetworkState: jest.fn(async () => {}) },
 }));
 
 jest.mock('@/platform', () => ({

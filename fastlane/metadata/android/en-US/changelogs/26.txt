@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.19
+
+- Refresh Android connectivity when returning from Amber.
+- Prevent a stale background offline state from blocking a healthy Nostr Connect relay.
+- Retain the 26.10.18 recovery for approval replies missed while switching apps.

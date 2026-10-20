@@ -20,6 +20,7 @@ notes: |
   - Route Amber and other Nostr Connect sign-ins through BitcoinWalk's dedicated ephemeral relay.
   - Skip the upstream psstpsst.chat identifier claim when creating a BitcoinWalk account.
   - Recover bunker login after an Amber approval reply is lost while switching apps.
+  - Refresh Android connectivity after returning from Amber so a stale offline hint cannot block the signer relay.
   - Fixed Android cold-start city recovery and remote-signer reconnection.
   - Added the app version to the loading screen.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk
