@@ -2,6 +2,8 @@ import { loginWithBunker, NIP46_DEFAULT_RELAYS } from '../nip46-connect.service'
 
 const mockFromBunker = jest.fn();
 const mockAddRemoteAccount = jest.fn(async (_opts: unknown) => ({ pubkey: 'user-pubkey' }));
+let mockAppState = 'active';
+let mockAppStateListener: ((state: string) => void) | null = null;
 
 jest.mock('nostr-tools/nip46', () => ({
   ...jest.requireActual('nostr-tools/nip46'),
@@ -21,6 +23,13 @@ jest.mock('@/services/relay/relay-pool', () => ({
 jest.mock('@/platform', () => ({
   platform: {
     urlOpener: { openExternalUrl: jest.fn(async () => {}) },
+    appState: {
+      currentState: () => mockAppState,
+      addChangeListener: (listener: (state: string) => void) => {
+        mockAppStateListener = listener;
+        return () => { mockAppStateListener = null; };
+      },
+    },
   },
 }));
 
@@ -28,6 +37,8 @@ describe('loginWithBunker', () => {
   beforeEach(() => {
     mockFromBunker.mockReset();
     mockAddRemoteAccount.mockReset().mockResolvedValue({ pubkey: 'user-pubkey' });
+    mockAppState = 'active';
+    mockAppStateListener = null;
   });
 
   test('uses the secret once and persists only the authorised client session', async () => {
@@ -136,6 +147,42 @@ describe('loginWithBunker', () => {
       expect(mockAddRemoteAccount).not.toHaveBeenCalled();
       approve();
       await result;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('recovers after Amber approves while the Android app is backgrounded', async () => {
+    jest.useFakeTimers();
+    try {
+      const bunker = {
+        bp: { pubkey: 'a'.repeat(64), relays: ['wss://remote.bitcoinwalk.org/'], secret: 'one-time' },
+        connect: jest.fn(() => new Promise<void>(() => {})),
+        getPublicKey: jest.fn(async () => 'user-pubkey'),
+        close: jest.fn(async () => {}),
+      };
+      mockFromBunker.mockReturnValue(bunker);
+
+      const phases = jest.fn();
+      const pending = loginWithBunker(
+        `bunker://${'a'.repeat(64)}?relay=wss://remote.bitcoinwalk.org&secret=one-time`,
+        phases,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockAppStateListener).not.toBeNull();
+      mockAppState = 'background';
+      mockAppStateListener?.(mockAppState);
+      mockAppState = 'active';
+      mockAppStateListener?.(mockAppState);
+      await jest.advanceTimersByTimeAsync(500);
+
+      await expect(pending).resolves.toEqual({ pubkey: 'user-pubkey' });
+      expect(bunker.connect).toHaveBeenCalledTimes(1);
+      expect(bunker.getPublicKey).toHaveBeenCalledTimes(1);
+      expect(mockAddRemoteAccount).toHaveBeenCalledWith(expect.objectContaining({
+        pointer: expect.objectContaining({ secret: null }),
+      }));
+      expect(phases.mock.calls.map(([phase]) => phase)).toEqual(['approval', 'public_key', 'saving']);
     } finally {
       jest.useRealTimers();
     }

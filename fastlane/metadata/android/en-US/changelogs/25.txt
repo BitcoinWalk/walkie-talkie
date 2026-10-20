@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.18
+
+- Complete bunker login after returning from Amber, even if the ephemeral approval reply was missed while Walkie Talkie was backgrounded.
+- Keep the one-time connection secret single-use during recovery.
+- Continue routing Nostr Connect through BitcoinWalk's dedicated relay.
