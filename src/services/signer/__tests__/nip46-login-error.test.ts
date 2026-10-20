@@ -16,6 +16,13 @@ describe('bunker login failure feedback', () => {
     expect(classifyBunkerLoginError(new BunkerLoginError('save_failed'))).toBe('save_failed');
   });
 
+  test.each([
+    'banned: too many rate-limit violations, try again later',
+    'rate-limited: signer transport',
+  ])('classifies relay throttling without exposing the raw response: %s', (error) => {
+    expect(classifyBunkerLoginError(error)).toBe('relay_unavailable');
+  });
+
   test('does not expose arbitrary signer text or link credentials', () => {
     const raw = 'bunker://private-endpoint?secret=private-token';
     const failure = new BunkerLoginError(classifyBunkerLoginError(raw));

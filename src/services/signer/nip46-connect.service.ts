@@ -21,10 +21,11 @@ import { readBunkerPublicKey } from './nip46-public-key';
 
 export type BunkerLoginPhase = 'approval' | 'public_key' | 'saving';
 
-/** Default relays the two sides rendezvous on for the Nostr Connect (app-
- * initiated) flow — widely-replicated public relays most signers already speak
- * to. The user can override this via the screen's advanced setting. */
-export const NIP46_DEFAULT_RELAYS = ['wss://relay.damus.io/', 'wss://nos.lol/'];
+/** Dedicated, ephemeral BitcoinWalk NIP-46 rendezvous transport. Keeping
+ * app-initiated pairing off shared public relays avoids third-party bans and
+ * rate limits during Amber approval. The user can still override this via the
+ * screen's advanced setting. */
+export const NIP46_DEFAULT_RELAYS = ['wss://remote.bitcoinwalk.org/'];
 
 const APP_NAME = 'Walkie Talkie';
 const APP_URL = 'https://bitcoinwalk.org';

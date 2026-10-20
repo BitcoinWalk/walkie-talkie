@@ -17,6 +17,7 @@ import {
   generateAccountKeyMaterial,
   persistGeneratedAccount,
 } from '@/services/account/account.service';
+import { useActiveAccount } from '@/stores/active-account.store';
 import { useScrolled } from '@/hooks/use-scrolled';
 import { iconStrokeWidth } from '@/theme/icons';
 import { spacing, useThemeColors } from '@/theme';
@@ -26,6 +27,7 @@ export default function Generate() {
   const { t } = useTranslation();
   const { copyText, copied } = useClipboard();
   const c = useThemeColors();
+  const setActive = useActiveAccount((s) => s.setActive);
   // Generate the keypair in memory only. The account is persisted (SQLite row
   // + secure-storage privkey) only when the user confirms the backup below —
   // leaving this screen early must not leave a half-created account behind.
@@ -42,9 +44,10 @@ export default function Generate() {
     setContinuing(true);
     try {
       const { pubkey: savedPubkey } = await persistGeneratedAccount(keyMaterial.privkeyHex);
-      // The optional NIP-05 claim step comes next; the account is activated
-      // (setActive bootstrap) only when that step finishes or is skipped.
-      router.push({ pathname: '/nip05', params: { pubkey: savedPubkey } });
+      // BitcoinWalk does not use the upstream psstpsst.chat identifier service.
+      // Activate the new identity immediately and return to the selected city.
+      await setActive(savedPubkey);
+      router.replace('/walks');
     } finally {
       setContinuing(false);
     }

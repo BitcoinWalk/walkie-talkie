@@ -183,6 +183,11 @@ NIP-46 signers, encryption-key rotation, and device key transfer remain behind
 that boundary. Remote NIP-46 round-trips are bounded; a timeout tears down the
 cached bunker session so a later operation reconnects cleanly.
 
+App-initiated Nostr Connect sessions rendezvous through the dedicated ephemeral
+`wss://remote.bitcoinwalk.org/` NIP-46 transport. The transport stores no
+messages and avoids coupling Amber sign-in to shared public-relay rate limits.
+User-supplied `bunker://` links retain the relay chosen by their signer.
+
 ## 5. Relay routing
 
 Relay routing follows the NIP-65 outbox model and distinguishes:

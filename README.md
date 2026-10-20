@@ -4,7 +4,7 @@ BitcoinWalk's Nostr companion for iOS and Android: city and walk details,
 NIP-17 DMs, NIP-29 city groups, nearby Bluetooth communication and walk invites.
 Android distribution targets Zapstore; iOS testing targets TestFlight.
 
-The first Zapstore release candidate is being prepared from Android 26.10.16.
+The first Zapstore release candidate is being prepared from Android 26.10.17.
 See [the implementation plan](docs/WALKIE-TALKIE.md) and
 [release guide](docs/RELEASING.md).
 

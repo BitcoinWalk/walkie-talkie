@@ -1,0 +1,6 @@
+Walkie Talkie 26.10.17
+
+- Route Amber and other Nostr Connect sign-ins through BitcoinWalk's dedicated ephemeral relay.
+- Avoid shared public-relay bans during account approval.
+- Skip the unrelated psstpsst.chat identifier step for new accounts.
+- Keep the app version visible on the loading screen.

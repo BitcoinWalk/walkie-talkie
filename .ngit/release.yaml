@@ -17,6 +17,8 @@ notes: |
   - Browse BitcoinWalk cities before signing in and keep your selected city as the home screen.
   - Open distinct City and Global conversations, with the private Hosts group limited to organizers.
   - Sign in with a local key, Amber, or a remote signer.
+  - Route Amber and other Nostr Connect sign-ins through BitcoinWalk's dedicated ephemeral relay.
+  - Skip the upstream psstpsst.chat identifier claim when creating a BitcoinWalk account.
   - Fixed Android cold-start city recovery and remote-signer reconnection.
   - Added the app version to the loading screen.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk

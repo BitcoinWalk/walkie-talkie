@@ -62,3 +62,10 @@ test('release UI exposes the version and BitcoinWalk author', () => {
   assert.match(archiveSharing, /dialogTitle: 'Walkie Talkie chat archive'/);
   assert.doesNotMatch(storeMetadata, /PsstPsst|psstpsst/);
 });
+
+test('new BitcoinWalk accounts bypass the upstream identifier claim', () => {
+  const generate = readText('src/app/(onboarding)/generate.tsx');
+  assert.match(generate, /await setActive\(savedPubkey\)/);
+  assert.match(generate, /router\.replace\('\/walks'\)/);
+  assert.doesNotMatch(generate, /pathname:\s*['"]\/nip05['"]/);
+});

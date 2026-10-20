@@ -1,4 +1,4 @@
-import { loginWithBunker } from '../nip46-connect.service';
+import { loginWithBunker, NIP46_DEFAULT_RELAYS } from '../nip46-connect.service';
 
 const mockFromBunker = jest.fn();
 const mockAddRemoteAccount = jest.fn(async (_opts: unknown) => ({ pubkey: 'user-pubkey' }));
@@ -140,4 +140,8 @@ describe('loginWithBunker', () => {
       jest.useRealTimers();
     }
   });
+});
+
+test('uses the dedicated BitcoinWalk transport for app-initiated Nostr Connect', () => {
+  expect(NIP46_DEFAULT_RELAYS).toEqual(['wss://remote.bitcoinwalk.org/']);
 });
