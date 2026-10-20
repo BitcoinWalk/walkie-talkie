@@ -2,7 +2,7 @@
   "expo": {
     "name": "Walkie Talkie",
     "slug": "walkie-talkie",
-    "version": "26.10.11",
+    "version": "26.10.12",
     "orientation": "default",
     "icon": "./assets/images/bitcoinwalk-app-icon.png",
     "scheme": "walkietalkie",
@@ -10,11 +10,11 @@
     "ios": {
       "icon": "./assets/images/bitcoinwalk-app-icon-ios.png",
       "bundleIdentifier": "org.bitcoinwalk.walkietalkie",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 18,
+      "versionCode": 19,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/bitcoinwalk-app-icon-foreground.png",

@@ -610,6 +610,11 @@ presentation: narrow windows show a stack; wide tablets and Electron show a
 persistent primary pane plus detail. Resizing must not create a second route
 state or remount the active application session.
 
+The root layout gates startup and renders a `Slot`; the onboarding and app route
+groups own their navigators. A second root navigator must not wrap those groups,
+because restored child routes must reach their group layout directly on cold
+start.
+
 Back actions check navigation availability when dispatched. Stale events while
 session gates have unmounted the navigator are ignored, never deferred into the
 next session.

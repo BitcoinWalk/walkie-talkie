@@ -12,7 +12,7 @@ import {
   DefaultTheme,
   type ErrorBoundaryProps,
   router,
-  Stack,
+  Slot,
   ThemeProvider,
   useSegments,
 } from 'expo-router';
@@ -137,7 +137,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         <AppErrorScreen
           title={t('error.unexpected_title')}
           message={t('error.unexpected_message')}
-          retryLabel={t('common.try_again')}
+          retryLabel={t('common.retry')}
           homeLabel={t('error.return_to_chats')}
           exportLabel={t('error.export_diagnostics')}
           repeated={repeated}
@@ -485,12 +485,10 @@ function RootLayoutContent() {
         {status === 'need_sync' ? (
           <KeySyncScreen />
         ) : (
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: c.background },
-            }}
-          />
+          // The app and onboarding route groups own their navigators. Keeping a
+          // second native stack here made a restored city route fail before its
+          // group layout could render during an Android cold start.
+          <Slot />
         )}
       </ThemeProvider>
       {/* Global toast overlay — above the navigator so it survives the
