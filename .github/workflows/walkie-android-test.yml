@@ -43,6 +43,7 @@ jobs:
           npx jest src/services/bitcoinwalk/__tests__/cities.test.ts src/services/bitcoinwalk/__tests__/config.test.ts --runInBand
           npx jest src/services/bitcoinwalk/__tests__/community.test.ts src/services/bitcoinwalk/__tests__/community-membership.test.ts src/components/bitcoinwalk/__tests__/community-screen-join.test.tsx src/components/bitcoinwalk/__tests__/community-bootstrap.test.tsx src/components/bitcoinwalk/__tests__/city-selection-flow.test.tsx src/components/bitcoinwalk/__tests__/chats-tab-access.test.tsx src/components/keysync/__tests__/KeySyncScreen.test.tsx src/stores/__tests__/account-messaging-readiness.test.ts src/services/dm/__tests__/dm-sync-preferences.test.ts src/services/relay/__tests__/managed-relay-pool.test.ts --runInBand
           npx tsc --noEmit
+          npx jest src/components/navigation/__tests__/tabs-startup.test.tsx --runInBand
       - name: Generate isolated development app
         run: |
           npx expo prebuild --platform android --no-install

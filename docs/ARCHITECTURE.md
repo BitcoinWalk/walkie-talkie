@@ -612,8 +612,11 @@ state or remount the active application session.
 
 The root layout gates startup and renders a `Slot`; the onboarding and app route
 groups own their navigators. A second root navigator must not wrap those groups,
-because restored child routes must reach their group layout directly on cold
-start.
+so child routes reach their group layout directly.
+
+Tabs must render before account hydration completes. A hidden account tab uses
+`href: null` without a screen-level `tabBarButton`; Expo Router rejects combining
+those options. Restore its custom button only once an account is available.
 
 Back actions check navigation availability when dispatched. Stale events while
 session gates have unmounted the navigator are ignored, never deferred into the

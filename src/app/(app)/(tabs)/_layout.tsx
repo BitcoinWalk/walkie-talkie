@@ -151,16 +151,21 @@ export default function TabsLayout() {
             tabLongPress: () => setSwitcherOpen(true),
           }}
           options={{
-            href: accountPubkey ? undefined : null,
             title: t('tabs.me'),
             // Electron adds a right-click entry to the account switcher,
             // mirroring the long-press entry; the button is otherwise the
             // default PlatformPressable.
-            tabBarButton: IS_ELECTRON
-              ? (props) => (
-                  <MeTabBarButton {...props} onOpenSwitcher={() => setSwitcherOpen(true)} />
-                )
-              : QuietTabBarButton,
+            // Expo rejects href (including null) alongside a custom tab button.
+            // Account restoration starts empty, so keep these mutually exclusive.
+            ...(accountPubkey
+              ? {
+                  tabBarButton: IS_ELECTRON
+                    ? (props: ComponentProps<typeof PlatformPressable>) => (
+                        <MeTabBarButton {...props} onOpenSwitcher={() => setSwitcherOpen(true)} />
+                      )
+                    : QuietTabBarButton,
+                }
+              : { href: null }),
             tabBarIcon: ({ focused, size }) => {
               const iconSize = IS_ELECTRON ? uiDensity.tabIconSize : size;
               return <AccountTabIcon focused={focused} size={iconSize} />;
