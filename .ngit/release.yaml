@@ -1,0 +1,25 @@
+schema: 1
+identifier: org.bitcoinwalk.walkietalkie
+pubkey: npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw
+name: Walkie Talkie
+summary: BitcoinWalk's Nostr companion for local walks and community chat.
+description: |
+  Browse BitcoinWalk cities, keep your chosen city as your home screen, and
+  join its NIP-29 community chat. Walkie Talkie also includes BitcoinWalk
+  Global, private host coordination, NIP-17 direct messages, walk invites,
+  nearby Bluetooth communication, and optional Lightning wallet connections.
+tags: [nostr, bitcoin, social, messaging, community]
+license: MIT
+website: https://bitcoinwalk.org
+repository: nostr://npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw/relay.ngit.dev/walkie-talkie
+icon: fastlane/metadata/android/en-US/images/icon.png
+notes: |
+  - Browse BitcoinWalk cities before signing in and keep your selected city as the home screen.
+  - Open distinct City and Global conversations, with the private Hosts group limited to organizers.
+  - Sign in with a local key, Amber, or a remote signer.
+  - Fixed Android cold-start city recovery and remote-signer reconnection.
+  - Added the app version to the loading screen.
+release_source: release/zapstore/WalkieTalkie-{version}-android.apk
+publication:
+  zapstore_relay: true
+  strict_metadata: true

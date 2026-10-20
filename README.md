@@ -4,8 +4,8 @@ BitcoinWalk's Nostr companion for iOS and Android: city and walk details,
 NIP-17 DMs, NIP-29 city groups, nearby Bluetooth communication and walk invites.
 Android distribution targets Zapstore; iOS testing targets TestFlight.
 
-The first Zapstore release candidate is being prepared from the accepted Android
-26.10.15 build. See [the implementation plan](docs/WALKIE-TALKIE.md) and
+The first Zapstore release candidate is being prepared from Android 26.10.16.
+See [the implementation plan](docs/WALKIE-TALKIE.md) and
 [release guide](docs/RELEASING.md).
 
 Based on [PsstPsst](https://github.com/CodyTseng/psstpsst), under its MIT licence.
@@ -44,10 +44,8 @@ email address, and exchange encrypted messages over Nostr or nearby Bluetooth.
 
 ## Downloads
 
-The first public release is being prepared. Published installers and release
-notes will be available on
-[GitHub Releases](https://github.com/BitcoinWalk/walkie-talkie/releases).
-Until then, use the source-build instructions below.
+The first public release is being prepared for Zapstore through BitcoinWalk's
+ngit repository. Until it is listed, use the source-build instructions below.
 
 | Platform | Distribution target |
 | --- | --- |

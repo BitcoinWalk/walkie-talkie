@@ -8,28 +8,27 @@ authoritative release version is kept equal in root `package.json`, desktop
 Android `versionCode` and iOS `buildNumber` increase independently for every
 uploaded binary. Run `npm run test:walkie-release` before committing a release.
 
-The `Walkie Talkie Zapstore release` workflow builds a universal production APK,
-requires the long-lived Android signing key, verifies its package, version and
-certificate, and names it `WalkieTalkie-<version>-android.apk`. A manual run
-uploads a private Actions artifact for acceptance. Pushing the matching
-`v<version>` tag creates or updates a draft GitHub release; publishing that draft
-remains a deliberate maintainer action after installation and upgrade tests.
+Production Android releases use a local, ngit-first path. Build the universal
+APK from the ngit-backed source checkout, then sign it on the release machine
+with the long-lived Android key stored outside the repository. Never upload the
+keystore or its passwords to GitHub, ngit, Blossom, or Zapstore.
 
-Configure these four repository secrets before the first production build:
-`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
-`ANDROID_KEY_PASSWORD`. Keep the keystore backed up outside GitHub. The first
-Zapstore publish also links that certificate to the BitcoinWalk Nostr identity.
+The committed `.ngit/release.yaml` describes the application and the versioned
+APK path. After package, version, certificate and installation checks pass,
+publish with `ngit release publish <version> --commit <built-commit>`. ngit
+uploads the APK to Blossom and publishes the signed NIP-82 application, asset
+and release records to the repository relays and Zapstore catalog. The Nostr
+events are signed with the BitcoinWalk remote signer; no `nsec` is placed in the
+repository or shell history.
 
-After the GitHub release is public, validate selection with:
+The first public release also needs Zapstore's one-time publisher acceptance and
+APK certificate-linking step. Later releases signed by the same Android and
+BitcoinWalk identities are discovered automatically from the published NIP-82
+records.
 
-```sh
-zsp publish --check zapstore.yaml
-```
-
-For the first listing, follow Zapstore's wizard/certificate-linking flow. Commit
-any reviewed manifest changes before publishing. Sign the app event with the
-BitcoinWalk identity; prefer a NIP-46 bunker or browser signer over exposing an
-`nsec` in a shared shell.
+The GitHub workflow can produce an unsigned build for comparison or recovery,
+but it is not the authoritative production signing or Zapstore publication
+path and requires no Android signing secrets.
 
 The remainder of this document is retained from the PsstPsst upstream release
 guide. Its desktop, F-Droid and upstream-repository examples are not Walkie
