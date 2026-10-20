@@ -12,7 +12,7 @@ jest.mock('expo-router/build/layouts/withLayoutContext', () => ({
       mockProcessedScreens = process(Children.toArray(children).map((child) => (child as ReactElement).props));
       return null;
     };
-    Navigator.Screen = () => null;
+    Navigator.Screen = function Screen() { return null; };
     return Navigator;
   },
 }));
