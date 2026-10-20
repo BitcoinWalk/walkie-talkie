@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.21
+
+- Restore joined city and Hosts groups in Chat by using membership checks supported by the relay.
+- Keep Hosts discovery independent when a city lookup is interrupted.
+- Preserve the unified Chat inbox and three-tab navigation.
