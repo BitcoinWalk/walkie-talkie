@@ -22,7 +22,22 @@
       "submit": "Se connecter",
       "connecting": "Connexion à votre signataire…",
       "invalid": "Impossible de se connecter avec ce lien",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "Ouvrez votre signataire et approuvez la connexion. En attente…",
+        "public_key": "Connexion approuvée. Confirmez l’accès à votre clé publique si nécessaire…",
+        "saving": "Enregistrement de la connexion approuvée…"
+      },
+      "errors": {
+        "invalid_link": "Collez le lien bunker:// complet, avec l’adresse du relais.",
+        "expired_link": "Ce lien a expiré ou a déjà été utilisé. Créez une nouvelle connexion dans votre signataire et collez son lien.",
+        "signer_locked": "Votre signataire est verrouillé. Déverrouillez-le et réessayez.",
+        "rejected": "Votre signataire a refusé la demande. Vérifiez les autorisations et approuvez la connexion.",
+        "timeout": "Votre signataire n’a pas répondu à temps. Vérifiez les demandes, les notifications et la connexion au relais, puis utilisez un nouveau lien.",
+        "relay_unavailable": "Impossible d’envoyer la demande aux relais. Vérifiez votre connexion et les adresses des relais de votre signataire.",
+        "save_failed": "La connexion a été approuvée, mais n’a pas pu être enregistrée sur cet appareil. Utilisez un nouveau lien.",
+        "connection_failed": "Impossible de terminer la connexion. Vérifiez les demandes de votre signataire et utilisez un nouveau lien."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -712,7 +727,12 @@
     "send_failed": "Impossible d'envoyer la clé. Réessayez.",
     "rotated_title": "Clé de chiffrement modifiée",
     "rotated_message": "Un autre appareil a généré une nouvelle clé de chiffrement pour ce compte. Synchronisez à nouveau pour continuer à recevoir des messages.",
-    "rotated_confirm": "Synchroniser maintenant"
+    "rotated_confirm": "Synchroniser maintenant",
+    "continue_title": "Continuer vers BitcoinWalk",
+    "continue_message": "Votre ville et les discussions communautaires sont prêtes. L’historique privé nécessite une clé de chiffrement d’un autre appareil et reste indisponible pour le moment.",
+    "continue_action": "Continuer vers BitcoinWalk",
+    "continue_hint": "Cela ne remplace, ne publie ni ne supprime votre clé actuelle de messages privés.",
+    "continue_failed": "Impossible de continuer. Réessayez."
   },
   "backup": {
     "drop_title": "Déposez pour importer les discussions",

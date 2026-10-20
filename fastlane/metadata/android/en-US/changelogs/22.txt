@@ -1,0 +1,4 @@
+Walkie Talkie 26.10.15
+
+- Improved login recovery when a remote signer approves the connection but its public-key reply is delayed or lost.
+- Fixed missing translations in login and private-message key recovery.

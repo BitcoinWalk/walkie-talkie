@@ -80,6 +80,34 @@ describe('loginWithBunker', () => {
     expect(bunker.close).toHaveBeenCalledTimes(1);
   });
 
+  test('recovers a lost public-key request without reconnecting or replaying the secret', async () => {
+    jest.useFakeTimers();
+    try {
+      const bunker = {
+        bp: { pubkey: 'a'.repeat(64), relays: ['wss://relay.example/'], secret: 'one-time' },
+        connect: jest.fn(async () => {}),
+        getPublicKey: jest.fn<Promise<string>, []>()
+          .mockImplementationOnce(() => new Promise(() => {}))
+          .mockResolvedValueOnce('user-pubkey'),
+        close: jest.fn(async () => {}),
+      };
+      mockFromBunker.mockReturnValue(bunker);
+      const pending = loginWithBunker(`bunker://${'a'.repeat(64)}?relay=wss://relay.example&secret=one-time`);
+      await jest.advanceTimersByTimeAsync(10_000);
+      await expect(pending).resolves.toEqual({ pubkey: 'user-pubkey' });
+      expect(bunker.connect).toHaveBeenCalledTimes(1);
+      expect(mockFromBunker).toHaveBeenCalledTimes(1);
+      expect(bunker.getPublicKey).toHaveBeenCalledTimes(2);
+      expect(mockAddRemoteAccount).toHaveBeenCalledTimes(1);
+      expect(mockAddRemoteAccount).toHaveBeenCalledWith(expect.objectContaining({
+        pointer: expect.objectContaining({ secret: null }),
+      }));
+      expect(bunker.close).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('reports Amber rejecting an already used connection link', async () => {
     const bunker = {
       connect: jest.fn(() => Promise.reject('already connected')),

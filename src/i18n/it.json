@@ -22,7 +22,22 @@
       "submit": "Connetti",
       "connecting": "Connessione al firmatario…",
       "invalid": "Impossibile connettersi con questo link",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "Apri il firmatario e approva la connessione. In attesa…",
+        "public_key": "Connessione approvata. Conferma l’accesso alla chiave pubblica se richiesto…",
+        "saving": "Salvataggio della connessione approvata…"
+      },
+      "errors": {
+        "invalid_link": "Incolla il link bunker:// completo, incluso l’indirizzo del relay.",
+        "expired_link": "Il link è scaduto o è già stato usato. Crea una nuova connessione nel firmatario e incolla il nuovo link.",
+        "signer_locked": "Il firmatario è bloccato. Sbloccalo e riprova.",
+        "rejected": "Il firmatario ha rifiutato la richiesta. Controlla i permessi e approva la connessione.",
+        "timeout": "Il firmatario non ha risposto in tempo. Controlla richieste in sospeso, notifiche e connessione al relay, poi usa un nuovo link.",
+        "relay_unavailable": "Impossibile inviare la richiesta ai relay. Controlla la connessione e gli indirizzi dei relay nel firmatario.",
+        "save_failed": "Connessione approvata, ma impossibile salvarla sul dispositivo. Riprova con un nuovo link.",
+        "connection_failed": "Impossibile completare la connessione. Controlla le richieste nel firmatario e usa un nuovo link."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -712,7 +727,12 @@
     "send_failed": "Impossibile inviare la chiave. Riprova.",
     "rotated_title": "Chiave di crittografia cambiata",
     "rotated_message": "Un altro dispositivo ha generato una nuova chiave di crittografia per questo account. Sincronizza di nuovo per continuare a ricevere messaggi.",
-    "rotated_confirm": "Sincronizza ora"
+    "rotated_confirm": "Sincronizza ora",
+    "continue_title": "Continua su BitcoinWalk",
+    "continue_message": "La città e le chat della community sono pronte. La cronologia privata richiede una chiave di cifratura da un altro dispositivo e per ora non è disponibile.",
+    "continue_action": "Continua su BitcoinWalk",
+    "continue_hint": "La chiave attuale dei messaggi privati non viene sostituita, pubblicata o eliminata.",
+    "continue_failed": "Impossibile continuare. Riprova."
   },
   "backup": {
     "drop_title": "Rilascia per importare la cronologia chat",

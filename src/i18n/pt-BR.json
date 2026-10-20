@@ -22,7 +22,22 @@
       "submit": "Conectar",
       "connecting": "Conectando ao seu assinador…",
       "invalid": "Não foi possível conectar com esse link",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "Abra seu assinador e aprove a conexão. Aguardando aprovação…",
+        "public_key": "Conexão aprovada. Confirme o acesso à sua chave pública se solicitado…",
+        "saving": "Salvando a conexão aprovada…"
+      },
+      "errors": {
+        "invalid_link": "Cole o link bunker:// completo, incluindo o endereço do relay.",
+        "expired_link": "Este link expirou ou já foi usado. Crie uma nova conexão no assinador e cole o novo link.",
+        "signer_locked": "O assinador está bloqueado. Desbloqueie-o e tente novamente.",
+        "rejected": "O assinador rejeitou a solicitação. Verifique as permissões e aprove a conexão.",
+        "timeout": "O assinador não respondeu a tempo. Verifique solicitações pendentes, notificações e a conexão ao relay e tente com um novo link.",
+        "relay_unavailable": "Não foi possível enviar a solicitação aos relays. Verifique sua conexão e os endereços dos relays no assinador.",
+        "save_failed": "A conexão foi aprovada, mas não pôde ser salva neste dispositivo. Tente com um novo link.",
+        "connection_failed": "Não foi possível concluir a conexão. Verifique as solicitações no assinador e tente com um novo link."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -712,7 +727,12 @@
     "send_failed": "Não foi possível enviar a chave. Tente novamente.",
     "rotated_title": "Chave de criptografia alterada",
     "rotated_message": "Outro dispositivo gerou uma nova chave de criptografia para esta conta. Sincronize novamente para continuar recebendo mensagens.",
-    "rotated_confirm": "Sincronizar agora"
+    "rotated_confirm": "Sincronizar agora",
+    "continue_title": "Continuar para o BitcoinWalk",
+    "continue_message": "Sua cidade e os chats da comunidade estão prontos. O histórico privado precisa de uma chave de criptografia de outro dispositivo e ficará indisponível por enquanto.",
+    "continue_action": "Continuar para o BitcoinWalk",
+    "continue_hint": "Isso não substitui, publica nem exclui sua chave atual de mensagens privadas.",
+    "continue_failed": "Não foi possível continuar. Tente novamente."
   },
   "backup": {
     "drop_title": "Solte para importar o histórico de conversas",

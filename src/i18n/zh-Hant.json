@@ -22,7 +22,22 @@
       "submit": "連線",
       "connecting": "正在連線至簽章器…",
       "invalid": "無法使用此連結連線",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "開啟簽名器並批准連線請求。正在等待批准…",
+        "public_key": "連線已批准。如簽名器詢問，請確認允許存取你的公鑰…",
+        "saving": "正在儲存已批准的連線…"
+      },
+      "errors": {
+        "invalid_link": "請貼上完整的 bunker:// 連結，包括中繼位址。",
+        "expired_link": "此連結已過期或已使用。請在簽名器中建立新連線並貼上新連結。",
+        "signer_locked": "簽名器已鎖定。請解鎖後重試。",
+        "rejected": "簽名器拒絕了請求。請檢查權限並批准連線。",
+        "timeout": "簽名器未及時回覆。請檢查待處理請求、通知和中繼連線，再使用新連結重試。",
+        "relay_unavailable": "無法將請求傳送至簽名器的中繼。請檢查網路連線和簽名器中的中繼位址。",
+        "save_failed": "連線已批准，但無法儲存在此裝置上。請使用新連結重試。",
+        "connection_failed": "無法完成連線。請檢查簽名器中的請求並使用新連結重試。"
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -708,7 +723,12 @@
     "send_failed": "無法傳送金鑰，請再試一次。",
     "rotated_title": "加密金鑰已變更",
     "rotated_message": "另一部裝置已為此帳號產生新加密金鑰。請再次同步以繼續接收訊息。",
-    "rotated_confirm": "立即同步"
+    "rotated_confirm": "立即同步",
+    "continue_title": "繼續使用 BitcoinWalk",
+    "continue_message": "你的城市與社群聊天已準備就緒。私人訊息記錄需要另一台裝置上的獨立加密金鑰，目前暫時無法使用。",
+    "continue_action": "繼續使用 BitcoinWalk",
+    "continue_hint": "此操作不會取代、發布或刪除你現有的私人訊息金鑰。",
+    "continue_failed": "無法繼續。請重試。"
   },
   "backup": {
     "drop_title": "放開以匯入聊天記錄",

@@ -22,7 +22,22 @@
       "submit": "연결",
       "connecting": "서명자에 연결하는 중…",
       "invalid": "이 링크로 연결할 수 없습니다",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "서명 앱을 열고 연결 요청을 승인하세요. 승인 대기 중…",
+        "public_key": "연결이 승인되었습니다. 요청이 표시되면 공개 키 접근을 확인하세요…",
+        "saving": "승인된 연결을 저장하는 중…"
+      },
+      "errors": {
+        "invalid_link": "릴레이 주소가 포함된 전체 bunker:// 링크를 붙여넣으세요.",
+        "expired_link": "링크가 만료되었거나 이미 사용되었습니다. 서명 앱에서 새 연결을 만들고 새 링크를 붙여넣으세요.",
+        "signer_locked": "서명 앱이 잠겨 있습니다. 잠금을 해제하고 다시 시도하세요.",
+        "rejected": "서명 앱이 요청을 거부했습니다. 권한을 확인하고 연결을 승인하세요.",
+        "timeout": "서명 앱이 제때 응답하지 않았습니다. 대기 중인 요청, 알림, 릴레이 연결을 확인하고 새 링크로 다시 시도하세요.",
+        "relay_unavailable": "릴레이에 요청을 보내지 못했습니다. 연결과 서명 앱의 릴레이 주소를 확인하세요.",
+        "save_failed": "연결이 승인되었지만 이 기기에 저장하지 못했습니다. 새 링크로 다시 시도하세요.",
+        "connection_failed": "연결을 완료하지 못했습니다. 서명 앱의 요청을 확인하고 새 링크로 다시 시도하세요."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -708,7 +723,12 @@
     "send_failed": "키를 전송할 수 없습니다. 다시 시도하세요.",
     "rotated_title": "암호화 키 변경됨",
     "rotated_message": "다른 기기에서 이 계정의 새 암호화 키를 생성했습니다. 메시지를 계속 받으려면 다시 동기화하세요.",
-    "rotated_confirm": "지금 동기화"
+    "rotated_confirm": "지금 동기화",
+    "continue_title": "BitcoinWalk로 계속",
+    "continue_message": "도시와 커뮤니티 채팅이 준비되었습니다. 개인 메시지 기록에는 다른 기기의 별도 암호화 키가 필요하므로 지금은 사용할 수 없습니다.",
+    "continue_action": "BitcoinWalk로 계속",
+    "continue_hint": "기존 개인 메시지 키를 교체하거나 게시하거나 삭제하지 않습니다.",
+    "continue_failed": "계속할 수 없습니다. 다시 시도하세요."
   },
   "backup": {
     "drop_title": "놓아서 채팅 기록 가져오기",

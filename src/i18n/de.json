@@ -22,7 +22,22 @@
       "submit": "Verbinden",
       "connecting": "Verbindung mit deinem Signierer wird hergestellt…",
       "invalid": "Mit diesem Link konnte keine Verbindung hergestellt werden",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "Öffne deinen Signierer und genehmige die Verbindung. Warte auf Zustimmung…",
+        "public_key": "Verbindung genehmigt. Bestätige bei Nachfrage den Zugriff auf deinen öffentlichen Schlüssel…",
+        "saving": "Genehmigte Verbindung wird gespeichert…"
+      },
+      "errors": {
+        "invalid_link": "Füge den vollständigen bunker://-Link einschließlich Relay-Adresse ein.",
+        "expired_link": "Dieser Link ist abgelaufen oder wurde bereits verwendet. Erstelle im Signierer eine neue Verbindung und füge den neuen Link ein.",
+        "signer_locked": "Dein Signierer ist gesperrt. Entsperre ihn und versuche es erneut.",
+        "rejected": "Dein Signierer hat die Anfrage abgelehnt. Prüfe die Berechtigungen und genehmige die Verbindung.",
+        "timeout": "Dein Signierer hat nicht rechtzeitig geantwortet. Prüfe offene Anfragen, Benachrichtigungen und die Relay-Verbindung und verwende dann einen neuen Link.",
+        "relay_unavailable": "Die Anfrage konnte nicht an die Relays gesendet werden. Prüfe deine Verbindung und die Relay-Adressen im Signierer.",
+        "save_failed": "Die Verbindung wurde genehmigt, konnte aber nicht auf diesem Gerät gespeichert werden. Versuche es mit einem neuen Link.",
+        "connection_failed": "Die Verbindung konnte nicht abgeschlossen werden. Prüfe die Anfragen im Signierer und versuche es mit einem neuen Link."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -708,7 +723,12 @@
     "send_failed": "Der Schlüssel konnte nicht gesendet werden. Versuche es erneut.",
     "rotated_title": "Verschlüsselungsschlüssel geändert",
     "rotated_message": "Ein anderes Gerät hat einen neuen Verschlüsselungsschlüssel für dieses Konto erstellt. Synchronisiere erneut, um weiterhin Nachrichten zu empfangen.",
-    "rotated_confirm": "Jetzt synchronisieren"
+    "rotated_confirm": "Jetzt synchronisieren",
+    "continue_title": "Weiter zu BitcoinWalk",
+    "continue_message": "Deine Stadt und Community-Chats sind bereit. Der private Nachrichtenverlauf benötigt einen separaten Verschlüsselungsschlüssel von einem anderen Gerät und bleibt vorerst nicht verfügbar.",
+    "continue_action": "Weiter zu BitcoinWalk",
+    "continue_hint": "Dein bestehender Schlüssel für private Nachrichten wird weder ersetzt noch veröffentlicht oder gelöscht.",
+    "continue_failed": "Fortfahren nicht möglich. Versuche es erneut."
   },
   "backup": {
     "drop_title": "Loslassen, um den Chatverlauf zu importieren",

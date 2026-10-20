@@ -22,7 +22,22 @@
       "submit": "Kapcsolódás",
       "connecting": "Kapcsolódás az aláíróhoz…",
       "invalid": "Nem sikerült kapcsolódni ezzel a hivatkozással",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "Nyisd meg az aláíró alkalmazást, és engedélyezd a kapcsolatot. Várakozás…",
+        "public_key": "Kapcsolat jóváhagyva. Ha szükséges, engedélyezd a nyilvános kulcs elérését…",
+        "saving": "Jóváhagyott kapcsolat mentése…"
+      },
+      "errors": {
+        "invalid_link": "Illeszd be a teljes bunker:// hivatkozást a relay címével együtt.",
+        "expired_link": "A hivatkozás lejárt vagy már használták. Hozz létre új kapcsolatot az aláíróban, és másold be az új hivatkozást.",
+        "signer_locked": "Az aláíró zárolva van. Oldd fel, és próbáld újra.",
+        "rejected": "Az aláíró elutasította a kérést. Ellenőrizd az engedélyeket, és hagyd jóvá a kapcsolatot.",
+        "timeout": "Az aláíró nem válaszolt időben. Ellenőrizd a függő kéréseket, értesítéseket és a relay kapcsolatot, majd használj új hivatkozást.",
+        "relay_unavailable": "Nem sikerült elküldeni a kérést a relayeknek. Ellenőrizd a kapcsolatot és a relayek címét az aláíróban.",
+        "save_failed": "A kapcsolat jóváhagyva, de nem menthető az eszközre. Próbálkozz új hivatkozással.",
+        "connection_failed": "Nem sikerült kapcsolódni. Ellenőrizd az aláíró kéréseit, és használj új hivatkozást."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -708,7 +723,12 @@
     "send_failed": "Nem sikerült elküldeni a kulcsot. Próbáld újra.",
     "rotated_title": "A titkosítási kulcs megváltozott",
     "rotated_message": "Egy másik eszköz új titkosítási kulcsot hozott létre ehhez a fiókhoz. Szinkronizáld újra, hogy továbbra is fogadhass üzeneteket.",
-    "rotated_confirm": "Szinkronizálás most"
+    "rotated_confirm": "Szinkronizálás most",
+    "continue_title": "Tovább a BitcoinWalkhoz",
+    "continue_message": "A város és a közösségi csevegések készen állnak. A privát előzményekhez egy másik eszköz titkosítási kulcsa szükséges, ezért egyelőre nem érhetők el.",
+    "continue_action": "Tovább a BitcoinWalkhoz",
+    "continue_hint": "Ez nem cseréli le, nem teszi közzé és nem törli a meglévő privátüzenet-kulcsot.",
+    "continue_failed": "Nem sikerült folytatni. Próbáld újra."
   },
   "backup": {
     "drop_title": "Engedd el a csevegési előzmények importálásához",

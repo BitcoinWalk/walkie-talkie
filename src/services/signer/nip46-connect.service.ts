@@ -17,6 +17,7 @@ import {
   withNip46Timeout,
 } from './nip46-timeout';
 import { BunkerLoginError, classifyBunkerLoginError } from './nip46-login-error';
+import { readBunkerPublicKey } from './nip46-public-key';
 
 export type BunkerLoginPhase = 'approval' | 'public_key' | 'saving';
 
@@ -71,7 +72,7 @@ export async function loginWithBunker(
       NIP46_PAIRING_TIMEOUT_MS,
     );
     onPhase?.('public_key');
-    const pubkey = await withNip46Timeout(signer.getPublicKey(), 'get_public_key');
+    const pubkey = await readBunkerPublicKey(signer);
     onPhase?.('saving');
     try {
       await addRemoteAccount({
@@ -139,7 +140,7 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
       () => controller.abort(),
     );
     try {
-      const pubkey = await withNip46Timeout(signer.getPublicKey(), 'get_public_key');
+      const pubkey = await readBunkerPublicKey(signer);
       await addRemoteAccount({
         pubkey,
         pointer: signer.bp,

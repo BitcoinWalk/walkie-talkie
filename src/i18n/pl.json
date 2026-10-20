@@ -22,7 +22,22 @@
       "submit": "Połącz",
       "connecting": "Łączenie z podpisującym…",
       "invalid": "Nie udało się połączyć za pomocą tego łącza",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "Otwórz aplikację podpisującą i zatwierdź połączenie. Oczekiwanie…",
+        "public_key": "Połączenie zatwierdzone. Potwierdź dostęp do klucza publicznego, jeśli pojawi się prośba…",
+        "saving": "Zapisywanie zatwierdzonego połączenia…"
+      },
+      "errors": {
+        "invalid_link": "Wklej pełny link bunker:// wraz z adresem przekaźnika.",
+        "expired_link": "Link wygasł lub został już użyty. Utwórz nowe połączenie w aplikacji podpisującej i wklej nowy link.",
+        "signer_locked": "Aplikacja podpisująca jest zablokowana. Odblokuj ją i spróbuj ponownie.",
+        "rejected": "Aplikacja podpisująca odrzuciła prośbę. Sprawdź uprawnienia i zatwierdź połączenie.",
+        "timeout": "Brak odpowiedzi na czas. Sprawdź oczekujące prośby, powiadomienia i połączenie z przekaźnikiem, a następnie użyj nowego linku.",
+        "relay_unavailable": "Nie udało się wysłać prośby do przekaźników. Sprawdź połączenie i adresy przekaźników w aplikacji podpisującej.",
+        "save_failed": "Połączenie zatwierdzono, ale nie można go zapisać na tym urządzeniu. Użyj nowego linku.",
+        "connection_failed": "Nie udało się połączyć. Sprawdź prośby w aplikacji podpisującej i użyj nowego linku."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -716,7 +731,12 @@
     "send_failed": "Nie udało się wysłać klucza. Spróbuj ponownie.",
     "rotated_title": "Klucz szyfrowania został zmieniony",
     "rotated_message": "Inne urządzenie wygenerowało nowy klucz szyfrowania dla tego konta. Zsynchronizuj ponownie, aby nadal odbierać wiadomości.",
-    "rotated_confirm": "Synchronizuj teraz"
+    "rotated_confirm": "Synchronizuj teraz",
+    "continue_title": "Przejdź do BitcoinWalk",
+    "continue_message": "Miasto i czaty społeczności są gotowe. Historia prywatnych wiadomości wymaga klucza szyfrowania z innego urządzenia i na razie będzie niedostępna.",
+    "continue_action": "Przejdź do BitcoinWalk",
+    "continue_hint": "To nie zastępuje, nie publikuje ani nie usuwa istniejącego klucza prywatnych wiadomości.",
+    "continue_failed": "Nie udało się kontynuować. Spróbuj ponownie."
   },
   "backup": {
     "drop_title": "Upuść, aby zaimportować historię czatów",

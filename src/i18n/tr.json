@@ -22,7 +22,22 @@
       "submit": "Bağlan",
       "connecting": "İmzalayıcına bağlanılıyor…",
       "invalid": "Bu linkle bağlantı kurulamadı",
-      "use_nostr_connect": "Nostr Connect"
+      "use_nostr_connect": "Nostr Connect",
+      "progress": {
+        "approval": "İmzalayıcınızı açın ve bağlantıyı onaylayın. Onay bekleniyor…",
+        "public_key": "Bağlantı onaylandı. İstenirse açık anahtarınıza erişimi onaylayın…",
+        "saving": "Onaylanan bağlantı kaydediliyor…"
+      },
+      "errors": {
+        "invalid_link": "Relay adresi dahil tam bunker:// bağlantısını yapıştırın.",
+        "expired_link": "Bağlantının süresi dolmuş veya daha önce kullanılmış. İmzalayıcınızda yeni bağlantı oluşturup yeni bağlantıyı yapıştırın.",
+        "signer_locked": "İmzalayıcınız kilitli. Kilidi açıp tekrar deneyin.",
+        "rejected": "İmzalayıcınız isteği reddetti. İzinleri kontrol edip bağlantıyı onaylayın.",
+        "timeout": "İmzalayıcınız zamanında yanıt vermedi. Bekleyen istekleri, bildirimleri ve relay bağlantısını kontrol edip yeni bağlantıyla deneyin.",
+        "relay_unavailable": "İstek relaylere gönderilemedi. Bağlantınızı ve imzalayıcınızdaki relay adreslerini kontrol edin.",
+        "save_failed": "Bağlantı onaylandı ancak bu cihaza kaydedilemedi. Yeni bağlantıyla tekrar deneyin.",
+        "connection_failed": "Bağlantı tamamlanamadı. İmzalayıcınızdaki istekleri kontrol edip yeni bağlantıyla deneyin."
+      }
     },
     "nostr_connect": {
       "title": "Nostr Connect",
@@ -708,7 +723,12 @@
     "send_failed": "Anahtar gönderilemedi. Tekrar dene.",
     "rotated_title": "Şifreleme anahtarı değişti",
     "rotated_message": "Başka bir cihaz bu hesap için yeni bir şifreleme anahtarı oluşturdu. Mesaj almaya devam etmek için yeniden eşitle.",
-    "rotated_confirm": "Şimdi eşitle"
+    "rotated_confirm": "Şimdi eşitle",
+    "continue_title": "BitcoinWalk'a devam et",
+    "continue_message": "Şehriniz ve topluluk sohbetleri hazır. Özel mesaj geçmişi başka bir cihazdan ayrı bir şifreleme anahtarı gerektirir ve şimdilik kullanılamaz.",
+    "continue_action": "BitcoinWalk'a devam et",
+    "continue_hint": "Bu işlem mevcut özel mesaj anahtarınızı değiştirmez, yayınlamaz veya silmez.",
+    "continue_failed": "Devam edilemedi. Tekrar deneyin."
   },
   "backup": {
     "drop_title": "Sohbet geçmişini içe aktarmak için bırakın",
