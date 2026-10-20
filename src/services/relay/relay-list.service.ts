@@ -5,6 +5,7 @@ import { db } from '@/db/client';
 import { relayLists, replaceableEvents } from '@/db/schema';
 import {
   DISCOVERY_RELAYS,
+  migrateLegacyDmRelayUrls,
   normalizeRelayUrl,
   normalizeRelayUrls,
 } from '@/lib/nostr/relay-url';
@@ -341,4 +342,23 @@ export async function queueInitialDmRelays(opts: { accountPubkey: string; signer
     kind: KIND_DM_RELAY_LIST, content: '', tags: relays.map(url => ['relay', url]), created_at: Math.floor(Date.now() / 1000),
   }, persistDmRelays);
   void pushRegistrationService.reconcile();
+}
+
+/** One-time fork migration. Signing makes the new inbox discoverable to peers;
+ * the durable configuration outbox retries network delivery after this local
+ * handoff. A rejected remote-signer request leaves the previous list intact so
+ * it can be retried on the next foreground bootstrap. */
+export async function migrateLegacyDmRelays(opts: {
+  accountPubkey: string;
+  signer: Signer;
+  relays: readonly string[];
+}): Promise<string[]> {
+  const migration = migrateLegacyDmRelayUrls(opts.relays);
+  if (!migration.changed) return migration.relays;
+  await queueInitialDmRelays({
+    accountPubkey: opts.accountPubkey,
+    signer: opts.signer,
+    relays: migration.relays,
+  });
+  return migration.relays;
 }

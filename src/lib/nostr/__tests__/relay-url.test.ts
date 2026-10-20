@@ -1,4 +1,10 @@
-import { normalizeRelayUrl, normalizeRelayUrls } from '../relay-url';
+import {
+  BITCOINWALK_DM_RELAY,
+  DEFAULT_DM_RELAYS,
+  migrateLegacyDmRelayUrls,
+  normalizeRelayUrl,
+  normalizeRelayUrls,
+} from '../relay-url';
 
 describe('relay URL normalization', () => {
   it.each([
@@ -34,5 +40,29 @@ describe('relay URL normalization', () => {
       'https://RELAY.example//?b=2&a=1#one',
       'wss://relay.example/?a=1&b=2', 'wss://', 'relay.example',
     ])).toEqual(['wss://relay.example/?a=1&b=2', 'wss://relay.example/']);
+  });
+
+  it('uses the BitcoinWalk inbox for new accounts', () => {
+    expect(DEFAULT_DM_RELAYS[0]).toBe(BITCOINWALK_DM_RELAY);
+    expect(DEFAULT_DM_RELAYS).not.toContain('wss://relay.psstpsst.chat/');
+  });
+
+  it('replaces only the legacy managed inbox and preserves other choices', () => {
+    expect(migrateLegacyDmRelayUrls([
+      'wss://custom.example/',
+      'https://relay.psstpsst.chat',
+      'wss://inbox.bitcoinwalk.org',
+    ])).toEqual({
+      relays: ['wss://custom.example/', 'wss://inbox.bitcoinwalk.org/'],
+      changed: true,
+    });
+  });
+
+  it('leaves an already migrated list unchanged', () => {
+    expect(migrateLegacyDmRelayUrls(['wss://inbox.bitcoinwalk.org/', 'wss://custom.example/']))
+      .toEqual({
+        relays: ['wss://inbox.bitcoinwalk.org/', 'wss://custom.example/'],
+        changed: false,
+      });
   });
 });

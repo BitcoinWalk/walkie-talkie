@@ -534,4 +534,51 @@ describe('relay-list service', () => {
       expect(mockQuery).not.toHaveBeenCalled();
     });
   });
+
+  describe('migrateLegacyDmRelays', () => {
+    function signer() {
+      return {
+        signEvent: jest.fn(async (template: Partial<Event>) => ({
+          id: `signed-${template.kind}`,
+          pubkey: 'self',
+          kind: template.kind!,
+          created_at: template.created_at!,
+          tags: template.tags ?? [],
+          content: template.content ?? '',
+          sig: 'sig',
+        })),
+      } as never;
+    }
+
+    it('publishes the BitcoinWalk inbox while preserving custom relays', async () => {
+      const service = loadService();
+      const accountSigner = signer();
+
+      await expect(service.migrateLegacyDmRelays({
+        accountPubkey: 'self',
+        signer: accountSigner,
+        relays: ['wss://relay.psstpsst.chat/', 'wss://custom.example/'],
+      })).resolves.toEqual(['wss://inbox.bitcoinwalk.org/', 'wss://custom.example/']);
+
+      expect(mockPublishEvent).toHaveBeenCalledTimes(1);
+      expect(getRow('self', KIND_DM_RELAY_LIST)?.event?.tags).toEqual([
+        ['relay', 'wss://inbox.bitcoinwalk.org/'],
+        ['relay', 'wss://custom.example/'],
+      ]);
+    });
+
+    it('does not sign or publish an already migrated list', async () => {
+      const service = loadService();
+      const accountSigner = signer();
+
+      await expect(service.migrateLegacyDmRelays({
+        accountPubkey: 'self',
+        signer: accountSigner,
+        relays: ['wss://inbox.bitcoinwalk.org/', 'wss://custom.example/'],
+      })).resolves.toEqual(['wss://inbox.bitcoinwalk.org/', 'wss://custom.example/']);
+
+      expect(accountSigner.signEvent).not.toHaveBeenCalled();
+      expect(mockPublishEvent).not.toHaveBeenCalled();
+    });
+  });
 });

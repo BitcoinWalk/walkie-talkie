@@ -36,12 +36,30 @@ export function normalizeRelayUrls(urls: readonly string[]): string[] {
 }
 
 /** Inbox defaults used when an account has no locally persisted DM relays. */
+export const BITCOINWALK_DM_RELAY = 'wss://inbox.bitcoinwalk.org/';
+export const LEGACY_PSSTPSST_DM_RELAY = 'wss://relay.psstpsst.chat/';
+
 export const DEFAULT_DM_RELAYS = [
-  'wss://relay.psstpsst.chat/',
+  BITCOINWALK_DM_RELAY,
   'wss://nos.lol/',
   'wss://nip17.com/',
   'wss://relay.ditto.pub/',
 ];
+
+/** Replace only the former app-managed inbox, preserving every custom/fallback relay. */
+export function migrateLegacyDmRelayUrls(urls: readonly string[]): {
+  relays: string[];
+  changed: boolean;
+} {
+  const legacy = normalizeRelayUrl(LEGACY_PSSTPSST_DM_RELAY);
+  const replacement = normalizeRelayUrl(BITCOINWALK_DM_RELAY);
+  const normalized = normalizeRelayUrls(urls);
+  if (!normalized.includes(legacy)) return { relays: normalized, changed: false };
+  return {
+    relays: normalizeRelayUrls(normalized.map((url) => url === legacy ? replacement : url)),
+    changed: true,
+  };
+}
 
 /**
  * Relays we always consult when looking up someone else's metadata

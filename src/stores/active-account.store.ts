@@ -42,6 +42,7 @@ import {
 } from '@/services/dm/dm-sync-preferences';
 import {
   loadAccountDmRelays,
+  migrateLegacyDmRelays,
   ownKeyAnnouncementRelays,
   queueInitialDmRelays,
 } from '@/services/relay/relay-list.service';
@@ -129,14 +130,26 @@ async function bootstrapAccount(
       loadEncryptionKeys(pubkey),
     );
     onPhase(keys.length === 0 ? 'initializing' : 'fetching_keys');
-    const metadata = await profileAsync(profile, 'relay.resolveMessagingMetadata', () =>
+    let metadata = await profileAsync(profile, 'relay.resolveMessagingMetadata', () =>
       resolveMessagingMetadataForStartup(pubkey, {
         signAuth: (event) => signer.signEvent(event),
         abort: signal,
       }),
     );
     checkBootstrap(signal);
-    const { dmRelays, announcementRelays: keyAnnouncementRelays, announcement } = metadata;
+    let dmRelays = metadata.dmRelays;
+    try {
+      dmRelays = await profileAsync(profile, 'relay.migrateLegacyInbox', () =>
+        migrateLegacyDmRelays({ accountPubkey: pubkey, signer, relays: dmRelays }),
+      );
+      metadata = { ...metadata, dmRelays };
+    } catch (error) {
+      // Remote signers may decline or be temporarily unavailable. Preserve the
+      // last usable inbox and retry next bootstrap instead of locking the user out.
+      console.warn('[boot] Legacy inbox migration deferred.', error);
+    }
+    checkBootstrap(signal);
+    const { announcementRelays: keyAnnouncementRelays, announcement } = metadata;
     const remote = announcement ? getEncryptionPubkeyFromEvent(announcement) : null;
 
     if (keys.length === 0) {

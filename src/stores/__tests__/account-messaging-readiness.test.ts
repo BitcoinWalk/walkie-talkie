@@ -31,6 +31,7 @@ jest.mock('@/services/dm/dm-sync-preferences', () => ({
 jest.mock('@/services/relay/relay-pool', () => ({ relayPool: { destroy: jest.fn() } }));
 jest.mock('@/services/relay/relay-list.service', () => ({
   loadAccountDmRelays: async () => ['wss://fresh.example'],
+  migrateLegacyDmRelays: async ({ relays }: { relays: string[] }) => relays,
   ownKeyAnnouncementRelays: async () => [],
 }));
 jest.mock('@/services/signer/signer-factory', () => ({ createSigner: async () => ({ signEvent: jest.fn() }) }));

@@ -197,6 +197,13 @@ read/write declaration. Only new local account setup initializes default kind
 only write relays; read membership configured by other clients is preserved and
 does not participate in application routing.
 
+BitcoinWalk accounts default to `wss://inbox.bitcoinwalk.org/`. During account
+bootstrap, an exact legacy `wss://relay.psstpsst.chat/` inbox entry is replaced
+with the BitcoinWalk inbox and a newly signed kind 10050 is queued durably.
+Other inbox relays remain unchanged. If a remote signer is unavailable or
+declines the signature, the previous usable list remains active and migration is
+retried on a later bootstrap.
+
 `src/services/relay/relay-router.ts` is the single routing policy. Event
 publication goes through one shared publish primitive, which normalizes relay
 URLs, reuses managed connections, applies timeouts, and records per-target
@@ -361,6 +368,12 @@ gift-wrap validation/decryption/storage code with explicit receiving-account,
 key and runtime context. Notification eligibility and preview construction are
 shared across live/recovery delivery and the extension; UI account selection
 never selects the owner of an APNs message.
+
+That APNs integration is a separate push service, not an inbox-relay feature.
+The BitcoinWalk inbox deliberately does not advertise or emulate the legacy
+push API. Accounts using only BitcoinWalk inbox relays therefore receive live
+and recovery delivery but do not register for iOS background push until a
+BitcoinWalk-owned push service is deployed.
 
 The iOS app and extension share an App Group database in WAL mode, serialize
 writers before reading their transaction snapshots, and share only messaging
