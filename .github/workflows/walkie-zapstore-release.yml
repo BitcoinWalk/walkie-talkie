@@ -29,6 +29,7 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      HAS_ANDROID_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,16 +48,6 @@ jobs:
           npm ci --include=dev --ignore-scripts --no-audit --no-fund
           npx patch-package --error-on-fail
           npm run test:walkie-release
-          missing=()
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            if [[ -z "${!name:-}" ]]; then
-              missing+=("$name")
-            fi
-          done
-          if (( ${#missing[@]} )); then
-            printf 'Missing required production signing secret: %s\n' "${missing[@]}"
-            exit 1
-          fi
           node scripts/release-signing.mjs check android
           version="$(node -p "require('./app.json').expo.version")"
           if [[ "$GITHUB_REF_TYPE" == 'tag' && "$GITHUB_REF_NAME" != "v$version" ]]; then
@@ -96,6 +87,7 @@ jobs:
         run: bash scripts/build-android-reproducible.sh release/fdroid-build
 
       - name: Sign, verify and package production APK
+        if: env.HAS_ANDROID_SIGNING == 'true'
         id: package
         shell: bash
         run: |
@@ -121,12 +113,41 @@ jobs:
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
           printf 'apk_name=%s\n' "$apk_name" >> "$GITHUB_OUTPUT"
 
+      - name: Package unsigned APK for offline signing
+        if: env.HAS_ANDROID_SIGNING != 'true'
+        id: unsigned-package
+        shell: bash
+        run: |
+          version="$(node -p "require('./app.json').expo.version")"
+          version_code="$(node -p "require('./app.json').expo.android.versionCode")"
+          apk_name="WalkieTalkie-${version}-android-unsigned.apk"
+          mkdir -p release/offline-signing
+          cp release/fdroid-build/app-release.apk "release/offline-signing/$apk_name"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "release/offline-signing/$apk_name" \
+            | head -1 \
+            | grep "package: name='org.bitcoinwalk.walkietalkie' versionCode='$version_code' versionName='$version'"
+          cd release/offline-signing
+          sha256sum "$apk_name" > SHA256SUMS
+          printf '%s\n' "Version: $version" "Version code: $version_code" \
+            "Commit: $GITHUB_SHA" 'UNSIGNED: sign locally with the permanent BitcoinWalk Android key before distribution.' \
+            > BUILD-INFO.txt
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
       - uses: actions/upload-artifact@v4
+        if: env.HAS_ANDROID_SIGNING == 'true'
         with:
           name: WalkieTalkie-${{ steps.package.outputs.version }}-zapstore
           path: release/zapstore/
           if-no-files-found: error
           retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_ANDROID_SIGNING != 'true'
+        with:
+          name: WalkieTalkie-${{ steps.unsigned-package.outputs.version }}-offline-signing
+          path: release/offline-signing/
+          if-no-files-found: error
+          retention-days: 14
 
   draft-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
