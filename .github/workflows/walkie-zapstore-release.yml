@@ -56,6 +56,11 @@ jobs:
           fi
 
       - name: Verify application
+        env:
+          # React's test utilities are disabled in production mode. Keep the
+          # release build production-only, but run the verification suite in
+          # its intended test environment.
+          NODE_ENV: test
         run: |
           npm run licenses:check
           npm run licenses:test
