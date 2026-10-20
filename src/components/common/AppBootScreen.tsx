@@ -1,5 +1,7 @@
+import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
@@ -18,7 +20,9 @@ type Props = {
  * while a compact progress pill keeps longer startup work explicit. DESIGN §11.
  */
 export function AppBootScreen({ message }: Props) {
+  const { t } = useTranslation();
   const c = useThemeColors();
+  const version = Constants.expoConfig?.version;
 
   return (
     <AppScreen edges={[]}>
@@ -41,7 +45,6 @@ export function AppBootScreen({ message }: Props) {
         >
           <View
             style={{
-              flexDirection: 'row',
               alignItems: 'center',
               gap: spacing.sm,
               paddingHorizontal: spacing.lg,
@@ -50,10 +53,17 @@ export function AppBootScreen({ message }: Props) {
               backgroundColor: c.overlayControl,
             }}
           >
-            <ActivityIndicator size="small" color={c.onOverlay} />
-            <AppText variant="body" style={{ color: c.onOverlay }}>
-              {message}
-            </AppText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <ActivityIndicator size="small" color={c.onOverlay} />
+              <AppText variant="body" style={{ color: c.onOverlay }}>
+                {message}
+              </AppText>
+            </View>
+            {version ? (
+              <AppText variant="caption" style={{ color: c.onOverlay }}>
+                {t('about.version', { version })}
+              </AppText>
+            ) : null}
           </View>
         </View>
       </View>

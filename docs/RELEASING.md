@@ -1,4 +1,39 @@
-# Building and releasing PsstPsst
+# Building and releasing Walkie Talkie
+
+## BitcoinWalk Android and Zapstore release
+
+Walkie Talkie's public Android identity is `org.bitcoinwalk.walkietalkie`. The
+authoritative release version is kept equal in root `package.json`, desktop
+`package.json`, `app.json` and the root/workspace entries in `package-lock.json`.
+Android `versionCode` and iOS `buildNumber` increase independently for every
+uploaded binary. Run `npm run test:walkie-release` before committing a release.
+
+The `Walkie Talkie Zapstore release` workflow builds a universal production APK,
+requires the long-lived Android signing key, verifies its package, version and
+certificate, and names it `WalkieTalkie-<version>-android.apk`. A manual run
+uploads a private Actions artifact for acceptance. Pushing the matching
+`v<version>` tag creates or updates a draft GitHub release; publishing that draft
+remains a deliberate maintainer action after installation and upgrade tests.
+
+Configure these four repository secrets before the first production build:
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD`. Keep the keystore backed up outside GitHub. The first
+Zapstore publish also links that certificate to the BitcoinWalk Nostr identity.
+
+After the GitHub release is public, validate selection with:
+
+```sh
+zsp publish --check zapstore.yaml
+```
+
+For the first listing, follow Zapstore's wizard/certificate-linking flow. Commit
+any reviewed manifest changes before publishing. Sign the app event with the
+BitcoinWalk identity; prefer a NIP-46 bunker or browser signer over exposing an
+`nsec` in a shared shell.
+
+The remainder of this document is retained from the PsstPsst upstream release
+guide. Its desktop, F-Droid and upstream-repository examples are not Walkie
+Talkie release instructions unless they are explicitly migrated and tested.
 
 This guide covers the `Build Apps` workflow in
 [`build.yml`](../.github/workflows/build.yml), Android distribution through

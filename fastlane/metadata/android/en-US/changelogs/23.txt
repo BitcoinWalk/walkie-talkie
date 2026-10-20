@@ -1,0 +1,7 @@
+Walkie Talkie 26.10.16
+
+- Browse BitcoinWalk cities before signing in and keep your selected city as the home screen.
+- Open distinct City and Global conversations, with the private Hosts group limited to organizers.
+- Sign in with a local key, Amber or a remote signer.
+- Fixed Android cold-start city recovery and remote-signer reconnection.
+- Added the app version to the loading screen.

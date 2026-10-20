@@ -1,7 +1,7 @@
 {
   "name": "psstpsst",
   "main": "index.ts",
-  "version": "26.10.15",
+  "version": "26.10.16",
   "license": "MIT",
   "expo": {
     "autolinking": {
@@ -152,7 +152,8 @@
     "licenses:refresh": "node scripts/generate-licenses.mjs --refresh",
     "licenses:check": "node scripts/generate-licenses.mjs --check",
     "licenses:test": "node --test scripts/licenses/*.test.mjs",
-    "test:notification-extension": "node --test scripts/notification-extension/processor.test.mjs"
+    "test:notification-extension": "node --test scripts/notification-extension/processor.test.mjs",
+    "test:walkie-release": "node --test scripts/walkie-release.test.mjs"
   },
   "jest": {
     "preset": "jest-expo",

@@ -186,7 +186,7 @@ export async function shareAccountArchive(archive: BackupArchiveInfo): Promise<b
   if (!(await platform.sharing.isAvailable())) return false;
   await platform.sharing.share(fileUri, {
     mimeType: 'application/zip',
-    dialogTitle: 'PsstPsst chat archive',
+    dialogTitle: 'Walkie Talkie chat archive',
     uti: 'public.zip-archive',
   });
   return true;

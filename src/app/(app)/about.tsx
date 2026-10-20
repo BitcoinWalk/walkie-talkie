@@ -18,10 +18,8 @@ import { DirectionalChevron as ChevronRight } from '@/components/common/Directio
 import { ListGroup } from '@/components/common/ListGroup';
 import { ListRow } from '@/components/common/ListRow';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
-import { useProfile } from '@/hooks/use-profile';
 import { useScrolled } from '@/hooks/use-scrolled';
 import { useDirectionalIconStyle } from '@/i18n/direction';
-import { resolveName } from '@/lib/nostr/display-name';
 import { abbreviateNpub } from '@/lib/nostr/format';
 import { npubToPubkey } from '@/lib/nostr/keys';
 import { platform } from '@/platform';
@@ -30,7 +28,7 @@ import { radius, spacing, useThemeColors } from '@/theme';
 
 const SOURCE_CODE_URL = 'https://github.com/BitcoinWalk/walkie-talkie';
 // The author's public identity, so users can open a direct message from About.
-const AUTHOR_NPUB = 'npub1syjmjy0dp62dhccq3g97fr87tngvpvzey08llyt6ul58m2zqpzps9wf6wl';
+const AUTHOR_NPUB = 'npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw';
 const AUTHOR_PUBKEY = npubToPubkey(AUTHOR_NPUB);
 const ABOUT_ARTWORK_HEIGHT = 192;
 const ABOUT_BRAND_MARK_SIZE = 64;
@@ -54,9 +52,6 @@ export default function AboutSettings() {
   const version = Constants.expoConfig?.version;
   const [openingArtwork, setOpeningArtwork] = useState(false);
 
-  // Resolved from relays when unknown; the abbreviated npub is the fallback.
-  const authorProfile = useProfile(AUTHOR_PUBKEY);
-  const authorName = resolveName(authorProfile);
   const authorNpubAbbreviated = abbreviateNpub(AUTHOR_NPUB);
 
   async function openArtwork() {
@@ -140,7 +135,7 @@ export default function AboutSettings() {
         <ListGroup>
           <ListRow
             title={t('about.author')}
-            value={authorName ?? authorNpubAbbreviated}
+            value={`BitcoinWalk · ${authorNpubAbbreviated}`}
             trailing={chevron}
             onPress={() => router.push(`/chat/${encodeURIComponent(AUTHOR_PUBKEY)}`)}
           />

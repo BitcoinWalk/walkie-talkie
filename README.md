@@ -4,15 +4,15 @@ BitcoinWalk's Nostr companion for iOS and Android: city and walk details,
 NIP-17 DMs, NIP-29 city groups, nearby Bluetooth communication and walk invites.
 Android distribution targets Zapstore; iOS testing targets TestFlight.
 
-**Early development. No Walkie Talkie binary is published yet.** The initial
-invite and counting modules are prototypes, not connected to native screens or
-Bluetooth. See [the implementation plan](docs/WALKIE-TALKIE.md).
+The first Zapstore release candidate is being prepared from the accepted Android
+26.10.15 build. See [the implementation plan](docs/WALKIE-TALKIE.md) and
+[release guide](docs/RELEASING.md).
 
 Based on [PsstPsst](https://github.com/CodyTseng/psstpsst), under its MIT licence.
 Upstream history, copyright and third-party notices are retained. The `upstream`
 remote tracks that project; BitcoinWalk development uses `main`.
-Inherited build identifiers, release workflows and Zapstore metadata still refer
-to PsstPsst and must be adapted before any Walkie Talkie distribution.
+Internal compatibility namespaces and upstream attribution remain unchanged so
+existing encrypted data and protocol records continue to work.
 
 Run the initial foundation tests with `node --test tests/bitcoinwalk/core.test.mjs`.
 
@@ -27,7 +27,7 @@ cryptographic keys are your account: get started without a phone number or
 email address, and exchange encrypted messages over Nostr or nearby Bluetooth.
 
 [Downloads](#downloads) · [Build from source](#build-from-source) ·
-[Contribute](CONTRIBUTING.md) · [Privacy](https://psstpsst.chat/privacy/) · [Security](SECURITY.md)
+[Contribute](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 <p>
   <picture>
@@ -46,7 +46,7 @@ email address, and exchange encrypted messages over Nostr or nearby Bluetooth.
 
 The first public release is being prepared. Published installers and release
 notes will be available on
-[GitHub Releases](https://github.com/codytseng/psstpsst/releases).
+[GitHub Releases](https://github.com/BitcoinWalk/walkie-talkie/releases).
 Until then, use the source-build instructions below.
 
 | Platform | Distribution target |
@@ -67,7 +67,7 @@ Check each release's notes for tested OS versions and known issues.
 - **Keys as accounts:** no central account provider, phone number, or email
   requirement; optional Nostr names make people easier to find.
 - **Nearby messaging:** exchange messages and files over Bluetooth Low Energy
-  without Internet access, with compatible PsstPsst peers.
+  without Internet access, with compatible Walkie Talkie peers.
 - **Connected wallets:** non-custodial Lightning wallet connections through
   Nostr Wallet Connect.
 - **Mobile and desktop:** shared conversations UI with light and dark themes
@@ -77,8 +77,7 @@ Check each release's notes for tested OS versions and known issues.
 
 Back up your identity key and use the app's key-transfer and archive features
 when moving devices. An identity-key backup alone does not guarantee recovery
-of encrypted chat history. The [privacy policy](https://psstpsst.chat/privacy/)
-is maintained on the official website.
+of encrypted chat history.
 
 - Messaging currently supports one-to-one conversations. The messaging-key
   extension requires compatible peers; support for Nostr alone does not
@@ -105,14 +104,14 @@ On Windows, run the commands in Git Bash and use `npm --script-shell=bash run ..
 in place of `npm run ...`.
 
 ```bash
-git clone https://github.com/codytseng/psstpsst.git
-cd psstpsst
+git clone https://github.com/BitcoinWalk/walkie-talkie.git
+cd walkie-talkie
 npm ci
 ```
 
 The local builds below need no release signing credentials. They bundle
-JavaScript, so no Metro server is needed to run them. They use the production identity (**PsstPsst**,
-`chat.psstpsst.app`). For development with Fast Refresh, use `npm start` plus
+JavaScript, so no Metro server is needed to run them. They use the production identity (**Walkie Talkie**,
+`org.bitcoinwalk.walkietalkie`). For development with Fast Refresh, use `npm start` plus
 `npm run ios:dev` / `npm run android:dev`, or `npm run electron:dev`; see
 [CONTRIBUTING.md](CONTRIBUTING.md#running-the-app).
 

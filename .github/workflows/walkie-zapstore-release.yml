@@ -1,0 +1,162 @@
+name: Walkie Talkie Zapstore release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: walkie-zapstore-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    if: github.repository == 'BitcoinWalk/walkie-talkie'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CI: '1'
+      NODE_ENV: production
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_APP_ENV: production
+      EXPO_PUBLIC_BITCOINWALK_ORIGIN: https://bitcoinwalk.org
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+
+      - name: Validate version, metadata and signing gate
+        shell: bash
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx patch-package --error-on-fail
+          npm run test:walkie-release
+          missing=()
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} )); then
+            printf 'Missing required production signing secret: %s\n' "${missing[@]}"
+            exit 1
+          fi
+          node scripts/release-signing.mjs check android
+          version="$(node -p "require('./app.json').expo.version")"
+          if [[ "$GITHUB_REF_TYPE" == 'tag' && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match app version v$version."
+            exit 1
+          fi
+
+      - name: Verify application
+        run: |
+          npm run licenses:check
+          npm run licenses:test
+          node --test tests/bitcoinwalk/core.test.mjs
+          npx jest \
+            src/services/bitcoinwalk/__tests__/walks.test.ts \
+            src/services/bitcoinwalk/__tests__/cities.test.ts \
+            src/services/bitcoinwalk/__tests__/config.test.ts \
+            src/services/bitcoinwalk/__tests__/community.test.ts \
+            src/services/bitcoinwalk/__tests__/community-membership.test.ts \
+            src/components/bitcoinwalk/__tests__/community-screen-join.test.tsx \
+            src/components/bitcoinwalk/__tests__/community-bootstrap.test.tsx \
+            src/components/bitcoinwalk/__tests__/city-selection-flow.test.tsx \
+            src/components/bitcoinwalk/__tests__/chats-tab-access.test.tsx \
+            src/components/navigation/__tests__/tabs-startup.test.tsx \
+            src/services/signer/__tests__/nip46-connect.test.ts \
+            src/services/signer/__tests__/nip46-login-error.test.ts \
+            src/services/signer/__tests__/nip46-public-key.test.ts \
+            src/services/signer/__tests__/nip46-public-key-wire.test.ts \
+            --runInBand
+          npx tsc --noEmit
+          npm run lint
+
+      - name: Build reproducible unsigned APK
+        env:
+          ANDROID_RELEASE_UNSIGNED: '1'
+          ANDROID_BUILD_APK: '1'
+          ANDROID_BUILD_BUNDLE: '0'
+        run: bash scripts/build-android-reproducible.sh release/fdroid-build
+
+      - name: Sign, verify and package production APK
+        id: package
+        shell: bash
+        run: |
+          version="$(node -p "require('./app.json').expo.version")"
+          version_code="$(node -p "require('./app.json').expo.android.versionCode")"
+          apk_name="WalkieTalkie-${version}-android.apk"
+          mkdir -p release/zapstore
+          node scripts/release-signing.mjs sign-android \
+            release/fdroid-build/app-release.apk \
+            "release/zapstore/$apk_name"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "release/zapstore/$apk_name" \
+            | head -1 \
+            | grep "package: name='org.bitcoinwalk.walkietalkie' versionCode='$version_code' versionName='$version'"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs \
+            "release/zapstore/$apk_name"
+          cp "fastlane/metadata/android/en-US/changelogs/${version_code}.txt" \
+            release/zapstore/RELEASE-NOTES.txt
+          cd release/zapstore
+          sha256sum "$apk_name" > SHA256SUMS
+          printf '%s\n' "Version: $version" "Version code: $version_code" \
+            "Commit: $GITHUB_SHA" 'Production identity: org.bitcoinwalk.walkietalkie' \
+            > BUILD-INFO.txt
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'apk_name=%s\n' "$apk_name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WalkieTalkie-${{ steps.package.outputs.version }}-zapstore
+          path: release/zapstore/
+          if-no-files-found: error
+          retention-days: 30
+
+  draft-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: android
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: WalkieTalkie-*-zapstore
+          path: release-assets
+          merge-multiple: true
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          version_code="$(node -p "require('./app.json').expo.android.versionCode")"
+          apk_name="WalkieTalkie-${version}-android.apk"
+          test -f "release-assets/$apk_name"
+          notes_file="fastlane/metadata/android/en-US/changelogs/${version_code}.txt"
+          if gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft >/tmp/draft-state 2>/dev/null; then
+            test "$(cat /tmp/draft-state)" = 'true'
+            gh release edit "$GITHUB_REF_NAME" --title "Walkie Talkie $version" --notes-file "$notes_file"
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+              --title "Walkie Talkie $version" --notes-file "$notes_file"
+          fi
+          gh release upload "$GITHUB_REF_NAME" "release-assets/$apk_name" \
+            release-assets/SHA256SUMS release-assets/BUILD-INFO.txt --clobber
