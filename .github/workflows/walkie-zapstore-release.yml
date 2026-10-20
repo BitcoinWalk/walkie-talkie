@@ -44,7 +44,7 @@ jobs:
       - name: Validate version, metadata and signing gate
         shell: bash
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --include=dev --ignore-scripts --no-audit --no-fund
           npx patch-package --error-on-fail
           npm run test:walkie-release
           missing=()
