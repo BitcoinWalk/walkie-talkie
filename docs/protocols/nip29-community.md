@@ -35,6 +35,10 @@ city's room.
   join. Remote signers such as Amber may ask the user to approve each request.
   Remember only confirmed membership, successful joins, or duplicate joins
   locally so later launches do not ask again.
+- Membership filters use exactly one group in `h`, the authenticated account in
+  `p`, and a limit no greater than 200. Discovery can batch separate filters in
+  one request, but must not combine multiple groups inside one membership filter
+  or exceed the shared relay's listener budget.
 - A relay `duplicate:` response means the connected identity is already a
   member.
 - Post kind `9` messages only after confirmed membership. Include up to

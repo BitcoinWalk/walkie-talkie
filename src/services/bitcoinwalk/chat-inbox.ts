@@ -15,6 +15,11 @@ export type BitcoinWalkInbox = {
   membershipError?: boolean;
 };
 
+// The shared relay accepts one exact group per membership filter and at most
+// 200 results. Eight filters leave room under its 16-listener socket budget.
+const MEMBERSHIP_FILTER_BATCH = 8;
+const MEMBERSHIP_HISTORY_LIMIT = 10;
+
 /** Bounded membership reads, not one request per city. Only verified directory
  * destinations are eligible. Reading the inbox never joins a community. */
 export async function loadJoinedDestinations(
@@ -33,13 +38,16 @@ export async function loadJoinedDestinations(
   try {
     for (const [relay, ids] of byRelay) {
       const groupIds = [...ids];
-      for (let offset = 0; offset < groupIds.length; offset += 200) {
+      for (let offset = 0; offset < groupIds.length; offset += MEMBERSHIP_FILTER_BATCH) {
         if (signal.aborted) throw new Error('Aborted');
-        const batch = groupIds.slice(offset, offset + 200);
+        const batch = groupIds.slice(offset, offset + MEMBERSHIP_FILTER_BATCH);
         const allowed = new Set(batch);
         const events = await relayPool.query({
           relays: [relay],
-          filter: { kinds: [9000, 9001], '#h': batch, '#p': [accountPubkey], limit: 2_000 },
+          filters: batch.map((groupId) => ({
+            kinds: [9000, 9001], '#h': [groupId], '#p': [accountPubkey],
+            limit: MEMBERSHIP_HISTORY_LIMIT,
+          })),
           label: 'bitcoinwalk-inbox-memberships',
           timeoutMs: 8_000,
           abort: signal,
@@ -74,13 +82,14 @@ export async function loadBitcoinWalkInbox(
   const [cities, directory] = await Promise.all([
     loadCities(signal), loadBitcoinWalkChatDirectory(signal),
   ]);
-  let joined: Set<string>;
+  let joined = new Set<string>();
+  let membershipError = false;
   try {
     joined = await loadJoinedDestinations(accountPubkey,
       cities.flatMap((city) => city.chat.communities.city ? [city.chat.communities.city] : []), signal);
   } catch (cause) {
     if (signal.aborted) throw cause;
-    return { directory, cities: [], hosts: false, membershipError: true };
+    membershipError = true;
   }
   // A private-room denial must not prevent public city membership discovery.
   let hosts = false;
@@ -89,6 +98,7 @@ export async function loadBitcoinWalkInbox(
     hosts = privateJoined.has(communityDestinationKey(directory.communities.hosts));
   } catch (cause) {
     if (signal.aborted) throw cause;
+    membershipError = true;
   }
   return {
     directory,
@@ -96,5 +106,6 @@ export async function loadBitcoinWalkInbox(
       joined.has(communityDestinationKey(city.chat.communities.city)))
       .sort((a, b) => a.name.localeCompare(b.name)),
     hosts,
+    ...(membershipError ? {membershipError: true} : {}),
   };
 }

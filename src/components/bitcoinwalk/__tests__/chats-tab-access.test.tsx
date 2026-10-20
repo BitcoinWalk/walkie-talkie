@@ -77,9 +77,11 @@ describe('unified native Chat inbox', () => {
   });
 
   it('keeps verified Hosts and exposes contacts from the single add action', async () => {
-    mockLoad.mockResolvedValue({directory: mockDirectory, cities: [], hosts: true});
+    mockLoad.mockResolvedValue({directory: mockDirectory,
+      cities: [{id: 'madeira', slug: 'madeira', name: 'Madeira', avatarUrl: 'city.png'}], hosts: true});
     await act(async () => { renderer = create(<BitcoinWalkChatsTab />); });
-    expect(renderer.root.findAllByType(BitcoinWalkCommunityRow).map((row) => row.props.title)).toContain('community.hosts_full_title');
+    expect(renderer.root.findAllByType(BitcoinWalkCommunityRow).map((row) => row.props.title))
+      .toEqual(['community.guide_full_title', 'community.global_title', 'Madeira', 'community.hosts_full_title']);
     act(() => { renderer.root.findByType(IconButton).props.onPress(); });
     expect(mockOpen).toHaveBeenLastCalledWith('/contacts');
   });

@@ -44,8 +44,52 @@ describe('bounded joined-community inbox discovery', () => {
     const destinations = Array.from({length: 205}, (_, i) => destination(`city-${i}`));
     await loadJoinedDestinations(account, [...destinations, destinations[0],
       {relay: 'wss://chat-staging.bitcoinwalk.org/', groupId: 'madeira'}], new AbortController().signal);
-    expect(relayPool.query).toHaveBeenCalledTimes(3);
-    expect(jest.mocked(relayPool.query).mock.calls.map(([query]) => query.filter?.['#h']?.length)).toEqual([200, 5, 1]);
+    expect(relayPool.query).toHaveBeenCalledTimes(27);
+    const queries = jest.mocked(relayPool.query).mock.calls.map(([query]) => query);
+    expect(queries.map((query) => query.filters?.length)).toEqual([...Array(25).fill(8), 5, 1]);
+    const filters = queries.flatMap((query) => query.filters ?? []);
+    expect(filters).toHaveLength(206);
+    for (const filter of filters) {
+      expect(filter['#h']).toHaveLength(1);
+      expect(filter['#p']).toEqual([account]);
+      expect(filter.limit).toBeLessThanOrEqual(200);
+    }
+  });
+
+  it('discovers Madeira and Hosts against the actual single-group relay filter contract', async () => {
+    const city = {id: 'madeira', name: 'Madeira', slug: 'madeira',
+      chat: {communities: {city: destination('bitcoinwalk-madeira')}}};
+    jest.mocked(loadCities).mockResolvedValue([city] as Awaited<ReturnType<typeof loadCities>>);
+    jest.mocked(loadBitcoinWalkChatDirectory).mockResolvedValue({guidePubkey: 'b'.repeat(64),
+      communities: {global: destination('global'), hosts: destination('bitcoinwalk-organizers')}});
+    jest.mocked(relayPool.query).mockImplementation(async (query) => {
+      const filters = query.filters ?? (query.filter ? [query.filter] : []);
+      for (const filter of filters) {
+        if (filter['#h']?.length !== 1 || filter['#p']?.length !== 1 ||
+            filter['#p'][0] !== account || (filter.limit ?? 0) > 200) {
+          throw new Error('restricted: request one chat group explicitly');
+        }
+      }
+      return filters.map((filter) => membership(filter['#h']![0]));
+    });
+    const result = await loadBitcoinWalkInbox(account, new AbortController().signal);
+    expect(result.cities.map((value) => value.slug)).toEqual(['madeira']);
+    expect(result.hosts).toBe(true);
+    expect(result.membershipError).toBeUndefined();
+    expect(relayPool.publishEvent).not.toHaveBeenCalled();
+  });
+
+  it('still checks Hosts if the city lookup fails instead of hiding both groups', async () => {
+    const city = {id: 'madeira', name: 'Madeira', slug: 'madeira',
+      chat: {communities: {city: destination('bitcoinwalk-madeira')}}};
+    jest.mocked(loadCities).mockResolvedValue([city] as Awaited<ReturnType<typeof loadCities>>);
+    jest.mocked(loadBitcoinWalkChatDirectory).mockResolvedValue({guidePubkey: 'b'.repeat(64),
+      communities: {global: destination('global'), hosts: destination('bitcoinwalk-organizers')}});
+    jest.mocked(relayPool.query).mockRejectedValueOnce(new Error('city lookup interrupted'))
+      .mockResolvedValueOnce([membership('bitcoinwalk-organizers')]);
+    const result = await loadBitcoinWalkInbox(account, new AbortController().signal);
+    expect(result.hosts).toBe(true);
+    expect(result.membershipError).toBe(true);
   });
 
   it('cleans up on failure and honors cancellation before relay work', async () => {
