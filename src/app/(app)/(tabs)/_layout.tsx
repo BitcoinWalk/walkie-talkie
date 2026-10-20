@@ -3,8 +3,6 @@ import MapPin from 'lucide-react-native/icons/map-pin';
 import { PlatformPressable } from 'expo-router/build/react-navigation/elements';
 import { ChatRound as ChatRoundBold } from '@solar-icons/react-native/category/messages/Bold/ChatRound';
 import { ChatRound as ChatRoundLinear } from '@solar-icons/react-native/category/messages/Linear/ChatRound';
-import { UserCircle as UserCircleBold } from '@solar-icons/react-native/category/users/Bold/UserCircle';
-import { UserCircle as UserCircleLinear } from '@solar-icons/react-native/category/users/Linear/UserCircle';
 import { type ComponentProps, type ComponentType, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, useWindowDimensions } from 'react-native';
@@ -48,9 +46,7 @@ export default function TabsLayout() {
   const accountPubkey = useActiveAccount((s) => s.activePubkey) ?? '';
   const screenshotPreviewEnabled = useScreenshotPreviewStore((state) => state.enabled);
   const screenshotReadUnreadCount = useScreenshotPreviewStore((state) => state.readUnreadCount);
-  // Chats badge = total unread messages; Contacts badge = people with unread
-  // pending requests (a read-but-unanswered request stays listed but no longer
-  // contributes to the badge).
+  // Chat also exposes unread requests now that Contacts is a pushed task.
   const totalUnread = useTotalUnread(accountPubkey);
   const displayedTotalUnread = screenshotPreviewEnabled
     ? Math.max(0, SCREENSHOT_UNREAD_COUNT - screenshotReadUnreadCount)
@@ -103,7 +99,7 @@ export default function TabsLayout() {
           },
         }}
       >
-        <Tabs.Screen name="walks" options={{ title: t('walks.title'),
+        <Tabs.Screen name="walks" options={{ title: t('tabs.walk'),
           tabBarIcon: ({ color, size }) => <MapPin color={color} size={size} />,
         }} />
         <Tabs.Screen
@@ -114,27 +110,7 @@ export default function TabsLayout() {
               const Icon = focused ? ChatRoundBold : ChatRoundLinear;
               const iconSize = IS_ELECTRON ? uiDensity.tabIconSize : size;
               return (
-                <TabIconWithBadge count={displayedTotalUnread}>
-                  <Icon
-                    color={color as string}
-                    size={iconSize}
-                    style={focused ? styles.selectedTabIcon : undefined}
-                  />
-                </TabIconWithBadge>
-              );
-            },
-          }}
-        />
-        <Tabs.Screen
-          name="contacts"
-          options={{
-            href: accountPubkey ? undefined : null,
-            title: t('tabs.contacts'),
-            tabBarIcon: ({ color, focused, size }) => {
-              const Icon = focused ? UserCircleBold : UserCircleLinear;
-              const iconSize = IS_ELECTRON ? uiDensity.tabIconSize : size;
-              return (
-                <TabIconWithBadge count={unreadRequestCount}>
+                <TabIconWithBadge count={displayedTotalUnread + unreadRequestCount}>
                   <Icon
                     color={color as string}
                     size={iconSize}

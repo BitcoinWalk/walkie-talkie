@@ -538,6 +538,7 @@ describe('relay-list service', () => {
   describe('migrateLegacyDmRelays', () => {
     function signer() {
       return {
+        getPublicKey: jest.fn(async () => 'self'),
         signEvent: jest.fn(async (template: Partial<Event>) => ({
           id: `signed-${template.kind}`,
           pubkey: 'self',
@@ -547,7 +548,7 @@ describe('relay-list service', () => {
           content: template.content ?? '',
           sig: 'sig',
         })),
-      } as never;
+      };
     }
 
     it('publishes the BitcoinWalk inbox while preserving custom relays', async () => {

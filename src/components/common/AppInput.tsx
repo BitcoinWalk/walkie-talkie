@@ -17,6 +17,8 @@ type Props = TextInputProps & {
   trailingAccessory?: ReactNode;
   /** Compact control rendered inside the input at its logical end. */
   inputTrailingAccessory?: ReactNode;
+  /** A bounded, growing message field rather than a full multiline form. */
+  compact?: boolean;
 };
 
 export const AppInput = forwardRef<TextInput, Props>(function AppInput(
@@ -27,10 +29,12 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
     error,
     trailingAccessory,
     inputTrailingAccessory,
+    compact = false,
     style,
     onFocus,
     onBlur,
     onChangeText,
+    onContentSizeChange,
     accessibilityLabel,
     placeholder,
     value,
@@ -42,6 +46,7 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
   const c = useThemeColors();
   const [focused, setFocused] = useState(false);
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue ?? '');
+  const [contentHeight, setContentHeight] = useState(0);
 
   const hasError = invalid === true || error != null;
   const supportingText = error ?? description;
@@ -60,8 +65,9 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
         backgroundColor: c.surfaceElevated,
         paddingHorizontal: uiDensity.inputHorizontalPadding,
         height: multiline ? undefined : uiDensity.inputHeight,
-        minHeight: multiline ? uiDensity.multilineInputMinHeight : undefined,
-        paddingVertical: multiline ? 12 : 0,
+        minHeight: multiline ? (compact ? uiDensity.inputHeight : uiDensity.multilineInputMinHeight) : undefined,
+        maxHeight: multiline && compact ? uiDensity.inputHeight * 3 : undefined,
+        paddingVertical: multiline ? (compact ? spacing.sm : spacing.md) : 0,
         justifyContent: multiline ? 'flex-start' : 'center',
         flexDirection: 'row',
         alignItems: multiline ? 'flex-start' : 'center',
@@ -104,6 +110,10 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
             setUncontrolledValue(nextValue);
             onChangeText?.(nextValue);
           }}
+          onContentSizeChange={(event) => {
+            if (compact) setContentHeight(event.nativeEvent.contentSize.height);
+            onContentSizeChange?.(event);
+          }}
           onFocus={(e) => {
             setFocused(true);
             onFocus?.(e);
@@ -119,6 +129,8 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
               lineHeight: typography.body.fontFamily ? typography.body.lineHeight : undefined,
               fontFamily: typography.body.fontFamily,
               flex: 1,
+              height: multiline && compact ? Math.min(uiDensity.inputHeight * 3 - spacing.sm * 2,
+                Math.max(uiDensity.inputHeight - spacing.sm * 2, contentHeight)) : undefined,
               paddingVertical: 0,
               // The shell owns the inset; native padding would offset the caret
               // from the separately rendered single-line placeholder.

@@ -1,0 +1,7 @@
+Walkie Talkie 26.10.20
+
+- Find Guide, Global, joined city groups and private messages in one Chat inbox.
+- Use three bottom tabs: Walk, Chat and Account. Contacts are available from Chat.
+- Keep your walking city unchanged while browsing other group chats.
+- Use a compact group composer that follows the keyboard.
+- Refresh the inbox automatically after joining a community.

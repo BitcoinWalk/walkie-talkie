@@ -3,6 +3,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AppInput } from '../AppInput';
 import { AppText } from '../AppText';
+import { spacing, uiDensity } from '@/theme';
 
 jest.mock('@/stores/theme.store', () => ({
   useThemeStore: (selector: (state: { accent: 'blue' }) => unknown) =>
@@ -25,6 +26,16 @@ describe('AppInput field chrome', () => {
     const description = renderer!.root.findByType(AppText);
     expect(description.props).toMatchObject({ variant: 'caption', tone: 'muted' });
     expect(description.props.children).toBe('Supporting copy');
+  });
+
+  it('bounds a compact multiline composer and lets its own input scroll', () => {
+    act(() => { renderer = create(<AppInput multiline compact value="Draft" />); });
+    const input = renderer!.root.findByType(TextInput);
+    expect(StyleSheet.flatten(input.props.style).height).toBe(uiDensity.inputHeight - spacing.sm * 2);
+    act(() => { input.props.onContentSizeChange({nativeEvent: {contentSize: {height: 1000}}}); });
+    expect(StyleSheet.flatten(renderer!.root.findByType(TextInput).props.style).height)
+      .toBe(uiDensity.inputHeight * 3 - spacing.sm * 2);
+    expect(input.props.multiline).toBe(true);
   });
 
   it('uses the same description slot and danger tone for an invalid field', () => {

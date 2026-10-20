@@ -22,11 +22,13 @@ city's room.
 - Read group metadata with kind `39000` and the exact `d` tag.
 - Read and live-subscribe to at most 200 kind `9` messages with the exact `h`
   tag. Deduplicate by signed event ID and order by signed timestamp plus ID.
-- Show the selected city group first and BitcoinWalk Global second in Chats.
-  The city avatar centre-crops the city's approved OG artwork.
+- Chat opens one inbox, with Guide and Global followed by joined city groups.
+  City discovery reads the active account's exact membership transitions in
+  bounded relay-scoped batches; suggestions are not memberships. The city
+  avatar centre-crops the city's approved OG artwork.
 - After an anonymous visitor chooses a city, Nostr sign-in is the boundary for
   automatically requesting membership in both that city's room and BitcoinWalk
-  Global. The city room remains selected in Chats; Global is available beside it.
+  Global. The selected walking city is not changed by opening other city chats.
 - On the first authenticated launch for an account and destination, read that
   account's own kind `9000`/`9001` membership history first. This deliberately
   triggers NIP-42 authentication before the user signs a fresh kind `9021`

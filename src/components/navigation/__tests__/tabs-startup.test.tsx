@@ -79,6 +79,7 @@ describe('tab startup configuration', () => {
 
     mockActivePubkey = 'a'.repeat(64);
     act(() => renderer!.update(<TabsLayout />));
+    expect(mockProcessedScreens.map((screen) => screen.name)).toEqual(['walks', 'index', 'me']);
     const restoredAccount = mockProcessedScreens.find((screen) => screen.name === 'me')!;
     expect(restoredAccount.options.href).toBeUndefined();
     expect(restoredAccount.options.tabBarItemStyle).toBeUndefined();

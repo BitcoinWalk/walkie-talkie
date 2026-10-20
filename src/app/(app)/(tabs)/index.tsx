@@ -1,138 +1,175 @@
-import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import Plus from 'lucide-react-native/icons/plus';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BitcoinWalkCommunityView } from '@/app/(app)/community';
-import {
-  BitcoinWalkChatRail,
-  type BitcoinWalkChatDestination,
-} from '@/components/bitcoinwalk/BitcoinWalkChatRail';
+import { BitcoinWalkCommunityRow } from '@/components/bitcoinwalk/BitcoinWalkCommunityRow';
+import { AppButton } from '@/components/common/AppButton';
 import { AppScreen } from '@/components/common/AppScreen';
+import { AppText } from '@/components/common/AppText';
+import { IconButton } from '@/components/common/IconButton';
+import { NotificationDot } from '@/components/common/NotificationDot';
 import { ScreenHeader } from '@/components/common/ScreenHeader';
-import { communityChoicesForCity } from '@/services/bitcoinwalk/cities';
-import {
-  loadBitcoinWalkChatDirectory,
-  type BitcoinWalkChatDirectory,
-} from '@/services/bitcoinwalk/chat-directory';
+import { ConversationListItem } from '@/components/conversation/ConversationListItem';
+import { usePrimaryPaneNavigation } from '@/components/navigation/primary-pane-navigation';
+import { useMainInboxConversations, useRequestConversations, useUnreadRequestCount, type ConversationWithLast } from '@/hooks/use-conversations';
+import { useScrolled } from '@/hooks/use-scrolled';
+import { attachmentLabel } from '@/lib/nostr/attachment-label';
+import { loadBitcoinWalkInbox, type BitcoinWalkInbox } from '@/services/bitcoinwalk/chat-inbox';
 import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
-import { buildSigner } from '@/services/account/account.service';
-import { hasActiveCommunityMembership } from '@/services/bitcoinwalk/community';
+import { subscribeCommunityMembershipChanges } from '@/services/bitcoinwalk/membership-events';
 import { useActiveAccount } from '@/stores/active-account.store';
-import { useBitcoinWalkCommunity } from '@/stores/bitcoinwalk-community.store';
-import { useSelectedCity } from '@/stores/selected-city.store';
-import { bottomBarHeight, headerHeight } from '@/theme';
+import { useUnreadIndicatorsEnabled } from '@/stores/unread-count.store';
+import { setConversationMuted, setConversationPinned } from '@/services/conversation/conversation-prefs.service';
+import { dmService } from '@/services/dm/dm.service';
+import { showToast } from '@/stores/toast.store';
+import { bottomBarHeight, headerHeight, spacing, uiDensity, useThemeColors } from '@/theme';
 
-const GLOBAL_COMMUNITY_AVATAR = require('../../../../assets/images/bitcoinwalk-icon.png') as number;
+const GLOBAL_AVATAR = require('../../../../assets/images/bitcoinwalk-icon.png') as number;
 
+type InboxRow = { kind: 'community'; key: string; title: string; subtitle: string;
+  picture: string | number; unreadCount?: number; href: string }
+  | { kind: 'private'; key: string; item: ConversationWithLast };
+
+/** One virtualized inbox. Community histories load only after a row is opened. */
 export default function BitcoinWalkChatsTab() {
   const { t } = useTranslation();
+  const c = useThemeColors();
   const insets = useSafeAreaInsets();
-  const accountPubkey = useActiveAccount((state) => state.activePubkey);
-  const city = useSelectedCity((state) => state.selectedCity)!;
-  const scope = useBitcoinWalkCommunity((state) => state.scope);
-  const selectScope = useBitcoinWalkCommunity((state) => state.select);
-  const previousCity = useRef(city.id);
-  const choices = useMemo(() => communityChoicesForCity(city), [city]);
-  const [directory, setDirectory] = useState<BitcoinWalkChatDirectory | null>(null);
-  const [hostsAccess, setHostsAccess] = useState<{ key: string; active: boolean } | null>(null);
-  const hostsDestination = directory?.communities.hosts ?? null;
-  const hostsAccessKey = accountPubkey && hostsDestination
-    ? `${accountPubkey}\n${hostsDestination.relay}\n${hostsDestination.groupId}`
-    : null;
-  const hostsAvailable = hostsAccessKey !== null && hostsAccess?.key === hostsAccessKey && hostsAccess.active;
-  const displayedScope = scope === 'hosts' && !hostsAvailable ? 'city' : scope;
+  const accountPubkey = useActiveAccount((state) => state.activePubkey) ?? '';
+  const { conversations } = useMainInboxConversations(accountPubkey);
+  const { conversations: requests } = useRequestConversations(accountPubkey);
+  const unreadRequests = useUnreadRequestCount(accountPubkey);
+  const unreadIndicators = useUnreadIndicatorsEnabled();
+  const { open, selection, wide } = usePrimaryPaneNavigation();
+  const { scrolled, scrollProps } = useScrolled();
+  const [snapshot, setSnapshot] = useState<{ account: string; inbox: BitcoinWalkInbox } | null>(null);
+  const [failedAccount, setFailedAccount] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const inbox = snapshot?.account === accountPubkey ? snapshot.inbox : null;
 
-  useEffect(() => {
-    if (previousCity.current !== city.id) {
-      previousCity.current = city.id;
-      selectScope('city');
-    }
-  }, [city.id, selectScope]);
+  useEffect(() => subscribeCommunityMembershipChanges((account) => {
+    if (account === accountPubkey) setRevision((value) => value + 1);
+  }), [accountPubkey]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    // A pull-to-refresh explicitly starts a fresh bounded membership read.
+    void revision;
     const controller = new AbortController();
-    void loadBitcoinWalkChatDirectory(controller.signal)
-      .then((result) => { if (!controller.signal.aborted) setDirectory(result); })
-      .catch(() => { if (!controller.signal.aborted) setDirectory(null); });
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    const destination = hostsDestination;
-    const controller = new AbortController();
-    if (!accountPubkey || !destination || !hostsAccessKey) return () => controller.abort();
-    let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
-    void (async () => {
-      try {
-        signer = await buildSigner(accountPubkey);
-        const active = await hasActiveCommunityMembership(destination, signer, controller.signal);
-        if (!controller.signal.aborted) setHostsAccess({ key: hostsAccessKey, active });
-      } catch {
-        if (!controller.signal.aborted) setHostsAccess({ key: hostsAccessKey, active: false });
-      } finally {
-        await signer?.destroy?.();
+    if (!accountPubkey) return () => controller.abort();
+    setRefreshing(true);
+    void loadBitcoinWalkInbox(accountPubkey, controller.signal).then((result) => {
+      if (!controller.signal.aborted) {
+        setSnapshot((previous) => ({ account: accountPubkey, inbox: {
+          ...result, cities: result.membershipError && previous?.account === accountPubkey
+            ? previous.inbox.cities : result.cities,
+        } }));
+        setFailedAccount(result.membershipError ? accountPubkey : null);
       }
-    })();
-    return () => {
-      controller.abort();
-      void signer?.destroy?.();
-    };
-  }, [accountPubkey, hostsAccessKey, hostsDestination]);
+    }).catch(() => {
+      if (!controller.signal.aborted) setFailedAccount(accountPubkey);
+    }).finally(() => {
+      if (!controller.signal.aborted) setRefreshing(false);
+    });
+    return () => controller.abort();
+  }, [accountPubkey, revision]));
 
-  useEffect(() => {
-    if (scope === 'hosts' && hostsAccessKey === null) selectScope('city');
-    if (scope === 'hosts' && hostsAccess?.key === hostsAccessKey && !hostsAccess.active) {
-      selectScope('city');
-    }
-  }, [hostsAccess, hostsAccessKey, scope, selectScope]);
+  const guidePubkey = inbox?.directory.guidePubkey;
+  const guide = [...conversations, ...requests].find((item) =>
+    item.conversation.accountPubkey === accountPubkey && item.conversation.conversationKey === guidePubkey);
+  const privateChats = useMemo(() => {
+    const visible = conversations.filter((item) => item.conversation.accountPubkey === accountPubkey &&
+      item.conversation.conversationKey !== guidePubkey);
+    // Keep existing pins/recency within sections. Other private groups remain
+    // accessible before one-to-one DMs, rather than being silently discarded.
+    return [...visible.filter((item) => item.conversation.groupId !== null),
+      ...visible.filter((item) => item.conversation.groupId === null)];
+  }, [accountPubkey, conversations, guidePubkey]);
 
-  const destinations = useMemo<BitcoinWalkChatDestination[]>(() => {
-    const cityAvailable = choices.some((choice) => choice.scope === 'city');
-    const globalAvailable = choices.some((choice) => choice.scope === 'global');
-    const guidePubkey = directory?.guidePubkey ?? null;
-    const publicDestinations: BitcoinWalkChatDestination[] = [
-      {
-        key: 'city', title: t('community.city_short'), subtitle: city.name,
-        picture: city.avatarUrl, available: cityAvailable, active: displayedScope === 'city',
-        onPress: () => selectScope('city'),
-      },
-      {
-        key: 'guide', title: t('community.guide_title'),
-        subtitle: accountPubkey ? t('community.guide_subtitle') : t('community.sign_in_required_short'),
+  const rows = useMemo<InboxRow[]>(() => {
+    const communities: InboxRow[] = inbox ? [
+      {kind: 'community', key: 'guide', title: t('community.guide_full_title'),
+        subtitle: guide?.lastMessageContent ?? t('community.guide_subtitle'),
+        unreadCount: unreadIndicators ? guide?.conversation.unreadCount : 0,
         picture: `${BITCOINWALK_ORIGIN}/brand/bitcoinwalk-admin-favicon.png`,
-        available: !!accountPubkey && !!guidePubkey,
-        onPress: () => {
-          if (guidePubkey) router.push(`/chat/${guidePubkey}?mode=guide&name=${encodeURIComponent(t('community.guide_full_title'))}`);
-        },
-      },
-      {
-        key: 'global', title: t('community.global_short'), subtitle: t('community.global_subtitle'),
-        picture: GLOBAL_COMMUNITY_AVATAR, available: globalAvailable, active: displayedScope === 'global',
-        onPress: () => selectScope('global'),
-      },
-    ];
-    if (hostsAvailable) {
-      publicDestinations.push({
-        key: 'hosts', title: t('community.hosts_title'), subtitle: t('community.hosts_subtitle'),
-        fallbackLabel: 'BW', available: true,
-        active: displayedScope === 'hosts', onPress: () => selectScope('hosts'),
-      });
-    }
-    return publicDestinations;
-  }, [accountPubkey, choices, city, directory, displayedScope, hostsAvailable, selectScope, t]);
+        href: `/chat/${guidePubkey}?mode=guide&name=${encodeURIComponent(t('community.guide_full_title'))}`},
+      {kind: 'community', key: 'global', title: t('community.global_title'),
+        subtitle: t('community.global_subtitle'), picture: GLOBAL_AVATAR, href: '/community?scope=global'},
+      ...inbox.cities.map((city): InboxRow => ({kind: 'community', key: `city:${city.id}`,
+        title: t('community.inbox_city_title', { city: city.name }), subtitle: t('community.city_short'),
+        picture: city.avatarUrl, href: `/community?scope=city&city=${encodeURIComponent(city.slug)}`})),
+      ...(inbox.hosts ? [{kind: 'community' as const, key: 'hosts', title: t('community.hosts_full_title'),
+        subtitle: t('community.hosts_subtitle'), picture: GLOBAL_AVATAR, href: '/community?scope=hosts'}] : []),
+    ] : [];
+    return [...communities, ...privateChats.map((item): InboxRow => ({
+      kind: 'private', key: `private:${item.conversation.conversationKey}`, item,
+    }))];
+  }, [guide, guidePubkey, inbox, privateChats, t, unreadIndicators]);
+
+  const openConversation = useCallback((key: string, kind: 'relay' | 'proximity', name: string | null) => {
+    open(`/chat/${encodeURIComponent(key)}?transport=${kind}${name ? `&name=${encodeURIComponent(name)}` : ''}`);
+  }, [open]);
+  const refresh = () => setRevision((value) => value + 1);
+  const reportFailure = () => showToast(t('community.inbox_action_error'));
 
   return (
     <AppScreen edges={[]}>
-      <View style={{ flex: 1, paddingTop: headerHeight + insets.top,
-        paddingBottom: bottomBarHeight + insets.bottom }}>
-        <BitcoinWalkChatRail label={t('community.rail_label')} destinations={destinations} />
-        <View style={{ flex: 1 }}>
-          <BitcoinWalkCommunityView key={`${city.id}:${displayedScope}`} embedded embeddedScope={displayedScope} />
-        </View>
-      </View>
-      <ScreenHeader back={false} title={t('tabs.conversations')} />
+      <FlatList
+        {...scrollProps}
+        data={rows}
+        keyExtractor={(item) => item.key}
+        refreshing={refreshing}
+        onRefresh={refresh}
+        contentContainerStyle={{ paddingTop: headerHeight + insets.top,
+          paddingBottom: bottomBarHeight + insets.bottom }}
+        ListHeaderComponent={<>
+          {failedAccount === accountPubkey ? <View style={{ padding: spacing.lg, gap: spacing.sm }}>
+            <AppText tone="muted">{t('community.inbox_load_error')}</AppText>
+            <AppButton label={t('walks.retry')} variant="text" onPress={refresh} />
+          </View> : null}
+          {!accountPubkey ? <View style={{ padding: spacing.lg }}>
+            <AppButton label={t('community.sign_in')} onPress={() => router.push('/welcome')} />
+          </View> : null}
+        </>}
+        renderItem={({ item: row }) => {
+          if (row.kind === 'community') return <BitcoinWalkCommunityRow
+            title={row.title} subtitle={row.subtitle} picture={row.picture} unreadCount={row.unreadCount}
+            onPress={() => open(row.href)} />;
+          const item = row.item;
+          const conversation = item.conversation;
+          return <ConversationListItem
+            conversationKey={conversation.conversationKey}
+            counterpartyPubkey={conversation.groupId ? null : conversation.conversationKey}
+            groupMemberPubkeys={conversation.groupId ? conversation.memberPubkeys : undefined}
+            conversationName={conversation.name}
+            lastMessagePreview={item.lastMessageKind === 15 ? attachmentLabel(item.lastMessageTags, {
+              file: t('conversations.attachment_file_preview'), image: t('conversations.attachment_image_preview'),
+              video: t('conversations.attachment_video_preview'), voice: t('conversations.attachment_voice_preview'),
+            }) : item.lastMessageContent}
+            lastMessageTags={item.lastMessageTags}
+            lastMessageSenderPubkey={item.lastMessageSenderPubkey}
+            lastMessageFromSelf={item.lastMessageSenderPubkey === accountPubkey}
+            updatedAt={conversation.updatedAt} unreadCount={unreadIndicators ? conversation.unreadCount : 0}
+            muted={conversation.muted} identityKind={conversation.deliveryKind}
+            active={wide && selection.conversationKey === conversation.conversationKey}
+            showPressedFill={!wide} onPress={openConversation}
+            pinned={conversation.pinned}
+            onToggleMute={(key, muted) => { void setConversationMuted(accountPubkey, key, !muted).catch(reportFailure); }}
+            onTogglePin={(key, pinned) => { void setConversationPinned(accountPubkey, key, !pinned).catch(reportFailure); }}
+            onDelete={(key) => { void dmService.deleteConversation(accountPubkey, key).catch(reportFailure); }} />;
+        }}
+      />
+      <ScreenHeader back={false} bordered={scrolled} title={t('tabs.conversations')}
+        right={<View>
+          <IconButton variant="plain" size={uiDensity.headerActionSize}
+            icon={<Plus color={c.text} size={uiDensity.headerActionIconSize} />}
+            accessibilityLabel={t('conversations.new_chat_action')}
+            onPress={() => open(accountPubkey ? '/contacts' : '/welcome')} />
+          {unreadRequests > 0 ? <NotificationDot style={{ position: 'absolute', top: spacing.xs, end: spacing.xs }} /> : null}
+        </View>} />
     </AppScreen>
   );
 }

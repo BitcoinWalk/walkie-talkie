@@ -92,9 +92,10 @@
     "continue": "I saved it, continue"
   },
   "tabs": {
-    "conversations": "Chats",
+    "walk": "Walk",
+    "conversations": "Chat",
     "contacts": "Contacts",
-    "me": "Me"
+    "me": "Account"
   },
   "account": {
     "switch_title": "Accounts",
@@ -1099,6 +1100,9 @@
     "list_empty_hint": "Groups you save will appear here."
   },
   "community": {
+    "inbox_city_title": "BitcoinWalk {{city}}",
+    "inbox_action_error": "Couldn’t update this chat. Please try again.",
+    "inbox_load_error": "Couldn’t refresh your groups. Pull down or try again. Your private chats are still available.",
     "rail_label": "BitcoinWalk",
     "city_short": "City",
     "guide_title": "Guide",

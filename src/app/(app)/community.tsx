@@ -1,16 +1,17 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
+import Send from 'lucide-react-native/icons/send';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { AppButton } from '@/components/common/AppButton';
-import { AppCard } from '@/components/common/AppCard';
+import { IconButton } from '@/components/common/IconButton';
 import { AppInput } from '@/components/common/AppInput';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
-import { KEYBOARD_AVOIDING_BEHAVIOR } from '@/lib/platform';
 import { buildSigner } from '@/services/account/account.service';
 import {
   ensureCommunityMemberships,
@@ -18,19 +19,20 @@ import {
 } from '@/services/bitcoinwalk/community-membership';
 import {
   loadCommunity,
+  hasActiveCommunityMembership,
   mergeCommunityMessages,
   sendCommunityMessage,
   subscribeCommunity,
   type BitcoinWalkCommunityMessage,
 } from '@/services/bitcoinwalk/community';
 import { useActiveAccount } from '@/stores/active-account.store';
-import { loadCities } from '@/services/bitcoinwalk/cities';
+import { loadCities, type BitcoinWalkCity } from '@/services/bitcoinwalk/cities';
 import { useSelectedCity } from '@/stores/selected-city.store';
 import {
   loadBitcoinWalkChatDirectory,
   type BitcoinWalkChatDirectory,
 } from '@/services/bitcoinwalk/chat-directory';
-import { spacing, uiDensity, useThemeColors } from '@/theme';
+import { radius, spacing, uiDensity, useThemeColors } from '@/theme';
 
 const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
 
@@ -45,37 +47,36 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const screenClearance = useScreenHeaderClearance();
   const clearance = embedded ? 0 : screenClearance;
   const selectedCity = useSelectedCity((state) => state.selectedCity);
-  const selectCity = useSelectedCity((state) => state.select);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
   const params = useLocalSearchParams<{ scope?: string; city?: string | string[] }>();
   const routeScope = params.scope === 'global' || params.scope === 'hosts' ? params.scope : 'city';
   const scope = embeddedScope ?? routeScope;
   const requestedCity = (Array.isArray(params.city) ? params.city[0] : params.city)?.toLowerCase();
-  const city = !requestedCity || selectedCity?.slug === requestedCity ? selectedCity : null;
+  const [resolvedCity, setResolvedCity] = useState<BitcoinWalkCity | null>(null);
+  const city = !requestedCity || selectedCity?.slug === requestedCity ? selectedCity
+    : resolvedCity?.slug === requestedCity ? resolvedCity : null;
   const resolvingCity = !!requestedCity && !city;
   const [chatDirectory, setChatDirectory] = useState<BitcoinWalkChatDirectory | null>(null);
-  const destination = scope === 'hosts'
-    ? chatDirectory?.communities.hosts ?? null
+  const destination = scope !== 'city'
+    ? chatDirectory?.communities[scope] ?? (scope === 'global' ? city?.chat.communities.global : null) ?? null
     : city?.chat.communities[scope] ?? null;
   const destinationKey = destination ? `${destination.relay}\n${destination.groupId}` : null;
   const [messages, setMessages] = useState<BitcoinWalkCommunityMessage[]>([]);
   const [loadedDestinationKey, setLoadedDestinationKey] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
-  const [about, setAbout] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [joinedDestinationKey, setJoinedDestinationKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const resolvingDestination = scope === 'hosts' && chatDirectory === null && loading;
+  const resolvingDestination = scope !== 'city' && destination === null && loading;
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
   const visibleMessages = loadedDestinationKey === destinationKey ? messages : [];
   const visibleName = loadedDestinationKey === destinationKey ? name : null;
-  const visibleAbout = loadedDestinationKey === destinationKey ? about : null;
 
   useEffect(() => {
-    if (scope !== 'hosts') return;
+    if (scope === 'city') return;
     const controller = new AbortController();
     void loadBitcoinWalkChatDirectory(controller.signal).then((directory) => {
       if (!controller.signal.aborted) setChatDirectory(directory);
@@ -92,9 +93,10 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
     if (!requestedCity || selectedCity?.slug === requestedCity) return;
     const controller = new AbortController();
     void loadCities(controller.signal).then((cities) => {
+      if (controller.signal.aborted) return;
       const match = cities.find((candidate) => candidate.slug === requestedCity);
       if (!match) throw new Error('Unknown BitcoinWalk city');
-      selectCity(match);
+      setResolvedCity(match);
       setError(null);
     }).catch((cause: unknown) => {
       if ((cause as { name?: string })?.name !== 'AbortError') setError(t('community.load_error'));
@@ -102,7 +104,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [requestedCity, selectCity, selectedCity?.slug, t]);
+  }, [requestedCity, selectedCity?.slug, t]);
 
   const refresh = useCallback(async (quiet = false) => {
     if (!destination) {
@@ -121,7 +123,6 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
         throw new Error(HOSTS_ACCESS_DENIED);
       }
       setName(result.metadata.name);
-      setAbout(result.metadata.about);
       setMessages(result.messages);
       setLoadedDestinationKey(destinationKey);
       setError(null);
@@ -143,29 +144,29 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
     let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
     void (async () => {
       try {
+        if (scope === 'hosts' && !accountPubkey) throw new Error(HOSTS_ACCESS_DENIED);
         const savedMembership = scope !== 'hosts' && accountPubkey
           ? await hasCommunityMembership(accountPubkey, destination)
           : false;
-        const hasAccess = scope === 'hosts' || joined || savedMembership;
-        if (hasAccess) {
-          if (!accountPubkey) throw new Error('No active account');
+        let hasAccess = scope === 'hosts' || joined || savedMembership;
+        if (accountPubkey) {
           signer = await buildSigner(accountPubkey);
+          if (!hasAccess) hasAccess = await hasActiveCommunityMembership(destination, signer, controller.signal);
         }
         if (controller.signal.aborted) return;
-        const result = await loadCommunity(destination, controller.signal, signer ?? undefined);
+        const result = await loadCommunity(destination, controller.signal, hasAccess ? signer ?? undefined : undefined);
         if (controller.signal.aborted) return;
         if (scope === 'hosts' && (!accountPubkey || !result.roster.memberPubkeys.includes(accountPubkey))) {
           throw new Error(HOSTS_ACCESS_DENIED);
         }
         setName(result.metadata.name);
-        setAbout(result.metadata.about);
         setMessages(result.messages);
         setLoadedDestinationKey(destinationKey);
-        if (signer) setJoinedDestinationKey(destinationKey);
+        if (hasAccess) setJoinedDestinationKey(destinationKey);
         setError(null);
         unsubscribe = subscribeCommunity(destination, (event) => {
           setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
-        }, signer ?? undefined);
+        }, hasAccess ? signer ?? undefined : undefined);
       } catch (cause: unknown) {
         if ((cause as { name?: string })?.name !== 'AbortError') {
           setError(cause instanceof Error && cause.message === HOSTS_ACCESS_DENIED
@@ -242,7 +243,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   }), [i18n.resolvedLanguage]);
 
   const content = (
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_AVOIDING_BEHAVIOR}>
+      <KeyboardAvoidingView style={{ flex: 1, paddingTop: clearance }} behavior="padding" automaticOffset>
         {resolvingCity || resolvingDestination || !!destination && loading ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={c.accent} />
         </View> : !destination ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center',
@@ -257,12 +258,9 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
             refreshing={refreshing}
             onRefresh={() => void refresh()}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             contentContainerStyle={{ paddingHorizontal: spacing.lg,
-              paddingTop: clearance + spacing.sm, paddingBottom: spacing.lg, gap: spacing.sm }}
-            ListHeaderComponent={<View style={{ gap: spacing.xs, paddingBottom: spacing.sm }}>
-              <AppText variant="title">{title}</AppText>
-              <AppText tone="muted">{visibleAbout ?? t('community.about')}</AppText>
-            </View>}
+              paddingTop: spacing.sm, paddingBottom: spacing.lg, gap: spacing.sm }}
             ListEmptyComponent={<View style={{ alignItems: 'center', gap: spacing.sm, padding: spacing.xl }}>
               <MessagesSquare color={c.textMuted} size={uiDensity.tabIconSize} />
               <AppText variant="subtitle">{t('community.empty')}</AppText>
@@ -270,7 +268,10 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
                 {joined ? t('community.empty_joined_hint') : t('community.empty_hint')}
               </AppText>
             </View>}
-            renderItem={({ item }) => <AppCard style={{ gap: spacing.xs }}>
+            renderItem={({ item }) => <View style={{ gap: spacing.xs,
+              alignSelf: item.pubkey === accountPubkey ? 'flex-end' : 'flex-start',
+              maxWidth: '88%', padding: spacing.md, borderRadius: radius.lg,
+              backgroundColor: item.pubkey === accountPubkey ? c.accentSoft : c.surface }}>
               <AppText variant="caption" tone="muted" numberOfLines={1}>
                 {item.pubkey === accountPubkey ? t('community.you') : `${item.pubkey.slice(0, 12)}…`}
               </AppText>
@@ -278,17 +279,20 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
               <AppText variant="caption" tone="muted">
                 {dateFormatter.format(new Date(item.createdAt * 1_000))}
               </AppText>
-            </AppCard>}
+            </View>}
           />
-          <View style={{ padding: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth,
+          <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth,
             borderTopColor: c.border, gap: spacing.sm }}>
             {error && (joined || scope !== 'hosts') ? <AppText tone="danger">{error}</AppText> : null}
-            {joined ? <>
-              <AppInput value={draft} onChangeText={setDraft} placeholder={t('community.message_placeholder')}
-                maxLength={4_000} multiline />
-              <AppButton label={t('community.send')} loading={busy} disabled={!draft.trim()}
+            {joined ? <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <AppInput value={draft} onChangeText={setDraft} placeholder={t('community.message_placeholder')}
+                  maxLength={4_000} multiline compact />
+              </View>
+              <IconButton accessibilityLabel={t('community.send')} disabled={busy || !draft.trim()}
+                icon={busy ? <ActivityIndicator color={c.textMuted} /> : <Send color={c.accent} size={uiDensity.headerActionIconSize} />}
                 onPress={() => void send()} />
-            </> : scope === 'hosts' ? (
+            </View> : scope === 'hosts' ? (
               <AppText tone={error ? 'danger' : 'muted'}>
                 {error ?? t('community.hosts_access_required')}
               </AppText>
@@ -318,5 +322,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
 }
 
 export default function CommunityScreen() {
-  return <BitcoinWalkCommunityView />;
+  const account = useActiveAccount((state) => state.activePubkey);
+  const params = useLocalSearchParams<{scope?: string; city?: string}>();
+  return <BitcoinWalkCommunityView key={`${account}:${params.scope}:${params.city}`} />;
 }

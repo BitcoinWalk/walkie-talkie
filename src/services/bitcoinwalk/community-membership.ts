@@ -8,6 +8,7 @@ import {
   joinCommunity,
   type BitcoinWalkCommunityDestination,
 } from './community';
+import { communityMembershipChanged } from './membership-events';
 
 const PREFERENCE_PREFIX = 'bitcoinwalk.joinedCommunities.v1';
 const MAX_SAVED_DESTINATIONS = 200;
@@ -45,6 +46,7 @@ async function saveMemberships(accountPubkey: string, memberships: Set<string>):
   await setDevicePreference(preferenceKey(accountPubkey), JSON.stringify({
     destinations: [...memberships].slice(-MAX_SAVED_DESTINATIONS),
   } satisfies SavedMemberships));
+  communityMembershipChanged(accountPubkey);
 }
 
 export async function hasCommunityMembership(

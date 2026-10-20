@@ -1,4 +1,4 @@
-import { useIsFocused, useNavigation } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { UserPlus } from '@solar-icons/react-native/category/users/Linear/UserPlus';
 import { UsersGroupRounded as UsersGroup } from '@solar-icons/react-native/category/users/Linear/UsersGroupRounded';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,7 +12,6 @@ import { IconButton } from '@/components/common/IconButton';
 import { IdentityListItem } from '@/components/common/IdentityListItem';
 import { NotificationDot } from '@/components/common/NotificationDot';
 import { ScreenHeader } from '@/components/common/ScreenHeader';
-import { usePrimaryPaneNavigation } from '@/components/navigation/primary-pane-navigation';
 import {
   ContactSectionList,
   type ContactSectionListHandle,
@@ -27,7 +26,6 @@ import { useScrolled } from '@/hooks/use-scrolled';
 import { syncPersonalConfigs } from '@/services/relay/personal-configs.service';
 import { useActiveAccount } from '@/stores/active-account.store';
 import {
-  bottomBarHeight,
   headerHeight,
   radius,
   spacing,
@@ -39,15 +37,13 @@ export default function Contacts() {
   const { t } = useTranslation();
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
-  const bottomClearance = bottomBarHeight + insets.bottom + spacing.lg;
+  const bottomClearance = insets.bottom + spacing.lg;
   const topClearance = headerHeight + insets.top;
   const accountPubkey = useActiveAccount((s) => s.activePubkey);
   const { entries, loaded } = useContactEntries(accountPubkey);
   const unreadRequestCount = useUnreadRequestCount(accountPubkey ?? '');
   const focused = useIsFocused();
-  const navigation = useNavigation();
   const groupedListRef = useRef<ContactSectionListHandle>(null);
-  const { open: openInDetailPane, selection } = usePrimaryPaneNavigation();
 
   // Pull the personal config batch on mount so contacts added on other devices
   // appear here (TTL-gated, so a fresh cache costs zero network). Best-effort —
@@ -81,26 +77,10 @@ export default function Contacts() {
     );
   }, [query, entries]);
 
-  useEffect(() => {
-    const onTabPress = navigation.addListener('tabPress' as never, () => {
-      // The press that switches into this tab also fires `tabPress`; only a
-      // re-press of the already-selected tab scrolls to top.
-      const tabState = navigation.getState();
-      const selectedTab = tabState?.index != null ? tabState.routes[tabState.index] : undefined;
-      if (selectedTab?.name !== 'contacts') return;
-      if (searchActive) {
-        exitSearch();
-        return;
-      }
-      groupedListRef.current?.scrollToTop(true);
-    });
-    return onTabPress;
-  }, [navigation, searchActive, exitSearch]);
-
   function openChat(pubkey: string) {
     if (!accountPubkey) return;
     // conversation_key is just the counterparty pubkey.
-    openInDetailPane(`/chat/${encodeURIComponent(pubkey)}`);
+    router.push(`/chat/${encodeURIComponent(pubkey)}`);
   }
 
   return (
@@ -217,8 +197,7 @@ export default function Contacts() {
                       </View>
                     )}
                     title={t('group.list_title')}
-                    onPress={() => openInDetailPane('/groups')}
-                    active={selection.contactsItem === 'groups'}
+                    onPress={() => router.push('/groups')}
                   />
                 </View>
               </>
@@ -229,7 +208,6 @@ export default function Contacts() {
         )}
       </SearchTransition>
       <ScreenHeader
-        back={false}
         bordered={scrolled}
         title={t('tabs.contacts')}
         right={
@@ -237,7 +215,7 @@ export default function Contacts() {
             <IconButton
               variant="plain"
               size={uiDensity.headerActionSize}
-              onPress={() => openInDetailPane('/add-contact')}
+              onPress={() => router.push('/add-contact')}
               hitSlop={6}
               icon={<UserPlus size={uiDensity.headerActionIconSize} color={c.text} />}
               accessibilityLabel={t('contacts.add')}

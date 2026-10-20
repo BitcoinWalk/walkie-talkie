@@ -6,8 +6,12 @@ const mockEnsureMemberships = jest.fn();
 const mockHasMembership = jest.fn();
 const mockLoadCommunity = jest.fn();
 const mockSubscribeCommunity = jest.fn();
+const mockActiveMembership = jest.fn();
+const mockLoadDirectory = jest.fn();
+const mockLoadCities = jest.fn();
 const mockSelectCity = jest.fn();
 const mockRouterPush = jest.fn();
+let mockParams: {scope?: string; city?: string} = {scope: 'global'};
 let mockActivePubkey: string | null = 'a'.repeat(64);
 const mockSelectedCity = {
   id: 'madeira',
@@ -18,9 +22,10 @@ const mockSelectedCity = {
 
 jest.mock('expo-router', () => ({
   router: { push: (...args: unknown[]) => mockRouterPush(...args) },
-  useLocalSearchParams: () => ({ scope: 'global' }),
+  useLocalSearchParams: () => mockParams,
 }));
 jest.mock('lucide-react-native/icons/messages-square', () => () => null);
+jest.mock('lucide-react-native/icons/send', () => () => null);
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -43,15 +48,19 @@ jest.mock('@/services/bitcoinwalk/community-membership', () => ({
   hasCommunityMembership: (...args: unknown[]) => mockHasMembership(...args),
 }));
 jest.mock('@/services/bitcoinwalk/community', () => ({
+  hasActiveCommunityMembership: (...args: unknown[]) => mockActiveMembership(...args),
   loadCommunity: (...args: unknown[]) => mockLoadCommunity(...args),
   mergeCommunityMessageModels: (_current: unknown[], incoming: unknown[]) => incoming,
   mergeCommunityMessages: (current: unknown[]) => current,
   sendCommunityMessage: jest.fn(),
   subscribeCommunity: (...args: unknown[]) => mockSubscribeCommunity(...args),
 }));
-jest.mock('@/services/bitcoinwalk/cities', () => ({ loadCities: jest.fn() }));
+jest.mock('react-native-keyboard-controller', () => ({
+  KeyboardAvoidingView: ({children}: {children: React.ReactNode}) => children,
+}));
+jest.mock('@/services/bitcoinwalk/cities', () => ({ loadCities: (...args: unknown[]) => mockLoadCities(...args) }));
 jest.mock('@/services/bitcoinwalk/chat-directory', () => ({
-  loadBitcoinWalkChatDirectory: jest.fn(),
+  loadBitcoinWalkChatDirectory: (...args: unknown[]) => mockLoadDirectory(...args),
 }));
 jest.mock('@/stores/active-account.store', () => ({
   useActiveAccount: (selector: (state: { activePubkey: string | null }) => unknown) =>
@@ -85,7 +94,10 @@ describe('BitcoinWalk community join screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockActivePubkey = 'a'.repeat(64);
+    mockParams = {scope: 'global'};
     mockHasMembership.mockResolvedValue(false);
+    mockLoadDirectory.mockResolvedValue({communities: {global: mockDestination}});
+    mockActiveMembership.mockResolvedValue(false);
     mockLoadCommunity.mockResolvedValue({
       metadata: { name: 'BitcoinWalk Global', about: 'Everyone can join.' },
       roster: { memberPubkeys: [] },
@@ -105,7 +117,7 @@ describe('BitcoinWalk community join screen', () => {
     renderer = undefined;
   });
 
-  it('renders public history before joining, without asking the signer to authenticate', async () => {
+  it('renders public history before joining without publishing a join', async () => {
     await act(async () => {
       renderer = create(<CommunityScreen />);
       await settle();
@@ -116,7 +128,7 @@ describe('BitcoinWalk community join screen', () => {
       expect.any(AbortSignal),
       undefined,
     );
-    expect(mockBuildSigner).not.toHaveBeenCalled();
+    expect(mockEnsureMemberships).not.toHaveBeenCalled();
     expect(renderer!.root.findAllByType(AppButton).some(
       (button) => button.props.label === 'community.join',
     )).toBe(true);
@@ -161,5 +173,22 @@ describe('BitcoinWalk community join screen', () => {
 
     expect(mockRouterPush).toHaveBeenCalledWith('/welcome');
     expect(mockEnsureMemberships).not.toHaveBeenCalled();
+  });
+
+  it('opens an already joined group from another device without asking to join again', async () => {
+    mockActiveMembership.mockResolvedValue(true);
+    await act(async () => { renderer = create(<CommunityScreen />); await settle(); });
+    expect(mockLoadCommunity).toHaveBeenCalledWith(mockDestination, expect.any(AbortSignal), expect.anything());
+    expect(mockEnsureMemberships).not.toHaveBeenCalled();
+    expect(renderer!.root.findAllByType(AppButton).some((button) => button.props.label === 'community.join')).toBe(false);
+  });
+
+  it('browses another joined city without replacing the walking city', async () => {
+    mockParams = {scope: 'city', city: 'london'};
+    mockLoadCities.mockResolvedValue([{...mockSelectedCity, id: 'london', slug: 'london', name: 'London'}]);
+    mockActiveMembership.mockResolvedValue(true);
+    await act(async () => { renderer = create(<CommunityScreen />); await settle(); });
+    expect(mockSelectCity).not.toHaveBeenCalled();
+    expect(mockLoadCommunity).toHaveBeenCalledWith(mockDestination, expect.any(AbortSignal), expect.anything());
   });
 });

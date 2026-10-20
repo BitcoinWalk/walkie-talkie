@@ -137,7 +137,11 @@ account exists. Public city and walk discovery must not require a signer. Choosi
 a city hands an anonymous visitor to Nostr sign-in; after sign-in the client
 requests the verified city and BitcoinWalk Global NIP-29 memberships sequentially.
 The city destination is associated with that account through confirmed relay
-membership and remains the default chat; publishing is still membership-gated.
+membership. Chat opens the unified inbox; visiting another joined city chat
+does not replace the device's selected walking city. Inbox membership discovery
+uses bounded batches against directory-approved relay/group pairs, without
+loading message histories or publishing join events. Publishing is still
+membership-gated.
 
 The rumor is the canonical business message. Seals and gift wraps belong to
 relay delivery and ingestion boundaries; UI, conversation, archive, reply,

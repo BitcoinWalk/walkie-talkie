@@ -147,16 +147,16 @@ between a message bubble and its reaction row.
   than a parallel native summary. A compact native change-city action remains
   available without competing with the page content.
 - City discovery precedes authentication. Choosing a city opens Nostr sign-in
-  when needed, then returns to its city page with City preselected in Chats;
+  when needed, then returns to its city page with that city available in Chat;
   adding a missing city opens the existing BitcoinWalk walk-creation flow.
-- The Chats root keeps one compact BitcoinWalk destination rail above the
-  active community, ordered City, Guide, Global, Hosts, and opens City by
-  default. Each destination uses an
-  avatar, short label, and plain-language privacy or scope subtitle. Guide is a
-  notification-only thread without a composer. City and Global are distinct,
-  publicly readable rooms; posting still requires membership. Hosts is omitted
-  entirely unless the signed-in identity has active membership in the verified
-  private room, and relay membership remains the final access boundary.
+- Bottom navigation has three destinations: Walk, Chat, and Account. Chat opens
+  a compact inbox, ordered Guide, Global, alphabetically sorted joined cities,
+  other joined groups, then private conversations. The inbox's add action opens
+  saved contacts and the existing add-contact/request flow; Contacts is not a
+  separate tab. Opening a group pushes its conversation with Back to the inbox.
+  Browsing city chats never changes the city chosen for Walk. Guide remains
+  notification-only. Hosts appears only for verified active members. Posting
+  always remains membership-gated; list visibility never grants access.
 - Optional private-message key recovery never blocks BitcoinWalk city pages or
   NIP-29 communities. Deferring recovery must not generate, rotate, publish, or
   delete a messaging key, and the per-account choice persists across launches.
