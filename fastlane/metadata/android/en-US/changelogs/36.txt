@@ -1,0 +1,3 @@
+Walkie Talkie 26.10.29
+
+Added standard encrypted Guide message compatibility and bounded recovery for existing inbox messages. Improved Guide loading feedback with a discreet purple progress indicator that keeps the conversation visible. Updated the store description to “Your BitcoinWalk Companion App.”

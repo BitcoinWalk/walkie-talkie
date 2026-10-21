@@ -34,6 +34,7 @@ must never contain raw hex or rgba values.
 | `border` | Hairlines and outlines |
 | `text`, `textMuted` | Primary and secondary information |
 | `accent`, `accentSoft`, `accentForeground*` | Primary actions, links, own bubbles, and focus |
+| `guideAccent`, `guideAccentSoft` | Restrained BitcoinWalk Guide identity and active progress |
 | `danger*` | Destructive actions and destructive state only |
 | `warning*`, `success*` | Semantic status |
 | `notification` | Unread counts and notification dots |
@@ -57,6 +58,10 @@ do not change with the accent.
 Use accent sparingly. It is not a page background or default icon colour. Use
 danger for destructive actions and blocking prerequisites that require user action. Use `notification`,
 not danger, for unread state.
+
+BitcoinWalk Guide retains its fixed purple identity independently of the user's
+selected app accent. Use it only for the Guide avatar and active progress, never
+as a page background or general chat colour.
 
 Muted conversation unread counts and disconnected Nearby radar markers use the
 shared neutral overlay colour with `textMuted` foregrounds. Conversation-list

@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import RefreshCw from 'lucide-react-native/icons/refresh-cw';
@@ -39,12 +39,21 @@ export function BitcoinWalkGuideNotice({ message }: { message: string }) {
         borderBottomColor: c.border,
       }}
     >
-      <AppText variant="caption" tone="muted" style={{flex:1}}>
-        {busy ? t('community.guide_recovery_opening') : result?.account === account
-          ? t(result.ok ? 'community.guide_recovery_done' : 'community.guide_recovery_failed') : message}
-      </AppText>
+      <View style={{ flex: 1, gap: spacing.xs }}>
+        <AppText variant="caption" tone="muted">
+          {busy ? t('community.guide_recovery_opening') : result?.account === account
+            ? t(result.ok ? 'community.guide_recovery_done' : 'community.guide_recovery_failed') : message}
+        </AppText>
+        {busy ? (
+          <AppText variant="micro" tone="muted">
+            {t('community.guide_recovery_checking')}
+          </AppText>
+        ) : null}
+      </View>
       <IconButton
-        icon={<RefreshCw strokeWidth={iconStrokeWidth.default} size={uiDensity.headerActionIconSize} color={c.textMuted} />}
+        icon={busy
+          ? <ActivityIndicator size="small" color={c.guideAccent} />
+          : <RefreshCw strokeWidth={iconStrokeWidth.default} size={uiDensity.headerActionIconSize} color={c.textMuted} />}
         accessibilityLabel={t('community.guide_recovery_action')}
         disabled={busy || !account}
         onPress={() => void recover()}

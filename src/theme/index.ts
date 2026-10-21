@@ -42,6 +42,9 @@ export type ThemeColors = {
   accentForegroundMuted: string;
   /** Quiet inset fill on an accent-coloured surface. */
   accentForegroundSoft: string;
+  /** Fixed BitcoinWalk Guide identity/progress purple. */
+  guideAccent: string;
+  guideAccentSoft: string;
   danger: string;
   dangerSoft: string;
   warning: string;
@@ -102,6 +105,8 @@ export const lightPalette: ThemeColors = {
   accentForeground: '#FFFFFF',
   accentForegroundMuted: ACCENT_FOREGROUND_MUTED,
   accentForegroundSoft: ACCENT_FOREGROUND_SOFT,
+  guideAccent: ACCENTS.purple.light.accent,
+  guideAccentSoft: ACCENTS.purple.light.accentSoft,
   danger: '#D6342E',
   dangerSoft: '#FCE9E8',
   warning: '#B45309',
@@ -135,6 +140,8 @@ export const darkPalette: ThemeColors = {
   accentForeground: '#FFFFFF',
   accentForegroundMuted: ACCENT_FOREGROUND_MUTED,
   accentForegroundSoft: ACCENT_FOREGROUND_SOFT,
+  guideAccent: ACCENTS.purple.dark.accent,
+  guideAccentSoft: ACCENTS.purple.dark.accentSoft,
   // A saturated red, not the pale red-400 it used to be — on the near-black dark
   // surfaces a light pink read as washed-out (delete button, unread badge).
   danger: '#EF4444',

@@ -11,6 +11,8 @@ website: https://bitcoinwalk.org
 repository: nostr://npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw/relay.ngit.dev/walkie-talkie
 icon: fastlane/metadata/android/en-US/images/icon.png
 notes: |
+  - Open standard encrypted BitcoinWalk Guide messages from compatible NIP-17 inboxes.
+  - Keep the conversation visible while a discreet purple progress indicator checks the encrypted Guide inbox.
   - Fix Amber and other NIP-46 bunker sign-in when Android briefly reports Walkie Talkie offline while the signer is open.
   - Preserve the active signing reply subscription and recover cleanly when returning from the signer.
   - Browse BitcoinWalk cities before signing in and keep your selected city as the home screen.

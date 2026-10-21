@@ -10,7 +10,7 @@ jest.mock('@/stores/active-account.store',()=>({useActiveAccount:(select:(state:
 jest.mock('@/services/dm/dm.service',()=>({dmService:{getAccountPubkey:jest.fn(()=>mockAccount),recoverStandardInbox:jest.fn()}}));
 jest.mock('@/components/common/AppText',()=>({AppText:'MockText'}));
 jest.mock('@/components/common/IconButton',()=>({IconButton:'MockButton'}));
-jest.mock('@/theme',()=>({spacing:{lg:16,sm:8},uiDensity:{chatNoticeVerticalPadding:8,headerActionIconSize:20},iconStrokeWidth:{default:2},useThemeColors:()=>({textMuted:mockDark?'dark-muted':'light-muted',surfaceElevated:mockDark?'dark-surface':'light-surface',border:'theme-border'})}));
+jest.mock('@/theme',()=>({spacing:{lg:16,sm:8,xs:4},uiDensity:{chatNoticeVerticalPadding:8,headerActionIconSize:20},iconStrokeWidth:{default:2},useThemeColors:()=>({guideAccent:mockDark?'dark-guide-purple':'light-guide-purple',textMuted:mockDark?'dark-muted':'light-muted',surfaceElevated:mockDark?'dark-surface':'light-surface',border:'theme-border'})}));
 
 let view:ReactTestRenderer;
 beforeEach(()=>{jest.clearAllMocks();mockAccount='account-a';mockDark=false;});
@@ -26,7 +26,9 @@ it.each([false,true])('is explicit, disabled while opening and themed (dark=%s)'
  expect(button().props.icon.props.color).toBe(dark?'dark-muted':'light-muted');
  act(()=>{ void button().props.onPress(); });
  expect(button().props.disabled).toBe(true);
- expect(view.root.findByType('MockText' as never).props.children).toContain('community.guide_recovery_opening');
+ expect(button().props.icon.props.color).toBe(dark?'dark-guide-purple':'light-guide-purple');
+ expect(view.root.findAllByType('MockText' as never).some(node=>node.props.children==='community.guide_recovery_opening')).toBe(true);
+ expect(view.root.findAllByType('MockText' as never).some(node=>node.props.children==='community.guide_recovery_checking')).toBe(true);
  await act(async()=>{done({checked:1,recovered:1});await Promise.resolve();});
  expect(button().props.disabled).toBe(false);
  expect(view.root.findByType('MockText' as never).props.children).toContain('community.guide_recovery_done');
