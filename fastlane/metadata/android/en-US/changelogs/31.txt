@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.24
+
+- Keep newly sent city and global chat messages visible above the Android keyboard.
+- Preserve manual history scrolling while keeping readers at the latest message.
+- Refresh the city mosaic from BitcoinWalk whenever it opens.
