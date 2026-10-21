@@ -1134,6 +1134,15 @@ class ManagedAbstractPoolAdapter extends AbstractSimplePool {
     params: SubscribeManyParams,
   ): SubCloser {
     const urls = normalizeRelayUrls(relays);
+    // nostr-tools marks NIP-46 subscriptions as `limit: 0`, which is correct
+    // for a continuously connected client but prevents a relay from replaying
+    // a response that arrived while Android suspended our WebSocket during a
+    // signer-app handoff. Ask for only the newest matching envelope instead.
+    // RPC ids and the NIP-46 connection secret still authenticate the response,
+    // so an unrelated or duplicate envelope is safely ignored by BunkerSigner.
+    const replayAwareFilter = filter.kinds?.length === 1 && filter.kinds[0] === 24133
+      ? { ...filter, limit: 1 }
+      : filter;
     const terminalReasons = new Map<string, string>();
     let closed = false;
     let maxWaitHandle: ReturnType<typeof setTimeout> | null = null;
@@ -1142,7 +1151,7 @@ class ManagedAbstractPoolAdapter extends AbstractSimplePool {
     const unsubscribe = this.managed.subscribe({
       label: params.label ?? 'nip46.session',
       relays: urls,
-      filter,
+      filter: replayAwareFilter,
       onEvent: params.onevent ?? (() => {}),
       onEose: params.oneose,
       onInvalidEvent: params.oninvalidevent,

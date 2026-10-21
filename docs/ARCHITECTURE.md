@@ -187,9 +187,11 @@ NIP-46 signers, encryption-key rotation, and device key transfer remain behind
 that boundary. Remote NIP-46 round-trips are bounded; a timeout tears down the
 cached bunker session so a later operation reconnects cleanly.
 
-App-initiated Nostr Connect sessions rendezvous through the dedicated ephemeral
-`wss://remote.bitcoinwalk.org/` NIP-46 transport. The transport stores no
-messages and avoids coupling Amber sign-in to shared public-relay rate limits.
+App-initiated Nostr Connect sessions rendezvous through the dedicated
+`wss://remote.bitcoinwalk.org/` NIP-46 transport. The transport keeps a bounded
+two-minute, memory-only recovery window for encrypted envelopes so Android can
+resume after a signer-app handoff; it never writes signing traffic to disk.
+This avoids coupling Amber sign-in to shared public-relay rate limits.
 User-supplied `bunker://` links retain the relay chosen by their signer.
 
 ## 5. Relay routing
@@ -654,8 +656,9 @@ session gates have unmounted the navigator are ignored, never deferred into the
 next session.
 
 Returning from a remote-signer approval preserves recently responsive NIP-46
-reply subscriptions. Their ephemeral responses cannot be replayed after a forced
-socket replacement; disconnected or stale connections still recover normally.
+reply subscriptions. NIP-46 subscriptions request the newest matching envelope
+so the BitcoinWalk transport's bounded memory window can repair a forced socket
+replacement; disconnected or stale connections still recover normally.
 
 Native modal presentation is serialized. A modal that opens another closes
 first and continues from `onClosed`; guessed delays are not a coordination

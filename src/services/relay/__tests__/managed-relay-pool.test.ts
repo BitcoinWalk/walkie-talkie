@@ -81,6 +81,21 @@ describe('ManagedRelayPool', () => {
     pool.destroy();
   });
 
+  test('requests one replayable NIP-46 envelope after an Android signer handoff', async () => {
+    const { pool, relays } = createHarness();
+    pool.underlyingPool.subscribe(
+      [RELAY_A],
+      { kinds: [24133], '#p': ['client'], limit: 0 },
+      { onevent: () => {} },
+    );
+    await flushPromises();
+
+    expect(relays[0].subscriptions[0].filters).toEqual([
+      { kinds: [24133], '#p': ['client'], limit: 1 },
+    ]);
+    pool.destroy();
+  });
+
   test('does not tear down a live signer subscription for a false background offline hint', async () => {
     const { pool, relays } = createHarness([], undefined, true);
     const received = jest.fn();

@@ -1,0 +1,3 @@
+Walkie Talkie 26.10.30
+
+Fixed Nostr Connect and bunker sign-in when Android suspends Walkie Talkie's WebSocket while Amber is open. BitcoinWalk's signer relay now provides a short, memory-only encrypted recovery window and never writes signing traffic to disk.
