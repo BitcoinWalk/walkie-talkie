@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   StyleSheet,
@@ -102,6 +103,13 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   useEffect(() => () => {
     if (tailFrame.current !== null) cancelAnimationFrame(tailFrame.current);
   }, []);
+
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', () => {
+      if (followingTail.current) scrollToTail(false);
+    });
+    return () => shown.remove();
+  }, [scrollToTail]);
 
   useEffect(() => {
     followingTail.current = true;
@@ -282,8 +290,11 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
             }}
             contentContainerStyle={{ paddingHorizontal: spacing.lg,
               paddingTop: spacing.sm,
-              paddingBottom: composerClearance + spacing.lg,
               gap: spacing.sm }}
+            // Android's FlatList scrollToEnd target can omit container padding.
+            // A real footer participates in content measurement, so the newest
+            // bubble always clears the composer while the keyboard is visible.
+            ListFooterComponent={<View style={{ height: composerClearance + spacing.lg }} />}
             ListEmptyComponent={<View style={{ alignItems: 'center', gap: spacing.sm, padding: spacing.xl }}>
               <MessagesSquare color={c.textMuted} size={uiDensity.tabIconSize} />
               <AppText variant="subtitle">{t('community.empty')}</AppText>

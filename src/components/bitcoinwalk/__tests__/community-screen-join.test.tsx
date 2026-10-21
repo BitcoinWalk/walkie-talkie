@@ -154,7 +154,8 @@ describe('BitcoinWalk community join screen', () => {
     await act(async () => { renderer = create(<CommunityScreen />); await settle(); });
 
     const list = renderer!.root.findByType(FlatList);
-    expect(list.props.contentContainerStyle.paddingBottom).toBe(
+    expect(list.props.contentContainerStyle.paddingBottom).toBeUndefined();
+    expect(list.props.ListFooterComponent.props.style.height).toBe(
       bottomBarHeight + getBottomChromeInset(0) + spacing.lg,
     );
     expect(list.props.onLayout).toEqual(expect.any(Function));
