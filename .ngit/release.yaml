@@ -23,6 +23,8 @@ notes: |
   - Refresh Android connectivity after returning from Amber so a stale offline hint cannot block the signer relay.
   - Fixed Android cold-start city recovery and remote-signer reconnection.
   - Added the app version to the loading screen.
+  - Refresh the city mosaic from BitcoinWalk whenever it opens.
+  - Keep the newest group messages visible above the keyboard and composer.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk
 publication:
   zapstore_relay: true

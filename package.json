@@ -1,7 +1,7 @@
 {
   "name": "psstpsst",
   "main": "index.ts",
-  "version": "26.10.22",
+  "version": "26.10.23",
   "license": "MIT",
   "expo": {
     "autolinking": {

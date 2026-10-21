@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.23
+
+- Keep the latest city and global group messages visible while typing.
+- Keep messages above the keyboard and composer while preserving manual history scrolling.
+- Refresh the city mosaic from BitcoinWalk whenever it opens.
