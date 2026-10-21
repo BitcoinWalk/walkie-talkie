@@ -23,7 +23,7 @@ const EMOJI_CHAR =
  * Any other non-emoji content collapses onto the same 👍 chip instead of being
  * shown as raw text.
  */
-function normalizeReaction(
+export function normalizeReactionDisplay(
   content: string | null,
   tags: string[][] | null | undefined,
 ): { emoji: string; customEmoji: CustomEmoji | null } {
@@ -83,7 +83,7 @@ export function aggregateReactionsByTarget(
 
   for (const r of rows) {
     if (r.kind !== 7 || !r.replyToId) continue;
-    const { emoji, customEmoji } = normalizeReaction(r.content, r.tags);
+    const { emoji, customEmoji } = normalizeReactionDisplay(r.content, r.tags);
     const reactionKey = customEmoji
       ? `custom\u0000${customEmoji.shortcode.toLowerCase()}\u0000${customEmoji.url}`
       : `unicode\u0000${emoji}`;

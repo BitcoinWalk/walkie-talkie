@@ -102,6 +102,8 @@ type Props = {
   onReact: (reaction: QuickReaction) => void;
   /** Tap the "⋯" → open the full emoji picker. */
   onMore: (anchor?: EmojiPickerPopoverAnchor) => void;
+  /** Keep a bounded quick-reaction surface when the transport has no full picker. */
+  showMoreReaction?: boolean;
   actions: MessageMenuAction[];
   onClose: () => void;
   /** Fired once the exit animation finishes and the menu has unmounted. Use it
@@ -227,6 +229,7 @@ export function MessageActionMenu({
   reactedReactionKeys = [],
   onReact,
   onMore,
+  showMoreReaction = true,
   actions,
   onClose,
   onClosed,
@@ -407,7 +410,7 @@ export function MessageActionMenu({
     ? { right: rightFor(0) }
     : { left: leftFor(0) };
 
-  const pillChildCount = quickEmojis.length + 1; // reactions + more
+  const pillChildCount = quickEmojis.length + (showMoreReaction ? 1 : 0);
   const pillW =
     REACTION_PILL_METRICS.paddingH * 2 +
     pillChildCount * REACTION_PILL_METRICS.buttonSize +
@@ -614,15 +617,17 @@ export function MessageActionMenu({
                 </ReactionPillButton>
               );
             })}
-            <ReactionPillButton
-              measureAnchorOnPress={IS_ELECTRON}
-              onPress={onMore}
-            >
-              <MoreHorizontal
-                size={REACTION_PILL_METRICS.moreIconSize}
-                color={c.textMuted}
-              />
-            </ReactionPillButton>
+            {showMoreReaction ? (
+              <ReactionPillButton
+                measureAnchorOnPress={IS_ELECTRON}
+                onPress={onMore}
+              >
+                <MoreHorizontal
+                  size={REACTION_PILL_METRICS.moreIconSize}
+                  color={c.textMuted}
+                />
+              </ReactionPillButton>
+            ) : null}
           </Animated.View>
         ) : null}
 

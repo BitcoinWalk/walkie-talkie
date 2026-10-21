@@ -74,6 +74,17 @@ it('reuses the DM composer with every attachment option, voice and an isolated d
   expect(composer().maxLength).toBe(4_000);
 });
 
+it('sends and dismisses a quoted reply through the shared composer', async () => {
+  const onReplySent = jest.fn();
+  act(() => renderer.update(<CommunityComposer accountPubkey={account} destination={destination}
+    onSent={sent} replyTo={{ id: '1'.repeat(64), senderName: 'Alice', contentPreview: 'Hello' }}
+    onReplySent={onReplySent} />));
+  expect(composer().replyTo).toEqual({ senderName: 'Alice', contentPreview: 'Hello' });
+  await flush(() => composer().onSend('Reply', []));
+  expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({ replyToId: '1'.repeat(64) }));
+  expect(onReplySent).toHaveBeenCalled();
+});
+
 it('requires consent before launching a camera or creating a payment request', async () => {
   mockConfirm.mockResolvedValue(false);
   await flush(() => composer().onPickAttachment('camera'));

@@ -28,10 +28,15 @@ type Props = {
   accountPubkey: string;
   destination: BitcoinWalkCommunityDestination;
   onSent: (event: Event) => void;
+  replyTo?: { id: string; senderName: string; contentPreview: string } | null;
+  onCancelReply?: () => void;
+  onReplySent?: () => void;
+  focusRequestVersion?: number;
 };
 
 /** Shared DM chrome, with a separate NIP-29 transport and public-media consent. */
-export function CommunityComposer({ accountPubkey, destination, onSent }: Props) {
+export function CommunityComposer({ accountPubkey, destination, onSent, replyTo,
+  onCancelReply, onReplySent, focusRequestVersion }: Props) {
   const { t } = useTranslation();
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -80,7 +85,9 @@ export function CommunityComposer({ accountPubkey, destination, onSent }: Props)
     await run(async () => {
       const signer = await buildSigner(accountPubkey);
       try {
-        onSent(await sendCommunityMessage({ destination, signer, content, previousEventIds: [] }));
+        onSent(await sendCommunityMessage({ destination, signer, content,
+          previousEventIds: [], replyToId: replyTo?.id }));
+        if (replyTo) onReplySent?.();
       } finally { await signer.destroy?.(); }
     });
   }
@@ -137,16 +144,18 @@ export function CommunityComposer({ accountPubkey, destination, onSent }: Props)
         // Sequential bounded uploads avoid holding a batch of media in memory.
         // Remove only published entries, so retry never resends completed files.
         for (const file of files) {
-          onSent(await sendCommunityFile({ accountPubkey, destination, signer, file, quality }));
+          onSent(await sendCommunityFile({ accountPubkey, destination, signer, file, quality,
+            replyToId: replyTo?.id }));
           releaseVoice(file.uri);
           setFiles((current) => current.filter((candidate) => candidate.uri !== file.uri));
         }
         if (message.trim()) {
           setPendingCaption(message);
           onSent(await sendCommunityMessage({ destination, signer,
-            content: message, previousEventIds: [] }));
+            content: message, previousEventIds: [], replyToId: replyTo?.id }));
           setPendingCaption(null);
         }
+        if (replyTo) onReplySent?.();
       } finally { await signer.destroy?.(); }
     });
   }
@@ -159,7 +168,9 @@ export function CommunityComposer({ accountPubkey, destination, onSent }: Props)
       await run(async () => {
         const signer = await buildSigner(accountPubkey);
         try { onSent(await sendCommunityFile({ accountPubkey, destination, signer,
-          file: { uri: payload.uri, mime: payload.mime }, quality: 'original' })); }
+          file: { uri: payload.uri, mime: payload.mime }, quality: 'original',
+          replyToId: replyTo?.id }));
+          if (replyTo) onReplySent?.(); }
         finally { await signer.destroy?.(); }
       });
     } catch (cause) {
@@ -177,6 +188,10 @@ export function CommunityComposer({ accountPubkey, destination, onSent }: Props)
   return <ChatComposerPanelProvider>
     <ChatComposerPanelBackHandler />
     <ChatInput disabled={busy} onSend={sendText} maxLength={4_000}
+      replyTo={replyTo ? { senderName: replyTo.senderName,
+        contentPreview: replyTo.contentPreview } : null}
+      onCancelReply={onCancelReply}
+      focusRequestVersion={focusRequestVersion}
       aboveInput={busy ? <AppText tone="muted">{t('attach.sending')}</AppText>
         : pendingCaption ? <AppButton label={t('common.retry')} variant="text"
           onPress={() => { void sendText(pendingCaption).then(() => setPendingCaption(null)).catch(() => {}); }} />

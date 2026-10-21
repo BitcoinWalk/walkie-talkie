@@ -6,7 +6,9 @@ import {
   loadCommunity,
   loadCommunityMetadata,
   mergeCommunityMessages,
+  aggregateCommunityReactions,
   sendCommunityMessage,
+  sendCommunityReaction,
 } from '../community';
 import { relayPool } from '@/services/relay/relay-pool';
 import type { Signer } from '@/services/signer/signer.interface';
@@ -62,7 +64,7 @@ describe('BitcoinWalk NIP-29 community service', () => {
       relays: [destination.relay],
       filters: expect.arrayContaining([
         expect.objectContaining({ kinds: [39000], '#d': [destination.groupId] }),
-        expect.objectContaining({ kinds: [9], '#h': [destination.groupId] }),
+        expect.objectContaining({ kinds: [9, 7], '#h': [destination.groupId] }),
       ]),
     }));
     const filters = jest.mocked(relayPool.query).mock.calls[0][0].filters;
@@ -113,6 +115,18 @@ describe('BitcoinWalk NIP-29 community service', () => {
     ], destination.groupId);
     expect(merged).toHaveLength(1);
     expect(merged[0].content).toBe('Hello');
+  });
+
+  it('attaches exact-group replies and reactions to their target message', () => {
+    const target = event(9, 'Hello', [['h', destination.groupId]], 10);
+    const reply = event(9, 'Reply', [['h', destination.groupId], ['e', target.id]], 11);
+    const reaction = event(7, '❤️', [['h', destination.groupId], ['e', target.id]], 12,
+      'a'.repeat(64));
+    const messages = mergeCommunityMessages([], [reaction, reply, target], destination.groupId);
+    expect(messages[1]).toEqual(expect.objectContaining({ replyToId: target.id }));
+    expect(aggregateCommunityReactions(messages[0], 'a'.repeat(64))).toEqual([
+      expect.objectContaining({ emoji: '❤️', count: 1, selfReacted: true }),
+    ]);
   });
 
   it('signs an exact join request and treats relay duplicate as already joined', async () => {
@@ -175,16 +189,30 @@ describe('BitcoinWalk NIP-29 community service', () => {
     }));
   });
 
-  it('publishes the exact kind 9 profile accepted by populated BitcoinWalk groups', async () => {
+  it('publishes a kind 9 reply with one exact target reference', async () => {
     jest.mocked(relayPool.publishEvent).mockResolvedValue([
       { url: destination.relay, outcome: { ok: true } },
     ]);
     const ids = ['1'.repeat(64), '2'.repeat(64), '3'.repeat(64), '4'.repeat(64)];
-    await sendCommunityMessage({ destination, signer, content: ' Hello ', previousEventIds: ids });
+    await sendCommunityMessage({ destination, signer, content: ' Hello ', previousEventIds: ids,
+      replyToId: ids[0] });
     expect(signer.signEvent).toHaveBeenLastCalledWith(expect.objectContaining({
       kind: 9,
       content: 'Hello',
-      tags: [['h', destination.groupId]],
+      tags: [['h', destination.groupId], ['e', ids[0]]],
+    }));
+  });
+
+  it('publishes a kind 7 quick reaction in the same group', async () => {
+    jest.mocked(relayPool.publishEvent).mockResolvedValue([
+      { url: destination.relay, outcome: { ok: true } },
+    ]);
+    const targetId = '1'.repeat(64);
+    await sendCommunityReaction({ destination, signer, targetId, reaction: '👍' });
+    expect(signer.signEvent).toHaveBeenLastCalledWith(expect.objectContaining({
+      kind: 7,
+      content: '👍',
+      tags: [['h', destination.groupId], ['e', targetId]],
     }));
   });
 });

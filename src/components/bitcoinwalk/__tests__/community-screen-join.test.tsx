@@ -27,8 +27,16 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('lucide-react-native/icons/messages-square', () => () => null);
 jest.mock('lucide-react-native/icons/send', () => () => null);
+jest.mock('@solar-icons/react-native/category/arrows-action/Linear/Reply', () => ({
+  Reply: () => null,
+}), { virtual: true });
 jest.mock('@/components/bitcoinwalk/CommunityComposer', () => ({ CommunityComposer: () => null }));
+jest.mock('@/components/bitcoinwalk/CommunityMessageRow', () => ({ CommunityMessageRow: () => null }));
+jest.mock('@/components/chat/MessageActionMenu', () => ({ MessageActionMenu: () => null }));
 jest.mock('@/components/chat/BubbleBody', () => ({ BubbleBody: () => null }));
+jest.mock('@/hooks/use-display-name', () => ({
+  useDisplayName: (pubkey: string) => ({ name: `Profile ${pubkey}` }),
+}));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -55,6 +63,8 @@ jest.mock('@/services/bitcoinwalk/community', () => ({
   loadCommunity: (...args: unknown[]) => mockLoadCommunity(...args),
   mergeCommunityMessageModels: (_current: unknown[], incoming: unknown[]) => incoming,
   mergeCommunityMessages: (current: unknown[]) => current,
+  aggregateCommunityReactions: () => [],
+  sendCommunityReaction: jest.fn(),
   sendCommunityMessage: jest.fn(),
   subscribeCommunity: (...args: unknown[]) => mockSubscribeCommunity(...args),
 }));
@@ -78,6 +88,10 @@ jest.mock('@/stores/selected-city.store', () => ({
 jest.mock('@/stores/theme.store', () => ({
   useThemeStore: (selector: (state: { accent: 'blue'; preference: 'light' }) => unknown) =>
     selector({ accent: 'blue', preference: 'light' }),
+}));
+jest.mock('@/stores/reaction-prefs.store', () => ({
+  useReactionPrefsStore: (selector: (state: { quickEmojis: string[] }) => unknown) =>
+    selector({ quickEmojis: ['👍'] }),
 }));
 
 // Imports follow the hoisted Jest module factories above.

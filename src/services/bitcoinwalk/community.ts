@@ -1,5 +1,7 @@
 import type { Event, Filter } from 'nostr-tools';
 
+import type { QuickReaction } from '@/lib/nostr/quick-reaction';
+import { normalizeReactionDisplay, type ReactionAggregate } from '@/lib/nostr/reactions';
 import { relayPool } from '@/services/relay/relay-pool';
 import type { Signer } from '@/services/signer/signer.interface';
 
@@ -16,6 +18,15 @@ export type BitcoinWalkCommunityMessage = {
   pubkey: string;
   content: string;
   createdAt: number;
+  tags: string[][];
+  replyToId: string | null;
+  reactions: BitcoinWalkCommunityReaction[];
+};
+export type BitcoinWalkCommunityReaction = {
+  id: string;
+  pubkey: string;
+  content: string;
+  tags: string[][];
 };
 
 const MAX_MESSAGES = 200;
@@ -26,7 +37,12 @@ function tag(event: Event, name: string): string | null {
 }
 
 function messagesFilter(groupId: string): Filter {
-  return { kinds: [9], '#h': [groupId], limit: MAX_MESSAGES };
+  return { kinds: [9, 7], '#h': [groupId], limit: MAX_MESSAGES };
+}
+
+function exactTag(event: Pick<Event, 'tags'>, name: string): string | null {
+  const matches = event.tags.filter((item) => item[0] === name);
+  return matches.length === 1 && matches[0].length === 2 ? matches[0][1] ?? null : null;
 }
 
 function latestMetadata(
@@ -64,17 +80,32 @@ export function mergeCommunityMessages(
   groupId: string,
 ): BitcoinWalkCommunityMessage[] {
   const incoming: BitcoinWalkCommunityMessage[] = [];
+  const reactions: BitcoinWalkCommunityReaction[] = [];
   for (const event of events) {
-    if (event.kind !== 9 || tag(event, 'h') !== groupId ||
-        event.content.length === 0 || event.content.length > MAX_MESSAGE_LENGTH) continue;
-    incoming.push({
-      id: event.id,
-      pubkey: event.pubkey,
-      content: event.content,
-      createdAt: event.created_at,
-    });
+    if (exactTag(event, 'h') !== groupId) continue;
+    if (event.kind === 9 && event.content.length > 0 && event.content.length <= MAX_MESSAGE_LENGTH) {
+      incoming.push({
+        id: event.id,
+        pubkey: event.pubkey,
+        content: event.content,
+        createdAt: event.created_at,
+        tags: event.tags,
+        replyToId: exactTag(event, 'e'),
+        reactions: [],
+      });
+    } else if (event.kind === 7 && event.content.trim() && exactTag(event, 'e')) {
+      reactions.push({ id: event.id, pubkey: event.pubkey, content: event.content, tags: event.tags });
+    }
   }
-  return mergeCommunityMessageModels(current, incoming);
+  const merged = mergeCommunityMessageModels(current, incoming);
+  if (reactions.length === 0) return merged;
+  return merged.map((message) => {
+    const additions = reactions.filter((reaction) => exactTag(reaction, 'e') === message.id);
+    if (additions.length === 0) return message;
+    const byId = new Map(message.reactions.map((reaction) => [reaction.id, reaction]));
+    for (const reaction of additions) byId.set(reaction.id, reaction);
+    return { ...message, reactions: [...byId.values()] };
+  });
 }
 
 export function mergeCommunityMessageModels(
@@ -82,10 +113,40 @@ export function mergeCommunityMessageModels(
   incoming: BitcoinWalkCommunityMessage[],
 ): BitcoinWalkCommunityMessage[] {
   const byId = new Map(current.map((message) => [message.id, message]));
-  for (const message of incoming) byId.set(message.id, message);
+  for (const message of incoming) {
+    const existing = byId.get(message.id);
+    byId.set(message.id, existing ? { ...message, reactions: existing.reactions } : message);
+  }
   return [...byId.values()]
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
     .slice(-MAX_MESSAGES);
+}
+
+export function aggregateCommunityReactions(
+  message: BitcoinWalkCommunityMessage,
+  accountPubkey: string,
+): ReactionAggregate[] {
+  const buckets = new Map<string, ReactionAggregate>();
+  for (const reaction of message.reactions) {
+    const { emoji, customEmoji } = normalizeReactionDisplay(reaction.content, reaction.tags);
+    const key = customEmoji
+      ? `custom\u0000${customEmoji.shortcode.toLowerCase()}\u0000${customEmoji.url}`
+      : `unicode\u0000${emoji}`;
+    const existing = buckets.get(key) ?? {
+      emoji,
+      customEmoji,
+      count: 0,
+      selfReacted: false,
+      selfReactionId: null,
+    };
+    existing.count += 1;
+    if (reaction.pubkey === accountPubkey) {
+      existing.selfReacted = true;
+      existing.selfReactionId = reaction.id;
+    }
+    buckets.set(key, existing);
+  }
+  return [...buckets.values()];
 }
 
 export async function loadCommunity(
@@ -190,16 +251,21 @@ export async function sendCommunityMessage(input: {
   destination: BitcoinWalkCommunityDestination;
   signer: Signer;
   content: string;
-  /** Reserved for relays that support NIP-29 timeline references. BitcoinWalk's
-   * current bounded relay profile accepts only the exact group tag on kind 9. */
+  /** Retained for media-call compatibility; replies use the exact `replyToId`. */
   previousEventIds: string[];
+  replyToId?: string | null;
 }): Promise<Event> {
   const content = input.content.trim();
   if (!content || content.length > MAX_MESSAGE_LENGTH) throw new Error('Enter a shorter message.');
+  const replyToId = input.replyToId ?? null;
+  if (replyToId && !/^[0-9a-f]{64}$/.test(replyToId)) throw new Error('Invalid reply target.');
   const event = await input.signer.signEvent({
     kind: 9,
     created_at: Math.floor(Date.now() / 1_000),
-    tags: [['h', input.destination.groupId]],
+    tags: [
+      ['h', input.destination.groupId],
+      ...(replyToId ? [['e', replyToId]] : []),
+    ],
     content,
   });
   const [result] = await relayPool.publishEvent({
@@ -207,6 +273,38 @@ export async function sendCommunityMessage(input: {
   });
   if (!result?.outcome.ok) {
     throw new Error(result?.outcome.ok === false ? result.outcome.reason : 'The message could not be sent.');
+  }
+  return event;
+}
+
+
+export async function sendCommunityReaction(input: {
+  destination: BitcoinWalkCommunityDestination;
+  signer: Signer;
+  targetId: string;
+  reaction: QuickReaction;
+}): Promise<Event> {
+  if (!/^[0-9a-f]{64}$/.test(input.targetId)) throw new Error('Invalid reaction target.');
+  const custom = typeof input.reaction === 'string' ? null : input.reaction;
+  const content = typeof input.reaction === 'string'
+    ? input.reaction
+    : `:${input.reaction.shortcode}:`;
+  if (!content.trim()) throw new Error('Choose a reaction.');
+  const event = await input.signer.signEvent({
+    kind: 7,
+    created_at: Math.floor(Date.now() / 1_000),
+    tags: [
+      ['h', input.destination.groupId],
+      ['e', input.targetId],
+      ...(custom ? [['emoji', custom.shortcode, custom.url]] : []),
+    ],
+    content,
+  });
+  const [result] = await relayPool.publishEvent({
+    relays: [input.destination.relay], event, signer: input.signer, timeoutMs: 10_000,
+  });
+  if (!result?.outcome.ok) {
+    throw new Error(result?.outcome.ok === false ? result.outcome.reason : 'The reaction could not be sent.');
   }
   return event;
 }

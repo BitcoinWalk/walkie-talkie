@@ -20,8 +20,9 @@ city's room.
 ## Current client behavior
 
 - Read group metadata with kind `39000` and the exact `d` tag.
-- Read and live-subscribe to at most 200 kind `9` messages with the exact `h`
-  tag. Deduplicate by signed event ID and order by signed timestamp plus ID.
+- Read and live-subscribe to at most 200 kind `9` messages and kind `7`
+  reactions with the exact `h` tag. Deduplicate by signed event ID and order
+  messages by signed timestamp plus ID.
 - Chat opens one inbox, with Guide and Global followed by joined city groups.
   City discovery reads the active account's exact membership transitions in
   bounded relay-scoped batches; suggestions are not memberships. The city
@@ -41,8 +42,12 @@ city's room.
   or exceed the shared relay's listener budget.
 - A relay `duplicate:` response means the connected identity is already a
   member.
-- Post kind `9` messages only after confirmed membership. The shared relay's
-  bounded profile accepts only the exact `h` tag, not `previous` or `imeta`.
+- Post kind `9` messages only after confirmed membership. A reply adds one
+  exact `e` tag referencing an existing kind `9` message in the same group.
+  Quick reactions use kind `7` with the same exact `h` and `e` target; custom
+  reactions may add one validated NIP-30 `emoji` tag. The relay verifies that
+  every referenced target already exists inside that group, so a city cannot
+  reference another city's timeline.
 - The native community composer reuses the private-chat input, attachment tray
   and voice recorder. Media uses ordinary HTTPS links in kind `9` content;
   payment requests use BOLT11 text, and contact cards use `nostr:npub` text.
@@ -61,5 +66,5 @@ city's room.
   membership action; the join is signed only after authentication completes.
 
 Public community messages intentionally remain outside the encrypted
-private-message database. Profile hydration, offline history and notification
-delivery are later slices.
+private-message database. Offline history and notification delivery are later
+slices.

@@ -1,4 +1,5 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
+import { Reply } from '@solar-icons/react-native/category/arrows-action/Linear/Reply';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/common/AppButton';
 import { CommunityComposer } from '@/components/bitcoinwalk/CommunityComposer';
-import { BubbleBody } from '@/components/chat/BubbleBody';
+import { CommunityMessageRow } from '@/components/bitcoinwalk/CommunityMessageRow';
+import {
+  MessageActionMenu,
+  MESSAGE_ACTION_MENU_ICON_SIZE,
+  type LiftedBubble,
+} from '@/components/chat/MessageActionMenu';
+import type { BubbleRect } from '@/components/chat/MessageBubble';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
@@ -26,8 +33,10 @@ import {
 } from '@/services/bitcoinwalk/community-membership';
 import {
   loadCommunity,
+  aggregateCommunityReactions,
   hasActiveCommunityMembership,
   mergeCommunityMessages,
+  sendCommunityReaction,
   subscribeCommunity,
   type BitcoinWalkCommunityMessage,
 } from '@/services/bitcoinwalk/community';
@@ -39,6 +48,9 @@ import {
   type BitcoinWalkChatDirectory,
 } from '@/services/bitcoinwalk/chat-directory';
 import { getBottomChromeInset } from '@/lib/layout/bottom-chrome';
+import { quickReactionKey, type QuickReaction } from '@/lib/nostr/quick-reaction';
+import type { ReactionAggregate } from '@/lib/nostr/reactions';
+import { useReactionPrefsStore } from '@/stores/reaction-prefs.store';
 import { bottomBarHeight, spacing, uiDensity, useThemeColors } from '@/theme';
 
 const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
@@ -83,6 +95,13 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const [joinedDestinationKey, setJoinedDestinationKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<BitcoinWalkCommunityMessage | null>(null);
+  const [replyFocusRequestVersion, setReplyFocusRequestVersion] = useState(0);
+  const [menuTarget, setMenuTarget] = useState<BitcoinWalkCommunityMessage | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ rect: BubbleRect; bubble: LiftedBubble } | null>(null);
+  const [pendingReplyTarget, setPendingReplyTarget] = useState<BitcoinWalkCommunityMessage | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const quickEmojis = useReactionPrefsStore((state) => state.quickEmojis);
   const listRef = useRef<FlatList<BitcoinWalkCommunityMessage>>(null);
   const followingTail = useRef(true);
   const forceNextTail = useRef(false);
@@ -91,6 +110,55 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
   const visibleMessages = loadedDestinationKey === destinationKey ? messages : [];
   const visibleName = loadedDestinationKey === destinationKey ? name : null;
+  const messageById = new Map(visibleMessages.map((message) => [message.id, message]));
+
+  function startReply(message: BitcoinWalkCommunityMessage) {
+    setReplyingTo(message);
+    setReplyFocusRequestVersion((version) => version + 1);
+  }
+
+  function closeMenu() {
+    setMenuTarget(null);
+    setMenuAnchor(null);
+  }
+
+  function jumpToMessage(message: BitcoinWalkCommunityMessage) {
+    const index = visibleMessages.findIndex((candidate) => candidate.id === message.id);
+    if (index < 0) return;
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    setHighlightedId(message.id);
+    setTimeout(() => setHighlightedId((current) => current === message.id ? null : current), 1_800);
+  }
+
+  async function applyReaction(message: BitcoinWalkCommunityMessage, reaction: QuickReaction) {
+    if (!accountPubkey || !destination) return;
+    const selectedKey = quickReactionKey(reaction);
+    if (aggregateCommunityReactions(message, accountPubkey).some((entry) =>
+      entry.selfReacted && quickReactionKey(entry.customEmoji ?? entry.emoji) === selectedKey)) return;
+    let signer: Awaited<ReturnType<typeof buildSigner>> | null = null;
+    try {
+      signer = await buildSigner(accountPubkey);
+      const event = await sendCommunityReaction({ destination, signer,
+        targetId: message.id, reaction });
+      setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
+      setError(null);
+    } catch (cause) {
+      console.warn('[bitcoinwalk.community] Reaction failed.', cause);
+      setError(t('community.send_error'));
+    } finally {
+      await signer?.destroy?.();
+    }
+  }
+
+  function handleLongPress(message: BitcoinWalkCommunityMessage, rect: BubbleRect,
+    bubble: LiftedBubble) {
+    setMenuTarget(message);
+    setMenuAnchor({ rect, bubble });
+  }
+
+  function handleTapReaction(message: BitcoinWalkCommunityMessage, reaction: ReactionAggregate) {
+    void applyReaction(message, reaction.customEmoji ?? reaction.emoji);
+  }
 
   const scrollToTail = useCallback((animated: boolean) => {
     if (tailFrame.current !== null) cancelAnimationFrame(tailFrame.current);
@@ -288,9 +356,13 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
               forceNextTail.current = false;
               scrollToTail(true);
             }}
-            contentContainerStyle={{ paddingHorizontal: spacing.lg,
-              paddingTop: spacing.sm,
-              gap: spacing.sm }}
+            onScrollToIndexFailed={({ index, averageItemLength }) => {
+              listRef.current?.scrollToOffset({
+                offset: Math.max(0, index * averageItemLength),
+                animated: true,
+              });
+            }}
+            contentContainerStyle={{ paddingTop: spacing.sm }}
             // Android's FlatList scrollToEnd target can omit container padding.
             // A real footer participates in content measurement, so the newest
             // bubble always clears the composer while the keyboard is visible.
@@ -302,19 +374,32 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
                 {joined ? t('community.empty_joined_hint') : t('community.empty_hint')}
               </AppText>
             </View>}
-            renderItem={({ item }) => <View style={{ gap: spacing.xs,
-              alignSelf: item.pubkey === accountPubkey ? 'flex-end' : 'flex-start',
-              maxWidth: '88%' }}>
-              <AppText variant="caption" tone="muted" numberOfLines={1}>
-                {item.pubkey === accountPubkey ? t('community.you') : `${item.pubkey.slice(0, 12)}…`}
-              </AppText>
-              <BubbleBody content={item.content} createdAt={item.createdAt}
-                isSelf={item.pubkey === accountPubkey} remoteContentMode="request" />
-            </View>}
+            renderItem={({ item, index }) => <CommunityMessageRow
+              message={item}
+              replyTarget={item.replyToId ? messageById.get(item.replyToId) ?? null : null}
+              reactions={accountPubkey ? aggregateCommunityReactions(item, accountPubkey) : []}
+              accountPubkey={accountPubkey ?? ''}
+              highlighted={highlightedId === item.id}
+              groupStart={index === 0 || visibleMessages[index - 1]?.pubkey !== item.pubkey}
+              onReply={startReply}
+              onLongPress={handleLongPress}
+              onPressReply={jumpToMessage}
+              onTapReaction={handleTapReaction}
+            />}
           />
           {joined && accountPubkey ? <CommunityComposer
             key={`${accountPubkey}:${destinationKey}`}
             accountPubkey={accountPubkey} destination={destination}
+            replyTo={replyingTo ? {
+              id: replyingTo.id,
+              senderName: replyingTo.pubkey === accountPubkey
+                ? t('community.you')
+                : `${replyingTo.pubkey.slice(0, 8)}…`,
+              contentPreview: replyingTo.content,
+            } : null}
+            onCancelReply={() => setReplyingTo(null)}
+            onReplySent={() => setReplyingTo(null)}
+            focusRequestVersion={replyFocusRequestVersion}
             onSent={(event) => {
               followingTail.current = true;
               forceNextTail.current = true;
@@ -338,6 +423,39 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
               />
             </>}
           </View>}
+          <MessageActionMenu
+            visible={!!menuAnchor}
+            rect={menuAnchor?.rect ?? null}
+            bubble={menuAnchor?.bubble ?? null}
+            quickEmojis={quickEmojis}
+            reactedReactionKeys={menuTarget && accountPubkey
+              ? aggregateCommunityReactions(menuTarget, accountPubkey)
+                  .filter((reaction) => reaction.selfReacted)
+                  .map((reaction) => quickReactionKey(reaction.customEmoji ?? reaction.emoji))
+              : []}
+            onReact={(reaction) => {
+              const target = menuTarget;
+              closeMenu();
+              if (target) void applyReaction(target, reaction);
+            }}
+            onMore={closeMenu}
+            showMoreReaction={false}
+            actions={menuTarget ? [{
+              key: 'reply',
+              label: t('chat.actions.reply'),
+              icon: <Reply size={MESSAGE_ACTION_MENU_ICON_SIZE} color={c.text} />,
+              onPress: () => {
+                setPendingReplyTarget(menuTarget);
+                closeMenu();
+              },
+            }] : []}
+            onClose={closeMenu}
+            onClosed={() => {
+              if (!pendingReplyTarget) return;
+              startReply(pendingReplyTarget);
+              setPendingReplyTarget(null);
+            }}
+          />
         </>}
       </View>
   );

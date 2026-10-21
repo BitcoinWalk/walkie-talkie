@@ -14,6 +14,7 @@ export async function sendCommunityFile(input: {
   signer: Signer;
   file: { uri: string; mime: string; name?: string };
   quality: ImageSendQuality;
+  replyToId?: string | null;
 }) {
   if (await input.signer.getPublicKey() !== input.accountPubkey ||
       !await hasActiveCommunityMembership(input.destination, input.signer)) {
@@ -31,13 +32,12 @@ export async function sendCommunityFile(input: {
       fileUri: prepared?.uri ?? input.file.uri, mime,
       servers: await loadAccountMediaServers(input.accountPubkey) });
     const url = new URL(result.url);
-    // The relay accepts only h on kind 9, so use ordinary interoperable URLs,
-    // not private kind-15 encryption metadata or unsupported imeta tags.
+    // Use ordinary interoperable URLs, not private kind-15 encryption metadata.
     const extensions: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png',
       'audio/mp4': 'm4a', 'audio/webm': 'webm', 'video/mp4': 'mp4' };
     if (extensions[mime]) url.searchParams.set('filename', `media.${extensions[mime]}`);
     return await sendCommunityMessage({ destination: input.destination, signer: input.signer,
-      content: url.toString(), previousEventIds: [] });
+      content: url.toString(), previousEventIds: [], replyToId: input.replyToId });
   } finally {
     if (prepared && prepared.uri !== input.file.uri) {
       await platform.fileSystem.delete(prepared.uri, { idempotent: true }).catch(() => {});
