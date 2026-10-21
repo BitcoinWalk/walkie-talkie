@@ -1,26 +1,26 @@
-Walkie Talkie is BitcoinWalk's open-source companion for discovering walks and staying connected with local communities.
+Bitcoiners are everywhere. BitcoinWalk should be too.
 
-Choose your city
-Browse the BitcoinWalk city mosaic before signing in. Your chosen city becomes your home screen, with its public page and upcoming walk details always close at hand.
+Walkie Talkie is the open-source app for turning that idea into real local communities. Find a BitcoinWalk in your city, meet Bitcoiners face to face, and keep the community connected on Nostr—without asking permission from a centralized platform.
 
-Join the conversation
-Sign in with a Nostr identity to request access to the selected city group and BitcoinWalk Global. City and Global conversations can be read publicly; posting requires membership. The private Hosts group is shown only to verified organizers.
+A global movement, rooted locally
+Browse the worldwide BitcoinWalk city mosaic before signing in. Choose your city and it becomes your home screen, with its public page and upcoming walk details always close at hand. If BitcoinWalk has not reached your city yet, start one and put it on the map.
 
-Use your own Nostr identity
-Create a new identity, import a key, connect through Amber, or use a remote signer. Your account is based on Nostr rather than a phone number or email address.
+From city streets to Nostr
+Every BitcoinWalk can have its own NIP-29 community conversation. City and BitcoinWalk Global chats are publicly readable; sign in with Nostr to join and speak. Verified organizers also have a private Hosts space for coordinating the movement.
 
-Message privately
-Send encrypted direct messages, media, files, replies and reactions. Guide notices keep important BitcoinWalk account updates together in the app.
+Your identity, your keys
+No phone number. No email account. Create a Nostr identity, import your key, connect through Amber, or use a remote signer. Your identity can move with you instead of being trapped inside the app.
 
-Coming later
-Bluetooth mesh is visible as a Coming soon preview while offline messaging is tested. This release does not request Bluetooth access or start nearby communication.
+Talk directly
+Send encrypted direct messages, media and files. Reply to specific messages, react quickly, mention people and control notifications room by room.
+
+Built in the open
+Walkie Talkie is BitcoinWalk infrastructure: open source, built on open protocols and released under the MIT License. Bluetooth mesh is visible as a Coming soon preview while resilient offline communication is developed and tested.
 
 Before you start
 - Back up keys created in the app before relying on them.
 - Nostr content is distributed through independent relays. Availability and moderation can vary by relay.
 - Background delivery is best-effort and may be limited by Android battery settings.
-
-Walkie Talkie is released under the MIT License. Source code, protocol documentation and security information are available in the public repository.
 
 Website: https://bitcoinwalk.org
 Source code: https://github.com/BitcoinWalk/walkie-talkie
