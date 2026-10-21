@@ -1,5 +1,14 @@
 # iOS APNs notifications
 
+> BitcoinWalk reconciliation — 21 October 2026: this document describes inherited
+> push integration, not an accepted BitcoinWalk iOS service. Community notification
+> commit `f01796c` removed the settings requirement to add the upstream relay;
+> the relay-prerequisite paragraph below is historical. Local notifications do
+> not prove terminated-app APNs delivery. BitcoinWalk-owned service, topics,
+> extension configuration, event retrieval and signed-device acceptance are
+> tracked by BW-144 in the main project backlog. The upstream endpoint and App IDs
+> below must not be used as BitcoinWalk deployment instructions.
+
 The iOS notification toggle is opt-in. A new installation does not request
 permission, obtain an APNs token or register with a relay until the user enables
 it. An existing explicit enabled preference is preserved. Android and Electron

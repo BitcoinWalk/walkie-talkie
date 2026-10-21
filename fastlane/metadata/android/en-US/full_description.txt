@@ -12,14 +12,13 @@ Create a new identity, import a key, connect through Amber, or use a remote sign
 Message privately
 Send encrypted direct messages, media, files, replies and reactions. Guide notices keep important BitcoinWalk account updates together in the app.
 
-Stay close
-Compatible devices can exchange nearby messages over Bluetooth Low Energy when internet access is limited. Availability depends on the device and operating system.
+Coming later
+Bluetooth mesh is visible as a Coming soon preview while offline messaging is tested. This release does not request Bluetooth access or start nearby communication.
 
 Before you start
 - Back up keys created in the app before relying on them.
 - Nostr content is distributed through independent relays. Availability and moderation can vary by relay.
 - Background delivery is best-effort and may be limited by Android battery settings.
-- Nearby messaging requires Bluetooth permissions and compatible hardware.
 
 Walkie Talkie is released under the MIT License. Source code, protocol documentation and security information are available in the public repository.
 

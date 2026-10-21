@@ -1,8 +1,9 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, FlatList } from 'react-native';
 
 import BitcoinWalkChatsTab from '@/app/(app)/(tabs)/index';
 import { BitcoinWalkCommunityRow } from '@/components/bitcoinwalk/BitcoinWalkCommunityRow';
+import { NearbyRoomRow } from '@/components/bitcoinwalk/NearbyRoomRow';
 import { ConversationListItem } from '@/components/conversation/ConversationListItem';
 import { IconButton } from '@/components/common/IconButton';
 import { communityMembershipChanged } from '@/services/bitcoinwalk/membership-events';
@@ -49,6 +50,7 @@ jest.mock('@/components/common/NotificationDot', () => ({ NotificationDot: () =>
 jest.mock('@/components/common/AppButton', () => ({ AppButton: () => null }));
 jest.mock('@/components/common/AppText', () => ({ AppText: () => null }));
 jest.mock('@/components/bitcoinwalk/BitcoinWalkCommunityRow', () => ({ BitcoinWalkCommunityRow: () => null }));
+jest.mock('@/components/bitcoinwalk/NearbyRoomRow', () => ({ NearbyRoomRow: () => null }));
 jest.mock('@/components/bitcoinwalk/BitcoinWalkCityPickerSheet', () => ({
   BitcoinWalkCityPickerSheet: (props: MockCityPickerProps) => mockCityPicker(props),
 }));
@@ -86,6 +88,18 @@ describe('unified native Chat inbox', () => {
       cities: [{id: 'madeira', slug: 'madeira', name: 'Madeira', avatarUrl: 'city.png'}], hosts: false});
   });
   afterEach(() => act(() => renderer?.unmount()));
+
+  it('pins Nearby first even without login or a loaded directory', async () => {
+    mockAccount = '';
+    mockConversations = [];
+    await act(async () => { renderer = create(<BitcoinWalkChatsTab />); });
+    const nearby = renderer.root.findByType(NearbyRoomRow);
+    expect(mockLoad).not.toHaveBeenCalled();
+    await act(async () => { nearby.props.onPress(); });
+    expect(mockOpen).toHaveBeenCalledWith('/nearby-room');
+    const list = renderer.root.findByType(FlatList);
+    expect(list.props.data[0]).toEqual({ kind: 'nearby', key: 'nearby' });
+  });
 
   it.each(['light', 'dark'] as const)('uses the Walk city as the single city row in %s', async (theme) => {
     mockTheme = theme;

@@ -1,6 +1,8 @@
 package chat.psstpsst.app.proximity
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
@@ -108,6 +110,31 @@ class ExpoProximityModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("ExpoProximity")
     Events("onPeer", "onSignal", "onMessage", "onConnection", "onBluetoothState")
+
+    // Readiness never opens a GATT server, scans or publishes a profile.
+    AsyncFunction("getBluetoothStateAsync") {
+      try {
+        val radio = adapter
+        if (radio == null) "unsupported" else if (radio.isEnabled) "poweredOn" else "poweredOff"
+      } catch (_: SecurityException) { "unauthorized" }
+    }
+
+    AsyncFunction("requestBluetoothEnableAsync") { promise: Promise ->
+      handler.post {
+        try {
+          val activity = appContext.currentActivity
+          if (activity == null || adapter == null) {
+            promise.resolve(false)
+          } else {
+            activity.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            // Presentation is not approval. The client must read the state again.
+            promise.resolve(true)
+          }
+        } catch (error: Exception) {
+          promise.reject("ERR_BLUETOOTH_ENABLE", error.message, error)
+        }
+      }
+    }
 
     AsyncFunction("startAdvertisingAsync") { profile: String, promise: Promise ->
       handler.post {

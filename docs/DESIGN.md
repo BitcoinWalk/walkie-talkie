@@ -150,7 +150,7 @@ between a message bubble and its reaction row.
   when needed, then returns to its city page with that city available in Chat;
   adding a missing city opens the existing BitcoinWalk walk-creation flow.
 - Bottom navigation has three destinations: Walk, Chat, and Account. Chat opens
-  a compact inbox, ordered Guide, Global, one current joined city, other joined
+  a compact inbox, ordered Nearby, Guide, Global, one current joined city, other joined
   groups, then private conversations. The Walk city is the city-chat default;
   a searchable picker can remember a separate chat city without changing Walk.
   The inbox's add action opens
@@ -159,6 +159,11 @@ between a message bubble and its reaction row.
   Browsing city chats never changes the city chosen for Walk. Guide remains
   notification-only. Hosts appears only for verified active members. Posting
   always remains membership-gated; list visibility never grants access.
+  Nearby is independent of city and login. While its mesh work is parked, its
+  first-position inbox entry opens a static Coming soon state and performs no
+  Bluetooth check, permission request, scan, or advertising. When implementation
+  resumes, explicit consent must precede participation and incomplete builds must
+  never show a false composer.
 - Community groups reuse the private-chat composer, attachment tray, voice
   recorder and rich-content bubbles. Public media sharing requires explicit
   disclosure, including in member-only rooms; this never implies private-message

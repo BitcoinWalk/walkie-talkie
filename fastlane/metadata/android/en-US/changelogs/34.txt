@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.27
+
+Mention people in community chats and receive local community notifications with per-room mute controls.
+See verified NIP-05 status on profiles.
+Keep Bluetooth mesh visible as Coming soon while offline-messaging development is parked.

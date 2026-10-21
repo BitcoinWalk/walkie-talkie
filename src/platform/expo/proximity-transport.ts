@@ -1,10 +1,11 @@
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { base64 } from '@scure/base';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
 
 import type {
   ProximityTransportPort,
   ProximityTransportSubscription,
+  BluetoothReadiness,
 } from '../ports/proximity-transport';
 
 /**
@@ -14,6 +15,8 @@ import type {
  * consistently available or unavailable for the process lifetime.
  */
 type ExpoProximityModule = {
+  getBluetoothStateAsync?(): Promise<BluetoothReadiness>;
+  requestBluetoothEnableAsync?(): Promise<boolean>;
   startAdvertisingAsync(profile: string): Promise<void>;
   updateProfileAsync(profile: string): Promise<void>;
   preferPeripheralAsync(endpointId: string): Promise<void>;
@@ -41,6 +44,9 @@ const NO_OP_SUBSCRIPTION: ProximityTransportSubscription = { remove() {} };
 /** BLE duplex transport backed by the ExpoProximity native module. */
 export const proximityTransportAdapter: ProximityTransportPort = {
   isAvailable: () => load() !== null,
+  getBluetoothStateAsync: () => load()?.getBluetoothStateAsync?.() ?? Promise.resolve('unsupported'),
+  requestBluetoothEnableAsync: () => load()?.requestBluetoothEnableAsync?.() ?? Promise.resolve(false),
+  openBluetoothSettingsAsync: () => Linking.openSettings(),
 
   async requestPermissions() {
     if (Platform.OS !== 'android') return true;

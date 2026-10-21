@@ -7,6 +7,7 @@ import { ActivityIndicator, FlatList, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BitcoinWalkCommunityRow } from '@/components/bitcoinwalk/BitcoinWalkCommunityRow';
+import { NearbyRoomRow } from '@/components/bitcoinwalk/NearbyRoomRow';
 import { BitcoinWalkCityPickerSheet } from '@/components/bitcoinwalk/BitcoinWalkCityPickerSheet';
 import { AppButton } from '@/components/common/AppButton';
 import { AppScreen } from '@/components/common/AppScreen';
@@ -36,7 +37,8 @@ const GLOBAL_AVATAR = require('../../../../assets/images/bitcoinwalk-icon.png') 
 
 type InboxRow = { kind: 'community'; key: string; title: string; subtitle: string;
   picture: string | number; unreadCount?: number; href: string }
-  | { kind: 'private'; key: string; item: ConversationWithLast };
+  | { kind: 'private'; key: string; item: ConversationWithLast }
+  | { kind: 'nearby'; key: 'nearby' };
 
 /** One virtualized inbox. Community histories load only after a row is opened. */
 export default function BitcoinWalkChatsTab() {
@@ -136,7 +138,7 @@ export default function BitcoinWalkChatsTab() {
       ...(inbox.hosts ? [{kind: 'community' as const, key: 'hosts', title: t('community.hosts_full_title'),
         subtitle: t('community.hosts_subtitle'), picture: GLOBAL_AVATAR, href: '/community?scope=hosts'}] : []),
     ] : [];
-    return [...communities, ...privateChats.map((item): InboxRow => ({
+    return [{ kind: 'nearby', key: 'nearby' }, ...communities, ...privateChats.map((item): InboxRow => ({
       kind: 'private', key: `private:${item.conversation.conversationKey}`, item,
     }))];
   }, [activeCity, guide, guidePubkey, inbox, privateChats, t, unreadIndicators]);
@@ -176,6 +178,7 @@ export default function BitcoinWalkChatsTab() {
           </View> : null}
         </>}
         renderItem={({ item: row }) => {
+          if (row.kind === 'nearby') return <NearbyRoomRow onPress={() => open('/nearby-room')} />;
           if (row.kind === 'community') return <BitcoinWalkCommunityRow
             title={row.title} subtitle={row.subtitle} picture={row.picture} unreadCount={row.unreadCount}
             trailing={row.key === 'city' && (inbox?.cities.length ?? 0) > 1 ? (

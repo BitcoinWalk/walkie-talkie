@@ -1,4 +1,26 @@
 {
+  "nearby_room": {
+    "title": "Nearby",
+    "preview": "Bluetooth group preview",
+    "coming_soon": "Bluetooth mesh coming soon",
+    "coming_soon_title": "Bluetooth mesh is coming soon",
+    "coming_soon_description": "Chat with people nearby when there is no internet. We’re testing this carefully before making it available.",
+    "disclosure": "One local room for everyone nearby, whichever city they choose. Anyone who joins can read what you send.",
+    "prototype_notice": "This preview checks Bluetooth readiness only. Group messaging is not connected yet. No profile is shared and no nearby devices are scanned.",
+    "check": "Check Bluetooth",
+    "enable": "Enable Bluetooth",
+    "settings": "Open app settings",
+    "enable_guidance": "Turn on Bluetooth in your device settings, then return and check again.",
+    "state_idle": "Check Bluetooth when you are ready. You do not need to sign in.",
+    "state_checking": "Checking Bluetooth…",
+    "state_unknown": "Bluetooth is still initializing. Check again shortly.",
+    "state_resetting": "Bluetooth is restarting. Check again shortly.",
+    "state_unsupported": "Bluetooth readiness is unavailable on this device or app build.",
+    "state_unauthorized": "Bluetooth permission is needed. You can enable access in app settings.",
+    "state_poweredOff": "Turn on Bluetooth to prepare for Nearby.",
+    "state_poweredOn": "Bluetooth is on. The group messaging prototype still needs to be connected and tested on two phones.",
+    "state_error": "Bluetooth could not be checked. Please try again."
+  },
   "city_select": {
     "title": "Choose your city",
     "heading": "Which BitcoinWalk are you interested in?",

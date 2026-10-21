@@ -20,9 +20,18 @@
 /** Handle returned by `addListener`; call `remove()` to unsubscribe. */
 export type ProximityTransportSubscription = { remove(): void };
 
+export type BluetoothReadiness = 'unknown' | 'resetting' | 'unsupported' |
+  'unauthorized' | 'poweredOff' | 'poweredOn';
+
 export interface ProximityTransportPort {
   /** Whether the native transport capability is present at all. */
   isAvailable(): boolean;
+  /** User-initiated readiness check only; must not scan or advertise. */
+  getBluetoothStateAsync?(): Promise<BluetoothReadiness>;
+  /** Opens system enable UI; true means presented, not that Bluetooth is on. */
+  requestBluetoothEnableAsync?(): Promise<boolean>;
+  /** Opens supported app permission settings, never an undocumented URL. */
+  openBluetoothSettingsAsync?(): Promise<void>;
   /**
    * Request the OS permissions the transport needs. On Android this asks for
    * the runtime Bluetooth permissions (scan/connect/advertise on API 31+,

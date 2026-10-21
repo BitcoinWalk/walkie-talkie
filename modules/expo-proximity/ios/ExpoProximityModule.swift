@@ -77,6 +77,15 @@ public final class ExpoProximityModule: Module {
     Name("ExpoProximity")
     Events("onPeer", "onSignal", "onMessage", "onConnection", "onBluetoothState")
 
+    // Called only after explicit user action. Managers may request permission,
+    // but this does not scan, advertise or expose the private Nearby profile.
+    AsyncFunction("getBluetoothStateAsync") { (promise: Promise) in
+      self.bluetoothQueue.async {
+        self.ensureManagers()
+        promise.resolve(self.stateName(self.central?.state ?? .unknown))
+      }
+    }
+
     AsyncFunction("startAdvertisingAsync") { (profile: String, promise: Promise) in
       self.bluetoothQueue.async {
         guard let profileData = Data(base64Encoded: profile) else {

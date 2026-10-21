@@ -7,7 +7,8 @@ description: |
   Browse BitcoinWalk cities, keep your chosen city as your home screen, and
   join its NIP-29 community chat. Walkie Talkie also includes BitcoinWalk
   Global, private host coordination, NIP-17 direct messages, walk invites,
-  nearby Bluetooth communication, and optional Lightning wallet connections.
+  and optional Lightning wallet connections. Bluetooth mesh is shown as a
+  Coming soon preview and does not start radio activity in this release.
 tags: [nostr, bitcoin, social, messaging, community]
 license: MIT
 website: https://bitcoinwalk.org
@@ -25,6 +26,9 @@ notes: |
   - Added the app version to the loading screen.
   - Refresh the city mosaic from BitcoinWalk whenever it opens.
   - Keep the newest group messages visible above the keyboard and composer using an Android-safe measured footer.
+  - Mention people in community chats and receive local notifications with per-room mute controls.
+  - Show current NIP-05 verification on profiles.
+  - Keep Bluetooth mesh parked behind a Coming soon screen without requesting permissions or starting radio activity.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk
 publication:
   zapstore_relay: true

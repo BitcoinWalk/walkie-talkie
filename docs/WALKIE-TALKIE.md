@@ -40,12 +40,12 @@ to the verified Walkie Talkie listing. Publishing credentials are not yet config
    Preserve the intended destination through login. Roll out automatic city-page
    buttons through a default-off flag once this works. These public links invite
    navigation; private groups require authenticated expiring membership invitations.
-4. Chats: ship an explicitly documented supported protocol set. BW-127 is the
+4. Chats: ship an explicitly documented supported protocol set. BW-128 is the
    planned standard NIP-17/NIP-44/NIP-59 DM and BitcoinWalk Guide compatibility
    task. Verify Guide receipt and bidirectional text with an independent client,
    including NIP-46 signer permissions and restart deduplication. Guide itself
    is notification-only. Review recovery of messages previously marked unsupported.
-   Legacy NIP-04, NIP-29 adapters, Marmot/MLS and emerging protocols need separate
+   Legacy NIP-04, Marmot/MLS and emerging protocols need separate
    future tickets tied to actual client/group needs; universal support is not
    a release criterion. NIP-29 city-group support is a core BW-125 deliverable,
    alongside NIP-17 DMs; it is not deferred to broad interoperability work. Upstream

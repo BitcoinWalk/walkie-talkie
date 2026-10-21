@@ -74,6 +74,9 @@ function lazyProximityTransportAdapter(): ProximityTransportPort {
   };
   return {
     isAvailable: () => load().isAvailable(),
+    getBluetoothStateAsync: () => load().getBluetoothStateAsync?.() ?? Promise.resolve('unsupported'),
+    requestBluetoothEnableAsync: () => load().requestBluetoothEnableAsync?.() ?? Promise.resolve(false),
+    openBluetoothSettingsAsync: () => load().openBluetoothSettingsAsync?.() ?? Promise.resolve(),
     requestPermissions: () => load().requestPermissions(),
     startAdvertisingAsync: (profile) => load().startAdvertisingAsync(profile),
     updateProfileAsync: (profile) => load().updateProfileAsync(profile),
