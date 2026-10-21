@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.25
+
+Reply to a specific message in BitcoinWalk city, Global and Hosts groups.
+Add quick emoji reactions to group messages.
+Show resolved sender names and avatars in community chats.
