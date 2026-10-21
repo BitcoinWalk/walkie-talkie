@@ -359,6 +359,33 @@ export async function uploadPublicImage(opts: {
   }
 }
 
+/** Explicitly public community media. Bound memory before hashing and never
+ * route this through the encrypted private-message attachment pipeline. */
+export async function uploadPublicCommunityFile(opts: {
+  signer: Signer;
+  fileUri: string;
+  mime: string;
+  servers: string[];
+}): Promise<UploadResult> {
+  const stat = await platform.fileSystem.stat(opts.fileUri);
+  if (!stat.exists || stat.isDirectory || stat.size == null || stat.size <= 0 ||
+      stat.size > 20 * 1024 * 1024) throw new Error('Community file exceeds 20 MiB');
+  const bytes = base64.decode(await platform.fileSystem.readBase64(opts.fileUri));
+  if (bytes.length !== stat.size) throw new Error('Community file changed');
+  const hash = bytesToHex(sha256(bytes));
+  const plan = createBlossomUploadPlan(opts.servers);
+  const authB64 = await buildUploadAuth({ signer: opts.signer, sha256Hex: hash,
+    sizeBytes: bytes.length, content: 'Upload public community file' });
+  const result = await putBlobToServers({ servers: plan.uploadCandidates,
+    fileUri: opts.fileUri, authB64, mime: opts.mime, fallbackSize: bytes.length });
+  const url = new URL(result.url);
+  if (url.protocol !== 'https:' || url.username || url.password ||
+      result.sha256.toLowerCase() !== hash || result.size !== bytes.length) {
+    throw new Error('Invalid public media descriptor');
+  }
+  return result;
+}
+
 /** Download blob bytes from a Blossom URL (or any HTTP(S) URL). */
 export async function downloadBlob(url: string): Promise<Uint8Array> {
   const response = await platform.fileSystem.requestRemoteFile(url, { method: 'GET' });

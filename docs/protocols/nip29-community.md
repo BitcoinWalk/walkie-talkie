@@ -41,8 +41,21 @@ city's room.
   or exceed the shared relay's listener budget.
 - A relay `duplicate:` response means the connected identity is already a
   member.
-- Post kind `9` messages only after confirmed membership. Include up to
-  three recent, other-author event prefixes in the `previous` tag.
+- Post kind `9` messages only after confirmed membership. The shared relay's
+  bounded profile accepts only the exact `h` tag, not `previous` or `imeta`.
+- The native community composer reuses the private-chat input, attachment tray
+  and voice recorder. Media uses ordinary HTTPS links in kind `9` content;
+  payment requests use BOLT11 text, and contact cards use `nostr:npub` text.
+  These never enter the encrypted private-message outbox or kind-15 pipeline.
+- Before sharing, disclose that groups are not end-to-end encrypted and media
+  links are publicly accessible, including media shared in Hosts. Bound each
+  upload to 20 MiB and each selected batch to ten files, uploaded sequentially.
+  Verify membership before uploading, re-encode static photos to remove metadata,
+  and validate the media server's returned hash and size. Do not automatically
+  fetch media from other group participants; their links require explicit intent.
+- Payment request creation uses the existing wallet receive task with a single
+  account-bound, expiring in-memory destination handoff. A route cannot nominate
+  an arbitrary relay. Check current membership again before publishing an invoice.
 - Use the existing account signer, including NIP-46, and the existing managed
   relay pool. The signer remains responsible for relay authentication and the
   membership action; the join is signed only after authentication completes.

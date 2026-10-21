@@ -1,4 +1,5 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { ActivityIndicator } from 'react-native';
 
 const mockDestination = { relay: 'wss://chat.bitcoinwalk.org', groupId: 'global' };
 const mockBuildSigner = jest.fn();
@@ -26,6 +27,8 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('lucide-react-native/icons/messages-square', () => () => null);
 jest.mock('lucide-react-native/icons/send', () => () => null);
+jest.mock('@/components/bitcoinwalk/CommunityComposer', () => ({ CommunityComposer: () => null }));
+jest.mock('@/components/chat/BubbleBody', () => ({ BubbleBody: () => null }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -132,6 +135,14 @@ describe('BitcoinWalk community join screen', () => {
     expect(renderer!.root.findAllByType(AppButton).some(
       (button) => button.props.label === 'community.join',
     )).toBe(true);
+  });
+
+  it('shows progress while a community history is loading', async () => {
+    mockLoadCommunity.mockReturnValue(new Promise(() => {}));
+
+    await act(async () => { renderer = create(<CommunityScreen />); });
+
+    expect(renderer!.root.findAllByType(ActivityIndicator)).toHaveLength(1);
   });
 
   it('loads authenticated history only after a successful explicit join', async () => {

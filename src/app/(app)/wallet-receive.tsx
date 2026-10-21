@@ -34,6 +34,7 @@ import { conversationTargetFromRoute } from '@/lib/conversation/target';
 import { IS_ELECTRON } from '@/lib/platform';
 import { platform } from '@/platform';
 import { conversationSendService } from '@/services/conversation/conversation-send.service';
+import { hasCommunityPaymentRequest, sendCommunityPaymentRequest } from '@/services/bitcoinwalk/community-payment-request';
 import { parseBolt11Invoice } from '@/services/wallet/bolt11';
 import {
   LnurlError,
@@ -66,6 +67,7 @@ export default function WalletReceiveScreen() {
   const params = useLocalSearchParams<{
     conversationKey?: string | string[];
     transport?: string | string[];
+    communityRequest?: string | string[];
   }>();
   const chatRoute = params.conversationKey === undefined
     ? null
@@ -74,13 +76,16 @@ export default function WalletReceiveScreen() {
         transport: params.transport,
       });
   const chatTarget = chatRoute ? conversationTargetFromRoute(chatRoute) : null;
-  const invalidChatRoute =
+  const accountPubkey = useActiveAccount((s) => s.activePubkey);
+  const communityRequest = typeof params.communityRequest === 'string' &&
+    hasCommunityPaymentRequest(params.communityRequest, accountPubkey) ? params.communityRequest : null;
+  const invalidChatRoute = (params.communityRequest !== undefined &&
+    (!communityRequest || params.conversationKey !== undefined || params.transport !== undefined)) || (
     params.conversationKey !== undefined ||
     params.transport !== undefined
       ? !chatTarget
-      : false;
-  const sendToChat = chatTarget != null;
-  const accountPubkey = useActiveAccount((s) => s.activePubkey);
+      : false);
+  const sendToChat = chatTarget != null || communityRequest != null;
   const { wallets } = useWallets(accountPubkey);
   const profile = useProfile(accountPubkey);
   const defaultWallet = wallets.find((candidate) => candidate.isDefault) ?? wallets[0] ?? null;
@@ -218,9 +223,11 @@ export default function WalletReceiveScreen() {
         const request = await resolveLnurlPayTarget(source.address);
         parsedInvoice = await requestLnurlPayInvoice(request, sats, description);
       }
-      if (chatTarget && accountPubkey) {
+      if ((chatTarget || communityRequest) && accountPubkey) {
         try {
-          await conversationSendService.sendMessage({
+          if (communityRequest) {
+            await sendCommunityPaymentRequest(communityRequest, accountPubkey, parsedInvoice.invoice);
+          } else if (chatTarget) await conversationSendService.sendMessage({
             accountPubkey,
             target: chatTarget,
             content: parsedInvoice.invoice,

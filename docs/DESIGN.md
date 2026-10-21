@@ -150,13 +150,19 @@ between a message bubble and its reaction row.
   when needed, then returns to its city page with that city available in Chat;
   adding a missing city opens the existing BitcoinWalk walk-creation flow.
 - Bottom navigation has three destinations: Walk, Chat, and Account. Chat opens
-  a compact inbox, ordered Guide, Global, alphabetically sorted joined cities,
-  other joined groups, then private conversations. The inbox's add action opens
+  a compact inbox, ordered Guide, Global, one current joined city, other joined
+  groups, then private conversations. The Walk city is the city-chat default;
+  a searchable picker can remember a separate chat city without changing Walk.
+  The inbox's add action opens
   saved contacts and the existing add-contact/request flow; Contacts is not a
   separate tab. Opening a group pushes its conversation with Back to the inbox.
   Browsing city chats never changes the city chosen for Walk. Guide remains
   notification-only. Hosts appears only for verified active members. Posting
   always remains membership-gated; list visibility never grants access.
+- Community groups reuse the private-chat composer, attachment tray, voice
+  recorder and rich-content bubbles. Public media sharing requires explicit
+  disclosure, including in member-only rooms; this never implies private-message
+  encryption. One composer owns keyboard space, without a second avoidance inset.
 - Optional private-message key recovery never blocks BitcoinWalk city pages or
   NIP-29 communities. Deferring recovery must not generate, rotate, publish, or
   delete a messaging key, and the per-account choice persists across launches.

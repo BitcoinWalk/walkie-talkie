@@ -1100,7 +1100,14 @@
     "list_empty_hint": "Groups you save will appear here."
   },
   "community": {
+    "share_warning": "Group messages are not end-to-end encrypted. Files and voice recordings are uploaded to public media servers, even in Hosts. Anyone with the link can access them. Files are limited to 20 MiB.",
     "inbox_city_title": "BitcoinWalk {{city}}",
+    "city_picker_action": "Change city chat",
+    "city_picker_title": "Choose city chat",
+    "city_picker_search": "Search joined cities",
+    "city_picker_selected": "Selected",
+    "city_picker_empty": "No matching city",
+    "city_picker_empty_hint": "Try a different city name.",
     "inbox_action_error": "Couldn’t update this chat. Please try again.",
     "inbox_load_error": "Couldn’t refresh your groups. Pull down or try again. Your private chats are still available.",
     "rail_label": "BitcoinWalk",

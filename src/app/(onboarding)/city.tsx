@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/common/AppButton';
@@ -55,14 +55,14 @@ export default function ChooseCity() {
       });
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const start = setTimeout(refresh, 0);
     return () => {
       clearTimeout(start);
       active.current?.abort();
       active.current = null;
     };
-  }, [refresh]);
+  }, [refresh]));
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return needle ? cities.filter((city) => [city.name, city.slug, ...city.aliases]
@@ -95,6 +95,12 @@ export default function ChooseCity() {
         numColumns={2}
         columnWrapperStyle={{ gap: spacing.md }}
         keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl
+          refreshing={loading}
+          onRefresh={refresh}
+          colors={[c.accent]}
+          tintColor={c.accent}
+        />}
         contentContainerStyle={{
           paddingHorizontal: spacing.lg,
           paddingTop: top + spacing.lg,

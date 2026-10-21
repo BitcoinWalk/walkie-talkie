@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.22
+
+- Share photos, files, payment requests, contact cards and voice messages in BitcoinWalk groups.
+- Keep Chat compact with one city group and a searchable city switcher.
+- Use the city selected in Walk as the default city chat.

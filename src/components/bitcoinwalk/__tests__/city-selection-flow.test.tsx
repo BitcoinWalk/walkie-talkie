@@ -1,3 +1,4 @@
+import { FlatList, RefreshControl } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 const mockCity = {
@@ -17,6 +18,8 @@ let mockActivePubkey: string | null = null;
 jest.mock('expo-router', () => ({
   router: { canGoBack: () => false, push: (...args: unknown[]) => mockPush(...args),
     replace: (...args: unknown[]) => mockReplace(...args) },
+  useFocusEffect: (callback: () => (() => void) | void) =>
+    jest.requireActual('react').useEffect(callback, [callback]),
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -108,5 +111,21 @@ describe('anonymous city selection flow', () => {
     act(() => { void addCity!.props.onPress(); });
 
     expect(mockOpenExternalUrl).toHaveBeenCalledWith(`${BITCOINWALK_ORIGIN}/start`);
+  });
+
+  it('lets an already-open mosaic refresh its city directory', async () => {
+    renderer = await renderCityScreen();
+    const list = renderer.root.findByType(FlatList);
+    const refreshControl = list.props.refreshControl as React.ReactElement<{
+      onRefresh: () => void;
+    }>;
+
+    await act(async () => {
+      refreshControl.props.onRefresh();
+      await Promise.resolve();
+    });
+
+    expect(mockLoadCities).toHaveBeenCalledTimes(2);
+    expect(refreshControl.type).toBe(RefreshControl);
   });
 });

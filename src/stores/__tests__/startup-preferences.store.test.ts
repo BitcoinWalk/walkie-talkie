@@ -4,6 +4,7 @@ import {
 } from '@/services/preferences/device-preferences.service';
 import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 import { useLanguageStore } from '../language.store';
+import { useChatCity } from '../chat-city.store';
 import { useSelectedCity } from '../selected-city.store';
 import { useThemeStore } from '../theme.store';
 
@@ -24,6 +25,7 @@ describe('startup preference recovery', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     useThemeStore.setState({ preference: 'system', accent: 'orange', loaded: false });
     useLanguageStore.setState({ preference: 'system', loaded: false });
+    useChatCity.setState({ preferredSlug: null, loaded: false });
     useSelectedCity.setState({ selectedCity: null, loaded: false });
   });
 
@@ -124,5 +126,17 @@ describe('startup preference recovery', () => {
       JSON.stringify(city),
     );
     expect(trySetDevicePreference).toHaveBeenCalledWith('bitcoinwalk.cityEntryVersion', '1');
+  });
+
+  it('restores an independent chat city without changing the Walk city', async () => {
+    jest.mocked(getDevicePreference).mockResolvedValue('augsburg');
+
+    await expect(useChatCity.getState().load()).resolves.toBeUndefined();
+
+    expect(useChatCity.getState()).toMatchObject({ preferredSlug: 'augsburg', loaded: true });
+    expect(useSelectedCity.getState().selectedCity).toBeNull();
+
+    useChatCity.getState().select('madeira');
+    expect(trySetDevicePreference).toHaveBeenCalledWith('bitcoinwalk.chatCity', 'madeira');
   });
 });

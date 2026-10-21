@@ -130,6 +130,8 @@ type Props = {
   /** Changes whenever an explicit reply action should restore input focus. */
   focusRequestVersion?: number;
   disabled?: boolean;
+  /** Optional transport limit; private messages keep their existing default. */
+  maxLength?: number;
   /** Conversation key this composer drafts for. The unsent text is persisted
    * under it (so the conversation list shows a "Draft" preview and it survives
    * leaving / restarting) and seeded back when the chat reopens. */
@@ -185,6 +187,7 @@ export function ChatInput({
   onCancelReply,
   focusRequestVersion,
   disabled,
+  maxLength,
   draftKey,
   liveDataEnabled = true,
 }: Props) {
@@ -1077,6 +1080,7 @@ export function ChatInput({
             key={enterToSend ? "enter-send" : "enter-newline"}
             ref={inputRef}
             value={value}
+            maxLength={maxLength}
             // While the suggestion card owns the arrow keys on Electron, the
             // field keeps focus but hides its caret.
             caretHidden={IS_ELECTRON && selectedSuggestionIndex !== null}
