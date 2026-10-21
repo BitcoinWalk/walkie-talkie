@@ -66,5 +66,9 @@ city's room.
   membership action; the join is signed only after authentication completes.
 
 Public community messages intentionally remain outside the encrypted
-private-message database. Offline history and notification delivery are later
-slices.
+private-message database. Joined communities keep a bounded device-local
+notification cursor instead: Android and desktop periodically recover new
+messages, an open live subscription can alert while the app is
+backgrounded, and each community has its own mute preference. Reliable
+terminated-app delivery on iOS still requires a BitcoinWalk-owned APNs service;
+the public NIP-29 relay is not a push service.

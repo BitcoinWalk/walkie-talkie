@@ -30,6 +30,8 @@ jest.mock('lucide-react-native/icons/send', () => () => null);
 jest.mock('@solar-icons/react-native/category/arrows-action/Linear/Reply', () => ({
   Reply: () => null,
 }), { virtual: true });
+jest.mock('@solar-icons/react-native/category/notifications/Linear/Bell', () => ({ Bell: () => null }), { virtual: true });
+jest.mock('@solar-icons/react-native/category/notifications/Linear/BellOff', () => ({ BellOff: () => null }), { virtual: true });
 jest.mock('@/components/bitcoinwalk/CommunityComposer', () => ({ CommunityComposer: () => null }));
 jest.mock('@/components/bitcoinwalk/CommunityMessageRow', () => ({ CommunityMessageRow: () => null }));
 jest.mock('@/components/chat/MessageActionMenu', () => ({ MessageActionMenu: () => null }));
@@ -57,6 +59,12 @@ jest.mock('@/services/account/account.service', () => ({
 jest.mock('@/services/bitcoinwalk/community-membership', () => ({
   ensureCommunityMemberships: (...args: unknown[]) => mockEnsureMemberships(...args),
   hasCommunityMembership: (...args: unknown[]) => mockHasMembership(...args),
+}));
+jest.mock('@/services/bitcoinwalk/community-notifications', () => ({
+  getCommunityMuted: jest.fn(async () => false),
+  observeCommunityNotificationEvent: jest.fn(async () => {}),
+  registerCommunityNotifications: jest.fn(async () => {}),
+  setCommunityMuted: jest.fn(async () => {}),
 }));
 jest.mock('@/services/bitcoinwalk/community', () => ({
   hasActiveCommunityMembership: (...args: unknown[]) => mockActiveMembership(...args),

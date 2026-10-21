@@ -1,6 +1,10 @@
 import { useEffect } from 'react';
 
-import { ensureCommunityMemberships } from '@/services/bitcoinwalk/community-membership';
+import {
+  ensureCommunityMemberships,
+  hasCommunityMembership,
+} from '@/services/bitcoinwalk/community-membership';
+import { registerCommunityNotifications } from '@/services/bitcoinwalk/community-notifications';
 import { communityChoicesForCity, loadCities } from '@/services/bitcoinwalk/cities';
 import { useActiveAccount } from '@/stores/active-account.store';
 import { useSelectedCity } from '@/stores/selected-city.store';
@@ -35,6 +39,11 @@ export function BitcoinWalkCommunityBootstrap() {
       // BitcoinWalk contexts. The membership service keeps remote-signer
       // approvals sequential and remembers only confirmed relay state.
       await ensureCommunityMemberships(accountPubkey, destinations).catch(() => {});
+      await Promise.all(destinations.map(async (destination) => {
+        if (await hasCommunityMembership(accountPubkey, destination)) {
+          await registerCommunityNotifications(accountPubkey, destination);
+        }
+      }));
     })();
 
     return () => controller.abort();

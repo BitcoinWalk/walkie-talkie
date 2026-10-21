@@ -16,6 +16,7 @@ const mockRefreshBadge = jest.fn(async (_pubkey: string) => {});
 const mockRegister = jest.fn(async (_minutes: number) => {});
 const mockUnregister = jest.fn(async () => {});
 const mockStopResident = jest.fn(async () => {});
+const mockCommunityPoll = jest.fn(async (_pubkey: string, _signal?: AbortSignal) => {});
 
 jest.mock('@/platform', () => ({
   platform: {
@@ -43,6 +44,11 @@ jest.mock('@/services/dm/dm.service', () => ({
     pollForNotifications: (pubkey: string, options?: { abort?: AbortSignal }) =>
       mockPoll(pubkey, options),
   },
+}));
+
+jest.mock('@/services/bitcoinwalk/community-notifications', () => ({
+  pollCommunityNotifications: (pubkey: string, signal?: AbortSignal) =>
+    mockCommunityPoll(pubkey, signal),
 }));
 
 jest.mock('../notification-prefs', () => ({
@@ -79,6 +85,7 @@ describe('background notification task', () => {
     mockRegister.mockClear();
     mockUnregister.mockClear();
     mockStopResident.mockClear();
+    mockCommunityPoll.mockClear();
   });
 
   it('hands newly-stored rumors to the funnel and refreshes the badge', async () => {
@@ -90,6 +97,7 @@ describe('background notification task', () => {
     expect(mockPoll).toHaveBeenCalledWith('account-pubkey', { abort: signal });
     expect(mockNotify).toHaveBeenCalledWith(mockRumors, { flushImmediately: true, accountPubkey: 'account-pubkey' });
     expect(mockRefreshBadge).toHaveBeenCalledWith('account-pubkey');
+    expect(mockCommunityPoll).toHaveBeenCalledWith('account-pubkey', signal);
   });
 
   it('does no network work while notifications are disabled', async () => {
@@ -109,15 +117,16 @@ describe('background notification task', () => {
     expect(mockPoll).not.toHaveBeenCalled();
   });
 
-  it('stops resident and periodic work when a cold poll discovers a new key', async () => {
+  it('stops private receiving but keeps community mention recovery on a new key', async () => {
     receiveSessionStore.setState({
       status: 'key-required', accountPubkey: 'account-pubkey', encryptionPubkey: 'new-key',
     }, true);
     mockPoll.mockRejectedValueOnce(new MessagingKeySyncRequiredError('new-key'));
     await mockRun!({ signal: new AbortController().signal });
     expect(mockStopResident).toHaveBeenCalledTimes(1);
-    expect(mockUnregister).toHaveBeenCalledTimes(1);
+    expect(mockUnregister).not.toHaveBeenCalled();
     expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockCommunityPoll).toHaveBeenCalledTimes(1);
   });
 
   it('does not stop a replacement session after an obsolete poll reports a key change', async () => {

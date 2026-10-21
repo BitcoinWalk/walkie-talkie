@@ -42,6 +42,16 @@ async function savedMemberships(accountPubkey: string): Promise<Set<string>> {
   }
 }
 
+export async function listCommunityMemberships(
+  accountPubkey: string,
+): Promise<BitcoinWalkCommunityDestination[]> {
+  return [...await savedMemberships(accountPubkey)].flatMap((value) => {
+    const separator = value.indexOf('\n');
+    if (separator <= 0 || separator === value.length - 1) return [];
+    return [{ relay: value.slice(0, separator), groupId: value.slice(separator + 1) }];
+  });
+}
+
 async function saveMemberships(accountPubkey: string, memberships: Set<string>): Promise<void> {
   await setDevicePreference(preferenceKey(accountPubkey), JSON.stringify({
     destinations: [...memberships].slice(-MAX_SAVED_DESTINATIONS),

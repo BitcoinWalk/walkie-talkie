@@ -1,5 +1,7 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
 import { Reply } from '@solar-icons/react-native/category/arrows-action/Linear/Reply';
+import { Bell } from '@solar-icons/react-native/category/notifications/Linear/Bell';
+import { BellOff } from '@solar-icons/react-native/category/notifications/Linear/BellOff';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +27,7 @@ import {
 import type { BubbleRect } from '@/components/chat/MessageBubble';
 import { AppScreen } from '@/components/common/AppScreen';
 import { AppText } from '@/components/common/AppText';
+import { IconButton } from '@/components/common/IconButton';
 import { ScreenHeader, useScreenHeaderClearance } from '@/components/common/ScreenHeader';
 import { buildSigner } from '@/services/account/account.service';
 import {
@@ -52,6 +55,13 @@ import { quickReactionKey, type QuickReaction } from '@/lib/nostr/quick-reaction
 import type { ReactionAggregate } from '@/lib/nostr/reactions';
 import { useReactionPrefsStore } from '@/stores/reaction-prefs.store';
 import { bottomBarHeight, spacing, uiDensity, useThemeColors } from '@/theme';
+import { iconStrokeWidth } from '@/theme/icons';
+import {
+  getCommunityMuted,
+  observeCommunityNotificationEvent,
+  registerCommunityNotifications,
+  setCommunityMuted,
+} from '@/services/bitcoinwalk/community-notifications';
 
 const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
 
@@ -102,6 +112,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const [menuAnchor, setMenuAnchor] = useState<{ rect: BubbleRect; bubble: LiftedBubble } | null>(null);
   const [pendingReplyTarget, setPendingReplyTarget] = useState<BitcoinWalkCommunityMessage | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
   const quickEmojis = useReactionPrefsStore((state) => state.quickEmojis);
   const listRef = useRef<FlatList<BitcoinWalkCommunityMessage>>(null);
   const followingTail = useRef(true);
@@ -282,9 +293,25 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
         setMessages(result.messages);
         setLoadedDestinationKey(destinationKey);
         if (hasAccess) setJoinedDestinationKey(destinationKey);
+        if (hasAccess && accountPubkey) {
+          await registerCommunityNotifications(
+            accountPubkey,
+            destination,
+            result.metadata.name ?? destination.groupId,
+          );
+          setMuted(await getCommunityMuted(accountPubkey, destination));
+        }
         setError(null);
         unsubscribe = subscribeCommunity(destination, (event) => {
           setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
+          if (hasAccess && accountPubkey) {
+            void observeCommunityNotificationEvent(
+              accountPubkey,
+              destination,
+              result.metadata.name ?? destination.groupId,
+              event,
+            );
+          }
         }, hasAccess ? signer ?? undefined : undefined);
       } catch (cause: unknown) {
         if ((cause as { name?: string })?.name !== 'AbortError') {
@@ -331,6 +358,18 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
     : scope === 'hosts'
       ? t('community.hosts_full_title')
       : city ? t('community.city_title', { city: city.name }) : t('community.title'));
+
+  async function toggleMuted() {
+    if (!accountPubkey || !destination) return;
+    const next = !muted;
+    setMuted(next);
+    try {
+      await setCommunityMuted(accountPubkey, destination, next);
+    } catch (cause) {
+      setMuted(!next);
+      console.warn('[bitcoinwalk.notifications] Failed to update community mute.', cause);
+    }
+  }
 
   const content = (
       <View style={{ flex: 1, paddingTop: clearance }}>
@@ -476,7 +515,17 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   return (
     <AppScreen edges={[]}>
       {content}
-      <ScreenHeader title={title} />
+      <ScreenHeader title={title} right={joined && accountPubkey ? (
+        <IconButton
+          icon={muted
+            ? <BellOff size={uiDensity.headerActionIconSize} color={c.text}
+                strokeWidth={iconStrokeWidth.default} />
+            : <Bell size={uiDensity.headerActionIconSize} color={c.text}
+                strokeWidth={iconStrokeWidth.default} />}
+          onPress={() => void toggleMuted()}
+          accessibilityLabel={muted ? t('profile.unmute') : t('profile.mute')}
+        />
+      ) : undefined} />
     </AppScreen>
   );
 }

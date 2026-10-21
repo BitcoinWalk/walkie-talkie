@@ -1,8 +1,10 @@
 import { platform } from '@/platform';
+import type { Rumor } from '@/db/schema/types';
 import { getActiveAccountPubkey } from '@/services/account/account.service';
 import { refreshUnreadIndicator } from '@/services/conversation/unread-count.service';
 import { dmService } from '@/services/dm/dm.service';
 import { MessagingKeySyncRequiredError, receiveSessionStore } from '@/services/dm/receive-session';
+import { pollCommunityNotifications } from '@/services/bitcoinwalk/community-notifications';
 
 import { getNotificationsEnabled } from './notification-prefs';
 
@@ -29,20 +31,16 @@ platform.backgroundTask.defineTasks(
     if (!(await getNotificationsEnabled())) return;
     if (signal.aborted) return;
 
-    let rumors;
+    let rumors: Rumor[] = [];
     try {
       rumors = await dmService.pollForNotifications(pubkey, { abort: signal });
     } catch (error) {
       if (!(error instanceof MessagingKeySyncRequiredError)) throw error;
       const session = receiveSessionStore.getState();
       if (session.status !== 'key-required' || session.accountPubkey !== pubkey) return;
-      // A cold worker has no mounted UI or initialized notification service.
-      // Cancel durable recovery here as well; only a verified live init restores it.
-      await Promise.all([
-        platform.backgroundMessaging.stop(),
-        unregisterBackgroundPoll(),
-      ]);
-      return;
+      // Private receiving needs the recovered key, but the same worker still
+      // owns BitcoinWalk public-community recovery below.
+      await platform.backgroundMessaging.stop();
     }
     if (rumors.length > 0) {
       // Required lazily to avoid a load-time cycle (notification.service →
@@ -61,6 +59,7 @@ platform.backgroundTask.defineTasks(
         refreshUnreadIndicator(pubkey),
       ]);
     }
+    if (!signal.aborted) await pollCommunityNotifications(pubkey, signal);
   },
 );
 

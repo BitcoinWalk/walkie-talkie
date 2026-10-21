@@ -9,6 +9,11 @@ jest.mock('../push-registration.service', () => ({
   },
 }));
 
+jest.mock('@/services/bitcoinwalk/community-notifications', () => ({
+  syncCommunityNotificationSubscriptions: jest.fn(async () => {}),
+  stopCommunityNotificationSubscriptions: jest.fn(),
+}));
+
 /**
  * Funnel tests for the notification service: one counting path shared by the
  * live `onNewMessage` hook and the background poll, with rumor-id dedup,
@@ -351,6 +356,25 @@ describe('notificationService funnel', () => {
     });
   });
 
+  it('uses the same private preview policy for BitcoinWalk mentions', async () => {
+    const service = await initService();
+
+    await service.notifyCommunityMessages([{
+      eventId: 'e'.repeat(64),
+      senderPubkey: 'c'.repeat(64),
+      content: 'Visible only when previews are enabled',
+      groupName: 'BitcoinWalk Madeira',
+      conversationId: 'wss://chat.bitcoinwalk.org/\nmadeira',
+    }], { accountPubkey: 'account-pubkey' });
+
+    expect(mockPresentedContents.at(-1)).toMatchObject({
+      title: 'BitcoinWalk Madeira',
+      subtitle: 'notifications.new_message',
+      body: 'notifications.open_to_view_message',
+      badgeCount: 8,
+    });
+  });
+
   it('flushes a due aggregate from a native pulse when JS timers are suspended', async () => {
     const service = await initService();
     await setReceiveReady(true);
@@ -392,17 +416,17 @@ describe('notificationService funnel', () => {
     ]);
   });
 
-  it('keeps background work off until receiving is ready, independently of notification permission', async () => {
+  it('keeps community recovery active while private receiving waits for its key', async () => {
     await initService();
     expect(mockEnabledPref).toBe(true);
-    expect(mockRegisterCount).toBe(0);
+    expect(mockRegisterCount).toBe(1);
     expect(mockBackgroundMessagingStarts).toEqual([]);
     await setReceiveReady(true);
     expect(mockRegisterCount).toBe(1);
     expect(mockBackgroundMessagingStarts).toHaveLength(1);
   });
 
-  it('stops both background paths and pending notification delivery on a key change', async () => {
+  it('stops private receiving but preserves community recovery on a key change', async () => {
     const service = await initService();
     await setReceiveReady(true);
     const pending = service.notifyNewRumors([rumor('old-key')]);
@@ -416,14 +440,14 @@ describe('notificationService funnel', () => {
     await flushAggregation();
     expect(mockOps).toEqual([]);
     expect(mockBackgroundMessagingStopCount).toBeGreaterThan(stopsBefore);
-    expect(mockUnregisterCount).toBeGreaterThan(unregistersBefore);
+    expect(mockUnregisterCount).toBe(unregistersBefore);
     expect(mockEnabledPref).toBe(true);
     const registrations = mockRegisterCount;
     await service.enable();
     expect(mockRegisterCount).toBe(registrations);
     expect(mockBackgroundMessagingStarts).toHaveLength(1);
     await setReceiveReady(true);
-    expect(mockRegisterCount).toBe(registrations + 1);
+    expect(mockRegisterCount).toBe(registrations);
     expect(mockBackgroundMessagingStarts).toHaveLength(2);
   });
 
@@ -440,19 +464,16 @@ describe('notificationService funnel', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('does not start a resident service if a key changes during periodic-task registration', async () => {
+  it('does not start a resident service when readiness is immediately revoked', async () => {
     await initService();
-    let finishRegister!: () => void;
-    mockRegisterBarrier = new Promise<void>((resolve) => { finishRegister = resolve; });
-    await setReceiveReady(true);
     expect(mockRegisterCount).toBe(1);
+    receiveSession().setState({ status: 'ready', accountPubkey: 'account-pubkey' }, true);
     receiveSession().setState({
       status: 'key-required', accountPubkey: 'account-pubkey', encryptionPubkey: 'new-key',
     }, true);
-    finishRegister();
     for (let i = 0; i < 40; i++) await Promise.resolve();
     expect(mockBackgroundMessagingStarts).toEqual([]);
-    expect(mockUnregisterCount).toBeGreaterThan(1);
+    expect(mockUnregisterCount).toBe(0);
   });
 
   it('requests a battery-optimization exemption once after notification permission', async () => {

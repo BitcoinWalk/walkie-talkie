@@ -1,4 +1,5 @@
 import type { Rumor } from '@/db/schema/types';
+import { nip19 } from 'nostr-tools';
 import i18n from '@/i18n';
 import { scheduleBackgroundDeadline } from '@/lib/background-deadline';
 import { IS_DEVELOPMENT_BUILD } from '@/lib/environment';
@@ -57,6 +58,14 @@ type NotifyOptions = {
   flushImmediately?: boolean;
 };
 
+export type CommunityMessageNotification = {
+  eventId: string;
+  senderPubkey: string;
+  content: string;
+  groupName: string;
+  conversationId: string;
+};
+
 /**
  * Local-notification manager. Multiple messages coalesce into one notification.
  * Sender identity and message content are independently opt-in and default off;
@@ -93,6 +102,7 @@ class NotificationService {
   /** Serializes native foreground-service start/stop transitions independently
    * from notification aggregation. */
   private backgroundMessagingQueue: Promise<void> = Promise.resolve();
+  private backgroundPollRegistered = false;
   /** Qualifying messages seen since the user last returned to the app. */
   private pendingCount = 0;
   /** The newest qualifying message in the current aggregate. Keeping one rumor
@@ -174,27 +184,49 @@ class NotificationService {
       await retryUnreadIndicator();
     }
     await this.syncBackgroundMessaging();
+    await this.syncCommunitySubscriptions();
     void pushRegistrationService.reconcile();
+  }
+
+  private async syncCommunitySubscriptions(): Promise<void> {
+    // Loaded lazily because the community service is also used by the headless
+    // task imported above.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- intentional cycle-break
+    const communities = require('@/services/bitcoinwalk/community-notifications') as
+      typeof import('@/services/bitcoinwalk/community-notifications');
+    if (!this.enabled || !this.nativeWired) {
+      communities.stopCommunityNotificationSubscriptions();
+      return;
+    }
+    const accountPubkey = await getActiveAccountPubkey();
+    if (accountPubkey) await communities.syncCommunityNotificationSubscriptions(accountPubkey);
   }
 
   /** Native residency and periodic recovery share the receive-readiness gate.
    * A login pointer or notification preference alone cannot resume a stale key. */
   private syncBackgroundMessaging(): Promise<void> {
-    const canRun = () => this.enabled && this.nativeWired &&
-      receiveSessionStore.getState().status === 'ready';
-    const stop = () => Promise.all([
-      platform.backgroundMessaging.stop(),
-      unregisterBackgroundPoll(),
-    ]);
+    const canPoll = () => this.enabled && this.nativeWired;
+    const canReceive = () => canPoll() && receiveSessionStore.getState().status === 'ready';
+    const stop = async () => {
+      await platform.backgroundMessaging.stop();
+      if (this.backgroundPollRegistered) {
+        await unregisterBackgroundPoll();
+        this.backgroundPollRegistered = false;
+      }
+    };
     const run = this.backgroundMessagingQueue.then(async () => {
-      if (!canRun()) {
+      if (!canPoll()) {
         await stop();
         return;
       }
-      await registerBackgroundPoll();
-      // Key invalidation can arrive while the OS registers the periodic task.
-      if (!canRun()) {
-        await stop();
+      if (!this.backgroundPollRegistered) {
+        await registerBackgroundPoll();
+        this.backgroundPollRegistered = true;
+      }
+      // Community messages remain eligible when private-message key recovery
+      // is deferred. Only the resident private-message transport needs that key.
+      if (!canReceive()) {
+        await platform.backgroundMessaging.stop();
         return;
       }
       if (platform.backgroundMessaging.isAvailable()) {
@@ -292,6 +324,54 @@ class NotificationService {
     // alive until the aggregate reaches the OS. Live listeners intentionally
     // fire-and-forget the same promise.
     if (flushPromise) await flushPromise;
+  }
+
+  /** Deliver a bounded NIP-29 message batch through the same permission,
+   * privacy-preview and quiet-hours policy as private messages. Persistent
+   * community cursors own cross-process deduplication. */
+  async notifyCommunityMessages(
+    messages: CommunityMessageNotification[],
+    options: { accountPubkey: string },
+  ): Promise<void> {
+    if (messages.length === 0 || !(await this.isEnabled())) return;
+    if (await isDndActiveNow()) return;
+    if (!platform.notifications.isAvailable() || !platform.notifications.shouldNotifyNow()) return;
+    if (!(await platform.notifications.hasPermission())) {
+      await this.handlePermissionLoss();
+      return;
+    }
+    await this.ensureContentPreferencesLoaded();
+    const latest = messages[messages.length - 1];
+    const senderName = `${nip19.npubEncode(latest.senderPubkey).slice(0, 12)}…`;
+    const subtitle = [
+      this.contentPreferences.showSender ? senderName : null,
+      messages.length > 1
+        ? i18n.t('notifications.new_messages', { count: messages.length })
+        : i18n.t('notifications.new_message'),
+    ].filter(Boolean).join(' · ');
+    const badgeCount = await getUnreadIndicatorsEnabled()
+      ? (await getMainInboxUnreadCount(options.accountPubkey)) + messages.length
+      : 0;
+    await platform.notifications.dismissAll();
+    if (!platform.notifications.shouldNotifyNow()) return;
+    const presented = await platform.notifications.present({
+      title: latest.groupName,
+      subtitle,
+      body: this.contentPreferences.showMessageContent
+        ? latest.content
+        : i18n.t('notifications.open_to_view_message'),
+      communication: this.contentPreferences.showSender ? {
+        senderId: latest.senderPubkey,
+        senderName,
+        recipientId: options.accountPubkey,
+        conversationId: latest.conversationId,
+        groupName: latest.groupName,
+      } : undefined,
+      badgeCount,
+    });
+    if (!presented && !(await platform.notifications.hasPermission())) {
+      await this.handlePermissionLoss();
+    }
   }
 
   private async isEnabled(): Promise<boolean> {
@@ -462,6 +542,7 @@ class NotificationService {
     this.clearPendingState();
     await setNotificationsEnabled(false);
     await this.syncBackgroundMessaging();
+    await this.syncCommunitySubscriptions();
     await platform.notifications.dismissAll();
     void pushRegistrationService.reconcile();
   }
@@ -512,6 +593,7 @@ class NotificationService {
     this.wireNative(); // set up handler/channel/tap listener now, no restart needed
     await retryUnreadIndicator();
     await this.syncBackgroundMessaging();
+    await this.syncCommunitySubscriptions();
     void pushRegistrationService.reconcile();
     return { enabled: true, granted: true };
   }
@@ -524,6 +606,7 @@ class NotificationService {
     await this.enqueue(async () => {
       this.clearPendingState();
       await this.syncBackgroundMessaging();
+      await this.syncCommunitySubscriptions();
       await platform.notifications.dismissAll();
     });
     void pushRegistrationService.reconcile();

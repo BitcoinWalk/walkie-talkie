@@ -401,20 +401,29 @@ authorization on foreground return; opening system settings is a typed port acti
 Notifications are privacy-first and best-effort. Sender information (avatar and
 display name together) and message content are two device preferences that
 default off. A device-level quiet-hours window (do not disturb) suppresses
-delivery at the `notifyNewRumors` intake and again at the flush boundary; messages arriving
+private-message and BitcoinWalk-community delivery; messages arriving
 inside the window are stored and counted as unread but never notify, and
 nothing is queued for catch-up delivery when the window ends. An
 aggregate retains only its newest eligible rumor for an opted-in preview; file
 messages use a localized attachment label rather than their encrypted URL. When
-notifications are enabled for a verified receive session, Android uses a user-visible
+notifications are enabled, joined BitcoinWalk communities keep bounded
+device-local per-group cursors. An open NIP-29 subscription can alert on direct
+messages, including `p`-tag mentions, while backgrounded; Android WorkManager
+and the Electron timer recover missed public-group messages without replaying
+pre-registration history.
+Each group has an account-scoped mute preference. This local recovery does not
+make the NIP-29 relay a push service, and reliable terminated-app iOS delivery
+still requires a BitcoinWalk-owned APNs service.
+
+For a verified private-message receive session, Android uses a user-visible
 `remoteMessaging` foreground service plus a long-running React Native headless
 task to keep the live relay
 session resident. Service-owned receive readiness controls both residency and
-periodic recovery independently of mounted UI. Key invalidation closes the old
-relay pool, cancels intake and pending notification delivery, stops the resident
-service, and unregisters periodic recovery without changing the notification
-preference. A cold poll that discovers an unavailable key also unregisters itself;
-only successful receive initialization restores background work.
+private-message recovery independently of mounted UI. Key invalidation closes
+the old relay pool, cancels private intake and pending private notification
+delivery, and stops the resident service without changing the notification
+preference. The periodic task remains registered for BitcoinWalk messages while
+private-message key recovery is deferred.
 After notification permission is granted, Android requests a
 Doze exemption once because the Nostr relay transport cannot use FCM. Some
 Android vendors suspend React Native timers even in that

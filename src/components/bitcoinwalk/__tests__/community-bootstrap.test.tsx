@@ -3,6 +3,8 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 const mockCityDestination = { relay: 'wss://chat.bitcoinwalk.org', groupId: 'bitcoinwalk-madeira' };
 const mockGlobalDestination = { relay: 'wss://chat.bitcoinwalk.org', groupId: 'bitcoinwalk-global' };
 const mockEnsureMemberships = jest.fn();
+const mockHasMembership = jest.fn();
+const mockRegisterNotifications = jest.fn();
 const mockLoadCities = jest.fn();
 const mockSelectCity = jest.fn();
 let mockActivePubkey: string | null = 'a'.repeat(64);
@@ -23,6 +25,10 @@ const mockSelectedCity = {
 
 jest.mock('@/services/bitcoinwalk/community-membership', () => ({
   ensureCommunityMemberships: (...args: unknown[]) => mockEnsureMemberships(...args),
+  hasCommunityMembership: (...args: unknown[]) => mockHasMembership(...args),
+}));
+jest.mock('@/services/bitcoinwalk/community-notifications', () => ({
+  registerCommunityNotifications: (...args: unknown[]) => mockRegisterNotifications(...args),
 }));
 jest.mock('@/services/bitcoinwalk/cities', () => ({
   communityChoicesForCity: (city: typeof mockSelectedCity) => [
@@ -59,6 +65,8 @@ describe('BitcoinWalk community bootstrap', () => {
     mockActivePubkey = 'a'.repeat(64);
     mockLoadCities.mockResolvedValue([mockSelectedCity]);
     mockEnsureMemberships.mockResolvedValue({ joined: [], failed: [], failureReasons: {} });
+    mockHasMembership.mockResolvedValue(true);
+    mockRegisterNotifications.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
