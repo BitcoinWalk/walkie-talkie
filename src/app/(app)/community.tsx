@@ -1,8 +1,16 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/common/AppButton';
 import { CommunityComposer } from '@/components/bitcoinwalk/CommunityComposer';
@@ -29,9 +37,15 @@ import {
   loadBitcoinWalkChatDirectory,
   type BitcoinWalkChatDirectory,
 } from '@/services/bitcoinwalk/chat-directory';
-import { spacing, uiDensity, useThemeColors } from '@/theme';
+import { getBottomChromeInset } from '@/lib/layout/bottom-chrome';
+import { bottomBarHeight, spacing, uiDensity, useThemeColors } from '@/theme';
 
 const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
+
+export function communityTimelineAtTail(event: NativeScrollEvent): boolean {
+  const remaining = event.contentSize.height - event.layoutMeasurement.height - event.contentOffset.y;
+  return remaining <= spacing['3xl'];
+}
 
 type Props = {
   embedded?: boolean;
@@ -41,8 +55,10 @@ type Props = {
 export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Props) {
   const { t } = useTranslation();
   const c = useThemeColors();
+  const insets = useSafeAreaInsets();
   const screenClearance = useScreenHeaderClearance();
   const clearance = embedded ? 0 : screenClearance;
+  const composerClearance = bottomBarHeight + getBottomChromeInset(insets.bottom);
   const selectedCity = useSelectedCity((state) => state.selectedCity);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
   const params = useLocalSearchParams<{ scope?: string; city?: string | string[] }>();
@@ -66,10 +82,31 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const [joinedDestinationKey, setJoinedDestinationKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const listRef = useRef<FlatList<BitcoinWalkCommunityMessage>>(null);
+  const followingTail = useRef(true);
+  const forceNextTail = useRef(false);
+  const tailFrame = useRef<number | null>(null);
   const resolvingDestination = scope !== 'city' && destination === null && loading;
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
   const visibleMessages = loadedDestinationKey === destinationKey ? messages : [];
   const visibleName = loadedDestinationKey === destinationKey ? name : null;
+
+  const scrollToTail = useCallback((animated: boolean) => {
+    if (tailFrame.current !== null) cancelAnimationFrame(tailFrame.current);
+    tailFrame.current = requestAnimationFrame(() => {
+      tailFrame.current = null;
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  useEffect(() => () => {
+    if (tailFrame.current !== null) cancelAnimationFrame(tailFrame.current);
+  }, []);
+
+  useEffect(() => {
+    followingTail.current = true;
+    forceNextTail.current = true;
+  }, [destinationKey]);
 
   useEffect(() => {
     if (scope === 'city') return;
@@ -224,14 +261,29 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           <AppText tone="muted" align="center">{t('community.unavailable_hint')}</AppText>
         </View> : <>
           <FlatList
+            ref={listRef}
             data={visibleMessages}
             keyExtractor={(message) => message.id}
             refreshing={refreshing}
             onRefresh={() => void refresh()}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
+            onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+              followingTail.current = communityTimelineAtTail(event.nativeEvent);
+            }}
+            scrollEventThrottle={100}
+            onLayout={() => {
+              if (followingTail.current) scrollToTail(false);
+            }}
+            onContentSizeChange={() => {
+              if (!followingTail.current && !forceNextTail.current) return;
+              forceNextTail.current = false;
+              scrollToTail(true);
+            }}
             contentContainerStyle={{ paddingHorizontal: spacing.lg,
-              paddingTop: spacing.sm, paddingBottom: spacing.lg, gap: spacing.sm }}
+              paddingTop: spacing.sm,
+              paddingBottom: composerClearance + spacing.lg,
+              gap: spacing.sm }}
             ListEmptyComponent={<View style={{ alignItems: 'center', gap: spacing.sm, padding: spacing.xl }}>
               <MessagesSquare color={c.textMuted} size={uiDensity.tabIconSize} />
               <AppText variant="subtitle">{t('community.empty')}</AppText>
@@ -252,7 +304,11 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           {joined && accountPubkey ? <CommunityComposer
             key={`${accountPubkey}:${destinationKey}`}
             accountPubkey={accountPubkey} destination={destination}
-            onSent={(event) => setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId))}
+            onSent={(event) => {
+              followingTail.current = true;
+              forceNextTail.current = true;
+              setMessages((current) => mergeCommunityMessages(current, [event], destination.groupId));
+            }}
           /> : <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth,
             borderTopColor: c.border, gap: spacing.sm }}>
             {error && (joined || scope !== 'hosts') ? <AppText tone="danger">{error}</AppText> : null}

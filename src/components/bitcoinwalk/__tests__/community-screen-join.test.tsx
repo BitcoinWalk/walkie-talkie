@@ -1,5 +1,5 @@
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, FlatList } from 'react-native';
 
 const mockDestination = { relay: 'wss://chat.bitcoinwalk.org', groupId: 'global' };
 const mockBuildSigner = jest.fn();
@@ -82,9 +82,13 @@ jest.mock('@/stores/theme.store', () => ({
 
 // Imports follow the hoisted Jest module factories above.
 // eslint-disable-next-line import/first
-import CommunityScreen from '@/app/(app)/community';
+import CommunityScreen, { communityTimelineAtTail } from '@/app/(app)/community';
 // eslint-disable-next-line import/first
 import { AppButton } from '@/components/common/AppButton';
+// eslint-disable-next-line import/first
+import { getBottomChromeInset } from '@/lib/layout/bottom-chrome';
+// eslint-disable-next-line import/first
+import { bottomBarHeight, spacing } from '@/theme';
 
 async function settle(): Promise<void> {
   await Promise.resolve();
@@ -143,6 +147,36 @@ describe('BitcoinWalk community join screen', () => {
     await act(async () => { renderer = create(<CommunityScreen />); });
 
     expect(renderer!.root.findAllByType(ActivityIndicator)).toHaveLength(1);
+  });
+
+  it('keeps the composer clear of messages and tracks whether the reader is at the tail', async () => {
+    mockActiveMembership.mockResolvedValue(true);
+    await act(async () => { renderer = create(<CommunityScreen />); await settle(); });
+
+    const list = renderer!.root.findByType(FlatList);
+    expect(list.props.contentContainerStyle.paddingBottom).toBe(
+      bottomBarHeight + getBottomChromeInset(0) + spacing.lg,
+    );
+    expect(list.props.onLayout).toEqual(expect.any(Function));
+    expect(list.props.onContentSizeChange).toEqual(expect.any(Function));
+    expect(communityTimelineAtTail({
+      contentOffset: { x: 0, y: 460 },
+      contentSize: { width: 320, height: 1_000 },
+      layoutMeasurement: { width: 320, height: 500 },
+      contentInset: { top: 0, right: 0, bottom: 0, left: 0 },
+      velocity: undefined,
+      targetContentOffset: undefined,
+      zoomScale: 1,
+    })).toBe(true);
+    expect(communityTimelineAtTail({
+      contentOffset: { x: 0, y: 200 },
+      contentSize: { width: 320, height: 1_000 },
+      layoutMeasurement: { width: 320, height: 500 },
+      contentInset: { top: 0, right: 0, bottom: 0, left: 0 },
+      velocity: undefined,
+      targetContentOffset: undefined,
+      zoomScale: 1,
+    })).toBe(false);
   });
 
   it('loads authenticated history only after a successful explicit join', async () => {
