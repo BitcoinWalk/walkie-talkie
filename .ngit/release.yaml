@@ -15,6 +15,8 @@ website: https://bitcoinwalk.org
 repository: nostr://npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw/relay.ngit.dev/walkie-talkie
 icon: fastlane/metadata/android/en-US/images/icon.png
 notes: |
+  - Fix Amber and other NIP-46 bunker sign-in when Android briefly reports Walkie Talkie offline while the signer is open.
+  - Preserve the active signing reply subscription and recover cleanly when returning from the signer.
   - Browse BitcoinWalk cities before signing in and keep your selected city as the home screen.
   - Open distinct City and Global conversations, with the private Hosts group limited to organizers.
   - Sign in with a local key, Amber, or a remote signer.

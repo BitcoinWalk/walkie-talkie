@@ -81,9 +81,10 @@ describe('ManagedRelayPool', () => {
     pool.destroy();
   });
 
-  test('refreshes a stale offline hint when returning from Amber', async () => {
+  test('does not tear down a live signer subscription for a false background offline hint', async () => {
     const { pool, relays } = createHarness([], undefined, true);
-    pool.underlyingPool.subscribe([RELAY_A], { kinds: [24133] }, { onevent: () => {} });
+    const received = jest.fn();
+    pool.underlyingPool.subscribe([RELAY_A], { kinds: [24133] }, { onevent: received });
     await flushPromises();
     relays[0].emitEose();
 
@@ -91,7 +92,11 @@ describe('ManagedRelayPool', () => {
     mockAppStateChange!();
     mockNetworkConnected = false;
     mockNetworkStateChange!();
-    expect(relays[0].connected).toBe(false);
+    expect(relays[0].connected).toBe(true);
+
+    const reply = { ...eventAt('approval', 100), kind: 24133 };
+    relays[0].emitEvent(reply);
+    expect(received).toHaveBeenCalledWith(reply, RELAY_A);
 
     // Android has connectivity again but does not emit another network event.
     mockNetworkConnected = true;
@@ -99,8 +104,22 @@ describe('ManagedRelayPool', () => {
     mockAppStateChange!();
     await flushPromises();
 
-    expect(relays).toHaveLength(2);
-    expect(relays[1].connected).toBe(true);
+    expect(relays).toHaveLength(1);
+    pool.destroy();
+  });
+
+  test('still tears down ordinary relay subscriptions when Android is offline in background', async () => {
+    const { pool, relays } = createHarness([], undefined, true);
+    pool.subscribe({ label: 'dm.live', relays: [RELAY_A], filter: { kinds: [1059] }, onEvent: () => {} });
+    await flushPromises();
+    relays[0].emitEose();
+
+    mockAppState = 'background';
+    mockAppStateChange!();
+    mockNetworkConnected = false;
+    mockNetworkStateChange!();
+
+    expect(relays[0].connected).toBe(false);
     pool.destroy();
   });
 

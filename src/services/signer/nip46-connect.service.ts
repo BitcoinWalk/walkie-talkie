@@ -66,14 +66,22 @@ async function connectWithForegroundRecovery(
   signal.addEventListener('abort', abort, { once: true });
   if (signal.aborted) abort();
 
-  const connect = signer
-    .connect({ name: APP_NAME, url: APP_URL })
-    .then(() => null);
   const recover = returned.then(async () => {
     // Let the managed relay pool restore a socket before publishing the probe.
     await new Promise<void>((resolve) => setTimeout(resolve, FOREGROUND_RECOVERY_DELAY_MS));
     return readBunkerPublicKey(signer);
   });
+  const connect = signer
+    .connect({ name: APP_NAME, url: APP_URL })
+    .then(() => null)
+    .catch((error: unknown) => {
+      // A background reachability transition can still reject the original
+      // CONNECT wait on devices that suspend the websocket aggressively. Once
+      // Amber was opened, do not fail the login before the user returns; share
+      // the single recovery probe instead of replaying the one-time secret.
+      if (!leftForeground) throw error;
+      return recover;
+    });
 
   try {
     // A failed early probe must not discard an otherwise valid CONNECT wait.

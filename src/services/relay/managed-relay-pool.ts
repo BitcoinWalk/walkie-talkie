@@ -572,7 +572,16 @@ export class ManagedRelayPool {
     this.networkSignature = signature;
 
     if (!available) {
-      for (const connection of this.connections.values()) this.closeConnection(connection, false);
+      for (const connection of this.connections.values()) {
+        // Android can briefly report the client as offline while a remote signer
+        // activity is in front. Closing the NIP-46 socket at that moment makes
+        // Amber deliver its one-time CONNECT reply to an empty subscription
+        // ("no one was listening"). Keep only that interactive session alive;
+        // ordinary relay traffic still follows the normal offline teardown.
+        if (IS_ANDROID && this.appState !== 'active' &&
+            this.hasOpenSubscriptionWithLabel(connection.url, 'nip46.session')) continue;
+        this.closeConnection(connection, false);
+      }
       return;
     }
 
@@ -677,6 +686,13 @@ export class ManagedRelayPool {
 
   private hasSubscriptionDemand(url: string): boolean {
     return (this.subscriptionIdsByRelay.get(url)?.size ?? 0) > 0;
+  }
+
+  private hasOpenSubscriptionWithLabel(url: string, label: string): boolean {
+    return Array.from(this.subscriptionIdsByRelay.get(url) ?? []).some((id) => {
+      const logical = this.subscriptions.get(id);
+      return logical?.options.label === label && !logical.closed;
+    });
   }
 
   private attachSubscriptionsForRelay(

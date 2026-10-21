@@ -1,0 +1,3 @@
+Walkie Talkie 26.10.28
+
+Fixed Amber and other NIP-46 bunker sign-in when Android briefly reports Walkie Talkie offline while the signer is open. The app now preserves the active signing reply subscription and recovers cleanly after returning from Amber.
