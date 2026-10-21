@@ -42,12 +42,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { ChatComposerFeedbackSlot } from '@/components/chat/ChatComposerFeedbackSlot';
+import { Avatar } from '@/components/common/Avatar';
+import { AppText } from '@/components/common/AppText';
 import { IconButton } from "@/components/common/IconButton";
 import { ChromeBackdrop } from "@/components/common/ChromeBackdrop";
 import { InteractivePressable as Pressable } from "@/components/common/InteractivePressable";
 import Plus from "lucide-react-native/icons/plus";
 import { CustomEmojiImage } from "@/components/emoji/CustomEmojiImage";
 import { useCustomEmojis } from "@/hooks/use-custom-emojis";
+import { useProfilesMap } from '@/hooks/use-profile';
 import { useElectronComposerEscape } from '@/hooks/use-electron-composer-escape';
 import { useElectronComposerFilePaste } from '@/hooks/use-electron-composer-file-paste';
 import { useElectronComposerTypingFocus } from '@/hooks/use-electron-composer-typing-focus';
@@ -56,6 +59,9 @@ import { classifyMessageSendFailure } from '@/lib/chat/message-send-error';
 import { impact } from "@/lib/haptics";
 import { getBottomChromeInset } from "@/lib/layout/bottom-chrome";
 import { normalizeBareNostrUris } from "@/lib/nostr/normalize-content";
+import { resolveDisplayName } from '@/lib/nostr/display-name';
+import { pubkeyToNpub } from '@/lib/nostr/keys';
+import { activeMentionAt, insertMentionReference } from '@/lib/nostr/mentions';
 import type { CustomEmoji } from "@/lib/nostr/custom-emoji";
 import type { ComposerFile } from '@/lib/attachments/composer-file';
 import { DESKTOP_OS, IS_ELECTRON } from "@/lib/platform";
@@ -139,6 +145,8 @@ type Props = {
   /** Delay collection subscription/local cache reads until the route transition
    * finishes while still rendering a fully interactive text field immediately. */
   liveDataEnabled?: boolean;
+  /** People available to tag from this conversation. */
+  mentionPubkeys?: readonly string[];
 };
 
 type ComposerPanelMode = 'attachments' | 'emoji';
@@ -166,6 +174,8 @@ const INPUT_ACTION_RESERVE =
 const SUGGESTION_DEBOUNCE_MS = 200;
 const SUGGESTION_MAX_CHARS = 5;
 const SUGGESTION_LIMIT = 4;
+const MENTION_SUGGESTION_LIMIT = 3;
+const MENTION_SUGGESTION_ROW_HEIGHT = 44;
 // The suggestion strip floats over the message list: its fixed height is
 // folded back into the composer's negative top margin, so it appears above
 // the input bar without ever reflowing the list (and stays inside the
@@ -190,6 +200,7 @@ export function ChatInput({
   maxLength,
   draftKey,
   liveDataEnabled = true,
+  mentionPubkeys = [],
 }: Props) {
   const { t } = useTranslation();
   const directionalIconStyle = useDirectionalIconStyle();
@@ -236,6 +247,11 @@ export function ChatInput({
   const [desktopEmojiMounted, setDesktopEmojiMounted] = useState(false);
   const [desktopEmojiVisible, setDesktopEmojiVisible] = useState(false);
   const accountPubkey = useActiveAccount((state) => state.activePubkey);
+  const uniqueMentionPubkeys = useMemo(
+    () => [...new Set(mentionPubkeys)].filter((pubkey) => pubkey && pubkey !== accountPubkey),
+    [accountPubkey, mentionPubkeys],
+  );
+  const mentionProfiles = useProfilesMap(uniqueMentionPubkeys, liveDataEnabled);
   const emojiCollection = useCustomEmojis(accountPubkey, liveDataEnabled);
   const customEmojiByShortcode = useMemo(() => {
     const map = new Map<string, CustomEmoji>();
@@ -317,6 +333,7 @@ export function ChatInput({
   const [forcedSelection, setForcedSelection] = useState<
     { start: number; end: number } | undefined
   >(undefined);
+  const [mentionCaret, setMentionCaret] = useState(value.length);
   // Shortcode autocomplete: while the whole draft is a short, single token,
   // offer the first few matching custom emojis above the field. The draft
   // itself updates per keystroke; only the *matching* runs off this debounced
@@ -353,6 +370,31 @@ export function ChatInput({
     }
     return matched;
   }, [suggestionQuery, customEmojiByShortcode]);
+
+  const activeMention = useMemo(
+    () => activeMentionAt(value, mentionCaret),
+    [mentionCaret, value],
+  );
+  const mentionSuggestions = useMemo(() => {
+    if (!activeMention) return [];
+    const query = activeMention.query.toLowerCase();
+    return uniqueMentionPubkeys
+      .map((pubkey) => {
+        const profile = mentionProfiles[pubkey];
+        return {
+          pubkey,
+          profile,
+          npub: pubkeyToNpub(pubkey),
+          name: resolveDisplayName(pubkey, profile),
+        };
+      })
+      .filter(({ name, npub, profile }) =>
+        !query ||
+        name.toLowerCase().includes(query) ||
+        npub.toLowerCase().startsWith(query) ||
+        (profile?.nip05 ?? '').toLowerCase().includes(query))
+      .slice(0, MENTION_SUGGESTION_LIMIT);
+  }, [activeMention, mentionProfiles, uniqueMentionPubkeys]);
 
   // Measured content height, driving the field's auto-grow (onContentSizeChange).
   const [contentHeight, setContentHeight] = useState(INPUT_LINE_HEIGHT);
@@ -434,8 +476,14 @@ export function ChatInput({
   // focus: clicking a card cell blurs the field on web, and hiding then would
   // unmount the cell before its click lands.
   const [inputFocused, setInputFocused] = useState(false);
-  const suggestionsVisible =
-    emojiSuggestions.length > 0 && (IS_ELECTRON || inputFocused);
+  const mentionSuggestionsVisible =
+    mentionSuggestions.length > 0 && (IS_ELECTRON || inputFocused);
+  const emojiSuggestionsVisible =
+    !mentionSuggestionsVisible && emojiSuggestions.length > 0 && (IS_ELECTRON || inputFocused);
+  const suggestionsVisible = mentionSuggestionsVisible || emojiSuggestionsVisible;
+  const suggestionStripHeight = mentionSuggestionsVisible
+    ? mentionSuggestions.length * MENTION_SUGGESTION_ROW_HEIGHT + spacing.sm
+    : SUGGESTION_STRIP_HEIGHT;
 
   // Auto-grow height — applied ONLY for multiple lines. A single line keeps the
   // input height-less (it hugs its content and the wrapper centres it), so the
@@ -715,6 +763,18 @@ export function ChatInput({
     [insertUnicodeEmoji, sendEmoji],
   );
 
+  const selectMention = useCallback((pubkey: string) => {
+    const inserted = insertMentionReference(valueRef.current, mentionCaret, pubkeyToNpub(pubkey));
+    if (!inserted) return;
+    valueRef.current = inserted.text;
+    setValue(inserted.text);
+    setMentionCaret(inserted.caret);
+    setForcedSelection({ start: inserted.caret, end: inserted.caret });
+    selectionRef.current = { start: inserted.caret, end: inserted.caret };
+    if (draftKey) setDraft(draftKey, inserted.text);
+    inputRef.current?.focus();
+  }, [draftKey, mentionCaret, setDraft]);
+
   function selectDesktopEmoji(emoji: string | CustomEmoji) {
     // Pick-and-done: a selection closes the desktop popover. A Unicode pick
     // then retakes composer focus so typing continues at the insertion caret.
@@ -907,7 +967,7 @@ export function ChatInput({
           bottomBarHeight +
           SAFE +
           aboveInputHeight +
-          (suggestionsVisible ? SUGGESTION_STRIP_HEIGHT : 0)
+          (suggestionsVisible ? suggestionStripHeight : 0)
         ),
         zIndex: 1,
       }}
@@ -915,7 +975,7 @@ export function ChatInput({
       <View
         style={{
           position: "absolute",
-          top: aboveInputHeight + (suggestionsVisible ? SUGGESTION_STRIP_HEIGHT : 0),
+          top: aboveInputHeight + (suggestionsVisible ? suggestionStripHeight : 0),
           start: 0,
           end: 0,
           bottom: 0,
@@ -931,23 +991,58 @@ export function ChatInput({
         {aboveInput}
       </ChatComposerFeedbackSlot>
       {suggestionsVisible ? (
-        // Shortcode suggestions: a floating `surfaceElevated` card above the
-        // input bar's top hairline, hugging its content with its leading
-        // edge flush to the input box's leading edge. Its strip height is
-        // compensated in this container's negative top margin, so the
-        // message list never reflows.
+        // Suggestions float above the input without reflowing the message list.
         <View
           style={{
-            height: SUGGESTION_STRIP_HEIGHT,
+            height: suggestionStripHeight,
             justifyContent: "flex-end",
             zIndex: 1,
             // The input box starts after the attach button and the row gap
             // when they're present; otherwise at the composer gutter.
-            paddingStart:
-              spacing.lg +
-              (showAttach ? COMPOSER_ACTION_SIZE + spacing.sm : 0),
+            paddingStart: mentionSuggestionsVisible
+              ? spacing.lg
+              : spacing.lg + (showAttach ? COMPOSER_ACTION_SIZE + spacing.sm : 0),
+            paddingEnd: mentionSuggestionsVisible ? spacing.lg : 0,
           }}
         >
+          {mentionSuggestionsVisible ? (
+            <View
+              style={{
+                marginBottom: -spacing.xs,
+                backgroundColor: c.surfaceElevated,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: c.border,
+                borderRadius: radius.lg,
+                overflow: 'hidden',
+                ...shadow.float,
+              }}
+            >
+              {mentionSuggestions.map(({ pubkey, profile, name }) => (
+                <Pressable
+                  key={pubkey}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mention ${name}`}
+                  onPress={() => selectMention(pubkey)}
+                  style={({ pressed }) => ({
+                    height: MENTION_SUGGESTION_ROW_HEIGHT,
+                    paddingHorizontal: spacing.sm,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    backgroundColor: pressed ? c.surfaceMuted : 'transparent',
+                  })}
+                >
+                  <Avatar pubkey={pubkey} picture={profile?.picture} name={name} size={28} />
+                  <AppText variant="body" numberOfLines={1} style={{ flex: 1 }}>{name}</AppText>
+                  {profile?.nip05 ? (
+                    <AppText variant="caption" tone="muted" numberOfLines={1}>
+                      {profile.nip05}
+                    </AppText>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : (
           <View
             style={{
               alignSelf: "flex-start",
@@ -989,6 +1084,7 @@ export function ChatInput({
               </Pressable>
             ))}
           </View>
+          )}
         </View>
       ) : null}
       <View
@@ -1086,6 +1182,7 @@ export function ChatInput({
             caretHidden={IS_ELECTRON && selectedSuggestionIndex !== null}
             onChangeText={(text) => {
               setValue(text);
+              setMentionCaret(text.length);
               // Typed input leaves the suggestion card immediately; the
               // debounce timeout clears programmatic value changes as a
               // backstop.
@@ -1115,6 +1212,7 @@ export function ChatInput({
             selection={forcedSelection}
             onSelectionChange={(e) => {
               selectionRef.current = e.nativeEvent.selection;
+              setMentionCaret(e.nativeEvent.selection.start);
               // Release control the instant the forced caret lands, so the IME
               // owns the selection again for subsequent typing.
               if (forcedSelection) setForcedSelection(undefined);

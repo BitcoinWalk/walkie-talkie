@@ -1,6 +1,7 @@
 import type { Event, Filter } from 'nostr-tools';
 
 import type { QuickReaction } from '@/lib/nostr/quick-reaction';
+import { mentionedPubkeys } from '@/lib/nostr/mentions';
 import { normalizeReactionDisplay, type ReactionAggregate } from '@/lib/nostr/reactions';
 import { relayPool } from '@/services/relay/relay-pool';
 import type { Signer } from '@/services/signer/signer.interface';
@@ -265,6 +266,7 @@ export async function sendCommunityMessage(input: {
     tags: [
       ['h', input.destination.groupId],
       ...(replyToId ? [['e', replyToId]] : []),
+      ...mentionedPubkeys(content).map((pubkey) => ['p', pubkey]),
     ],
     content,
   });

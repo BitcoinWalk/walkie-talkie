@@ -32,11 +32,12 @@ type Props = {
   onCancelReply?: () => void;
   onReplySent?: () => void;
   focusRequestVersion?: number;
+  mentionPubkeys?: readonly string[];
 };
 
 /** Shared DM chrome, with a separate NIP-29 transport and public-media consent. */
 export function CommunityComposer({ accountPubkey, destination, onSent, replyTo,
-  onCancelReply, onReplySent, focusRequestVersion }: Props) {
+  onCancelReply, onReplySent, focusRequestVersion, mentionPubkeys }: Props) {
   const { t } = useTranslation();
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -188,6 +189,7 @@ export function CommunityComposer({ accountPubkey, destination, onSent, replyTo,
   return <ChatComposerPanelProvider>
     <ChatComposerPanelBackHandler />
     <ChatInput disabled={busy} onSend={sendText} maxLength={4_000}
+      mentionPubkeys={mentionPubkeys}
       replyTo={replyTo ? { senderName: replyTo.senderName,
         contentPreview: replyTo.contentPreview } : null}
       onCancelReply={onCancelReply}

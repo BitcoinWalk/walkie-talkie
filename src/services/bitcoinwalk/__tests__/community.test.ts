@@ -1,4 +1,4 @@
-import type { Event, EventTemplate } from 'nostr-tools';
+import { nip19, type Event, type EventTemplate } from 'nostr-tools';
 
 import {
   joinCommunity,
@@ -200,6 +200,22 @@ describe('BitcoinWalk NIP-29 community service', () => {
       kind: 9,
       content: 'Hello',
       tags: [['h', destination.groupId], ['e', ids[0]]],
+    }));
+  });
+
+  it('adds p tags for people mentioned in a community message', async () => {
+    jest.mocked(relayPool.publishEvent).mockResolvedValue([
+      { url: destination.relay, outcome: { ok: true } },
+    ]);
+    const mentioned = 'd'.repeat(64);
+    await sendCommunityMessage({
+      destination,
+      signer,
+      content: `Hello nostr:${nip19.npubEncode(mentioned)}`,
+      previousEventIds: [],
+    });
+    expect(signer.signEvent).toHaveBeenLastCalledWith(expect.objectContaining({
+      tags: [['h', destination.groupId], ['p', mentioned]],
     }));
   });
 

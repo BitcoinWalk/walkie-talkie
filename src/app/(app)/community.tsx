@@ -1,7 +1,7 @@
 import MessagesSquare from 'lucide-react-native/icons/messages-square';
 import { Reply } from '@solar-icons/react-native/category/arrows-action/Linear/Reply';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -90,6 +90,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const [messages, setMessages] = useState<BitcoinWalkCommunityMessage[]>([]);
   const [loadedDestinationKey, setLoadedDestinationKey] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [memberPubkeys, setMemberPubkeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [joinedDestinationKey, setJoinedDestinationKey] = useState<string | null>(null);
@@ -108,9 +109,16 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   const tailFrame = useRef<number | null>(null);
   const resolvingDestination = scope !== 'city' && destination === null && loading;
   const joined = destinationKey !== null && joinedDestinationKey === destinationKey;
-  const visibleMessages = loadedDestinationKey === destinationKey ? messages : [];
+  const visibleMessages = useMemo(
+    () => loadedDestinationKey === destinationKey ? messages : [],
+    [destinationKey, loadedDestinationKey, messages],
+  );
   const visibleName = loadedDestinationKey === destinationKey ? name : null;
   const messageById = new Map(visibleMessages.map((message) => [message.id, message]));
+  const mentionPubkeys = useMemo(
+    () => [...new Set([...memberPubkeys, ...visibleMessages.map((message) => message.pubkey)])],
+    [memberPubkeys, visibleMessages],
+  );
 
   function startReply(message: BitcoinWalkCommunityMessage) {
     setReplyingTo(message);
@@ -232,6 +240,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
         throw new Error(HOSTS_ACCESS_DENIED);
       }
       setName(result.metadata.name);
+      setMemberPubkeys(result.roster.memberPubkeys);
       setMessages(result.messages);
       setLoadedDestinationKey(destinationKey);
       setError(null);
@@ -269,6 +278,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           throw new Error(HOSTS_ACCESS_DENIED);
         }
         setName(result.metadata.name);
+        setMemberPubkeys(result.roster.memberPubkeys);
         setMessages(result.messages);
         setLoadedDestinationKey(destinationKey);
         if (hasAccess) setJoinedDestinationKey(destinationKey);
@@ -390,6 +400,7 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
           {joined && accountPubkey ? <CommunityComposer
             key={`${accountPubkey}:${destinationKey}`}
             accountPubkey={accountPubkey} destination={destination}
+            mentionPubkeys={mentionPubkeys}
             replyTo={replyingTo ? {
               id: replyingTo.id,
               senderName: replyingTo.pubkey === accountPubkey

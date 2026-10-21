@@ -748,6 +748,9 @@ export default function ChatPageRuntime() {
                   sourceConversationKey={conversationKey} />}
                 draftKey={conversationKey}
                 liveDataEnabled={secondaryDataReady && routeActive}
+                mentionPubkeys={shellIsGroup
+                  ? shellConversation?.memberPubkeys ?? []
+                  : conversationKey ? [conversationKey] : []}
                 disabled={composerModel.disabled}
                 onSend={sendFromComposer}
                 onPickAttachment={

@@ -9,6 +9,7 @@ type Props = TextInputProps & {
   invalid?: boolean;
   /** Short field name. Always rendered above the control as a muted caption. */
   label?: string;
+  labelAccessory?: ReactNode;
   /** Supporting copy. Always rendered below the control as a muted caption. */
   description?: string;
   /** Current validation error. Replaces `description` and marks the field invalid. */
@@ -25,6 +26,7 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
   {
     invalid,
     label,
+    labelAccessory,
     description,
     error,
     trailingAccessory,
@@ -163,9 +165,10 @@ export const AppInput = forwardRef<TextInput, Props>(function AppInput(
   return (
     <View style={{ gap: spacing.xs }}>
       {label != null ? (
-        <AppText variant="caption" tone="muted">
-          {label}
-        </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+          <AppText variant="caption" tone="muted">{label}</AppText>
+          {labelAccessory}
+        </View>
       ) : null}
       {control}
       {supportingText != null ? (
