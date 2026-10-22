@@ -626,6 +626,18 @@
     "screenshot_preview": "Podgląd zrzutów ekranu",
     "screenshot_preview_exit": "Zakończ podgląd zrzutów ekranu"
   },
+  "logs": {
+    "title": "Dzienniki",
+    "description": "Użyj tych dzienników, aby rozwiązywać problemy z logowaniem i inne błędy aplikacji.",
+    "privacy": "Klucze prywatne, sekrety połączeń, identyfikatory kont i linki są usuwane automatycznie.",
+    "empty_title": "Brak dzienników",
+    "empty_hint": "Próby połączenia i błędy aplikacji pojawią się tutaj.",
+    "share": "Udostępnij dzienniki",
+    "share_failed": "Nie udało się udostępnić dzienników.",
+    "clear": "Wyczyść dzienniki",
+    "clear_title": "Wyczyścić wszystkie dzienniki?",
+    "clear_message": "Spowoduje to usunięcie historii diagnostycznej zapisanej na tym urządzeniu."
+  },
   "app_update": {
     "check": "Sprawdź aktualizacje",
     "up_to_date": "Masz najnowszą wersję",

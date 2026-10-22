@@ -620,6 +620,18 @@
     "screenshot_preview": "截图预览",
     "screenshot_preview_exit": "退出截图预览"
   },
+  "logs": {
+    "title": "日志",
+    "description": "使用这些日志排查登录和其他应用故障。",
+    "privacy": "私钥、连接密钥、账户标识和链接会被自动移除。",
+    "empty_title": "暂无日志",
+    "empty_hint": "连接尝试和应用故障会显示在这里。",
+    "share": "分享日志",
+    "share_failed": "无法分享日志。",
+    "clear": "清除日志",
+    "clear_title": "清除所有日志？",
+    "clear_message": "这会移除此设备上存储的诊断历史。"
+  },
   "app_update": {
     "check": "检查更新",
     "up_to_date": "当前已是最新版本",

@@ -676,6 +676,18 @@
     "screenshot_preview": "Screenshot preview",
     "screenshot_preview_exit": "Exit screenshot preview"
   },
+  "logs": {
+    "title": "Logs",
+    "description": "Use these logs to troubleshoot sign-in and other app failures.",
+    "privacy": "Private keys, connection secrets, account identifiers, and links are removed automatically.",
+    "empty_title": "No logs yet",
+    "empty_hint": "Connection attempts and app failures will appear here.",
+    "share": "Share logs",
+    "share_failed": "The logs couldn't be shared.",
+    "clear": "Clear logs",
+    "clear_title": "Clear all logs?",
+    "clear_message": "This removes the diagnostic history stored on this device."
+  },
   "app_update": {
     "check": "Check for updates",
     "up_to_date": "You’re up to date",

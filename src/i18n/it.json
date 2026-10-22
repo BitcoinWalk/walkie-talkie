@@ -623,6 +623,18 @@
     "screenshot_preview": "Anteprima screenshot",
     "screenshot_preview_exit": "Esci dall’anteprima screenshot"
   },
+  "logs": {
+    "title": "Registri",
+    "description": "Usa questi registri per risolvere i problemi di accesso e altri errori dell’app.",
+    "privacy": "Chiavi private, segreti di connessione, identificativi dell’account e link vengono rimossi automaticamente.",
+    "empty_title": "Nessun registro",
+    "empty_hint": "I tentativi di connessione e gli errori dell’app appariranno qui.",
+    "share": "Condividi registri",
+    "share_failed": "Impossibile condividere i registri.",
+    "clear": "Cancella registri",
+    "clear_title": "Cancellare tutti i registri?",
+    "clear_message": "Questo rimuove la cronologia diagnostica salvata su questo dispositivo."
+  },
   "app_update": {
     "check": "Cerca aggiornamenti",
     "up_to_date": "La versione è aggiornata",

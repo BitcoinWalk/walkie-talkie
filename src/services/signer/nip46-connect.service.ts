@@ -9,6 +9,7 @@ import {
 import { bytesToHex } from '@/lib/nostr/keys';
 import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
 import { platform } from '@/platform';
+import { recordAppDiagnostic } from '@/services/diagnostics/app-error-diagnostics.service';
 
 import { addRemoteAccount } from '../account/account.service';
 import { relayPool } from '../relay/relay-pool';
@@ -52,9 +53,21 @@ async function connectWithForegroundRecovery(
   const removeListener = platform.appState.addChangeListener((state) => {
     if (state !== 'active') {
       leftForeground = true;
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'bunker_app_backgrounded',
+      });
       return;
     }
-    if (leftForeground) resolveReturned();
+    if (leftForeground) {
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'bunker_app_returned',
+      });
+      resolveReturned();
+    }
   });
   let rejectAborted!: (reason: Error) => void;
   const aborted = new Promise<never>((_, reject) => { rejectAborted = reject; });
@@ -67,19 +80,51 @@ async function connectWithForegroundRecovery(
   if (signal.aborted) abort();
 
   const recover = returned.then(async () => {
+    void recordAppDiagnostic({
+      level: 'info',
+      area: 'remote_signing',
+      code: 'bunker_recovery_started',
+    });
     // Let the managed relay pool restore a socket before publishing the probe.
     await new Promise<void>((resolve) => setTimeout(resolve, FOREGROUND_RECOVERY_DELAY_MS));
-    return readBunkerPublicKey(signer);
+    try {
+      const pubkey = await readBunkerPublicKey(signer);
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'bunker_recovery_succeeded',
+      });
+      return pubkey;
+    } catch (error) {
+      void recordAppDiagnostic({
+        level: 'warning',
+        area: 'remote_signing',
+        code: `bunker_recovery_${classifyBunkerLoginError(error)}`,
+      });
+      throw error;
+    }
   });
   const connect = signer
     .connect({ name: APP_NAME, url: APP_URL })
-    .then(() => null)
+    .then(() => {
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'bunker_approval_received',
+      });
+      return null;
+    })
     .catch((error: unknown) => {
       // A background reachability transition can still reject the original
       // CONNECT wait on devices that suspend the websocket aggressively. Once
       // Amber was opened, do not fail the login before the user returns; share
       // the single recovery probe instead of replaying the one-time secret.
       if (!leftForeground) throw error;
+      void recordAppDiagnostic({
+        level: 'warning',
+        area: 'remote_signing',
+        code: 'bunker_connection_interrupted_in_background',
+      });
       return recover;
     });
 
@@ -109,17 +154,35 @@ export async function loginWithBunker(
   input: string,
   onPhase?: (phase: BunkerLoginPhase) => void,
 ): Promise<{ pubkey: string }> {
+  void recordAppDiagnostic({
+    level: 'info',
+    area: 'remote_signing',
+    code: 'bunker_attempt_started',
+  });
   const trimmed = input.trim();
   // Bunker links only — `parseBunkerInput` would also resolve a `name@domain`
   // NIP-05, which we deliberately don't accept here.
-  if (!BUNKER_REGEX.test(trimmed)) throw new BunkerLoginError('invalid_link');
+  if (!BUNKER_REGEX.test(trimmed)) {
+    void recordAppDiagnostic({ level: 'warning', area: 'remote_signing', code: 'bunker_invalid_link' });
+    throw new BunkerLoginError('invalid_link');
+  }
   const pointer = await parseBunkerInput(trimmed);
-  if (!pointer || pointer.relays.length === 0) throw new BunkerLoginError('invalid_link');
+  if (!pointer || pointer.relays.length === 0) {
+    void recordAppDiagnostic({ level: 'warning', area: 'remote_signing', code: 'bunker_missing_relay' });
+    throw new BunkerLoginError('invalid_link');
+  }
   try {
     pointer.relays = Array.from(new Set(pointer.relays.map(normalizeRelayUrl)));
   } catch {
+    void recordAppDiagnostic({ level: 'warning', area: 'remote_signing', code: 'bunker_invalid_relay' });
     throw new BunkerLoginError('invalid_link');
   }
+  void recordAppDiagnostic({
+    level: 'info',
+    area: 'remote_signing',
+    code: 'bunker_link_accepted',
+    detail: `relay_count=${pointer.relays.length}`,
+  });
 
   // Android can leave the shared relay pool with the offline hint it emitted
   // while Amber was in front. Refresh before the first interactive publish so
@@ -142,6 +205,11 @@ export async function loginWithBunker(
     );
     onPhase?.('public_key');
     const pubkey = recoveredPubkey ?? await readBunkerPublicKey(signer);
+    void recordAppDiagnostic({
+      level: 'info',
+      area: 'remote_signing',
+      code: 'bunker_public_key_received',
+    });
     onPhase?.('saving');
     try {
       await addRemoteAccount({
@@ -154,9 +222,20 @@ export async function loginWithBunker(
     } catch {
       throw new BunkerLoginError('save_failed');
     }
+    void recordAppDiagnostic({
+      level: 'info',
+      area: 'remote_signing',
+      code: 'bunker_account_saved',
+    });
     return { pubkey };
   } catch (error) {
-    throw new BunkerLoginError(classifyBunkerLoginError(error));
+    const code = classifyBunkerLoginError(error);
+    void recordAppDiagnostic({
+      level: 'error',
+      area: 'remote_signing',
+      code: `bunker_${code}`,
+    });
+    throw new BunkerLoginError(code);
   } finally {
     recoveryController.abort();
     await signer.close().catch(() => {});
@@ -196,31 +275,87 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
   });
 
   const controller = new AbortController();
+  let settled = false;
+  let cancelRequested = false;
+  void recordAppDiagnostic({
+    level: 'info',
+    area: 'remote_signing',
+    code: 'nostr_connect_session_created',
+    detail: `relay_count=${relays.length}`,
+  });
 
   const waitForConnection = async (): Promise<{ pubkey: string }> => {
-    const signer = await withNip46Timeout(
-      BunkerSigner.fromURI(
-        clientSecretKey,
-        uri,
-        { pool: relayPool.underlyingPool, onauth: openAuthUrl },
-        controller.signal,
-      ),
-      'connection',
-      NIP46_PAIRING_TIMEOUT_MS,
-      () => controller.abort(),
-    );
     try {
-      const pubkey = await readBunkerPublicKey(signer);
-      await addRemoteAccount({
-        pubkey,
-        pointer: signer.bp,
-        clientSecretKeyHex: bytesToHex(clientSecretKey),
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'nostr_connect_waiting',
       });
-      return { pubkey };
-    } finally {
-      await signer.close().catch(() => {});
+      const signer = await withNip46Timeout(
+        BunkerSigner.fromURI(
+          clientSecretKey,
+          uri,
+          { pool: relayPool.underlyingPool, onauth: openAuthUrl },
+          controller.signal,
+        ),
+        'connection',
+        NIP46_PAIRING_TIMEOUT_MS,
+        () => controller.abort(),
+      );
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'nostr_connect_signer_connected',
+      });
+      try {
+        const pubkey = await readBunkerPublicKey(signer);
+        void recordAppDiagnostic({
+          level: 'info',
+          area: 'remote_signing',
+          code: 'nostr_connect_public_key_received',
+        });
+        await addRemoteAccount({
+          pubkey,
+          pointer: signer.bp,
+          clientSecretKeyHex: bytesToHex(clientSecretKey),
+        });
+        void recordAppDiagnostic({
+          level: 'info',
+          area: 'remote_signing',
+          code: 'nostr_connect_account_saved',
+        });
+        settled = true;
+        return { pubkey };
+      } finally {
+        await signer.close().catch(() => {});
+      }
+    } catch (error) {
+      settled = true;
+      if (!cancelRequested) {
+        void recordAppDiagnostic({
+          level: 'error',
+          area: 'remote_signing',
+          code: `nostr_connect_${classifyBunkerLoginError(error)}`,
+        });
+      }
+      throw error;
     }
   };
 
-  return { uri, waitForConnection, cancel: () => controller.abort() };
+  return {
+    uri,
+    waitForConnection,
+    cancel: () => {
+      if (!settled && !controller.signal.aborted) {
+        cancelRequested = true;
+        void recordAppDiagnostic({
+          level: 'info',
+          area: 'remote_signing',
+          code: 'nostr_connect_cancelled',
+        });
+      }
+      settled = true;
+      controller.abort();
+    },
+  };
 }

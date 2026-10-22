@@ -57,6 +57,7 @@ type Catalog = Record<string, unknown>;
 function withBitcoinWalkFallback(catalog: Catalog): Catalog {
   return {
     ...catalog,
+    nearby_room: { ...en.nearby_room, ...(catalog.nearby_room as object | undefined) },
     city_select: { ...en.city_select, ...(catalog.city_select as object | undefined) },
     walks: { ...en.walks, ...(catalog.walks as object | undefined) },
     tabs: { ...en.tabs, ...(catalog.tabs as object | undefined) },

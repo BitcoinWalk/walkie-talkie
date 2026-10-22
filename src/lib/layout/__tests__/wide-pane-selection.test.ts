@@ -32,6 +32,7 @@ describe('wide pane selection', () => {
     ['/emoji-pack/example', 'chats'],
     ['/emoji-author/alice', 'chats'],
     ['/media-servers', 'media-servers'],
+    ['/logs', 'logs'],
     ['/about', 'about'],
   ] as const)('maps %s to settings item %s', (pathname, expected) => {
     expect(getWidePaneSelection(pathname).settingsItem).toBe(expected);

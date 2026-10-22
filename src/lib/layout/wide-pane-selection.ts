@@ -9,6 +9,7 @@ export type SettingsSelection =
   | 'relays'
   | 'media-servers'
   | 'data'
+  | 'logs'
   | 'about';
 
 export type ContactsSelection = 'groups';
@@ -44,6 +45,7 @@ const SETTINGS_ITEM_BY_ROUTE: Readonly<Record<string, SettingsSelection>> = {
   relays: 'relays',
   'media-servers': 'media-servers',
   data: 'data',
+  logs: 'logs',
   about: 'about',
   'open-source': 'about',
   'open-source-project': 'about',

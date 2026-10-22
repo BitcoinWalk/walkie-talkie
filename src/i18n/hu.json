@@ -620,6 +620,18 @@
     "screenshot_preview": "Képernyőkép-előnézet",
     "screenshot_preview_exit": "Kilépés a képernyőkép-előnézetből"
   },
+  "logs": {
+    "title": "Naplók",
+    "description": "Ezekkel a naplókkal megkeresheted a bejelentkezési és más alkalmazáshibákat.",
+    "privacy": "A privát kulcsokat, kapcsolati titkokat, fiókazonosítókat és hivatkozásokat automatikusan eltávolítjuk.",
+    "empty_title": "Még nincsenek naplók",
+    "empty_hint": "A kapcsolódási kísérletek és az alkalmazáshibák itt jelennek meg.",
+    "share": "Naplók megosztása",
+    "share_failed": "A naplókat nem sikerült megosztani.",
+    "clear": "Naplók törlése",
+    "clear_title": "Törlöd az összes naplót?",
+    "clear_message": "Ez eltávolítja az eszközön tárolt diagnosztikai előzményeket."
+  },
   "app_update": {
     "check": "Frissítések keresése",
     "up_to_date": "A legújabb verziót használod",

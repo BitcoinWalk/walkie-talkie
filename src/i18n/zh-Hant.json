@@ -620,6 +620,18 @@
     "screenshot_preview": "截圖預覽",
     "screenshot_preview_exit": "結束截圖預覽"
   },
+  "logs": {
+    "title": "記錄",
+    "description": "使用這些記錄排解登入和其他應用程式故障。",
+    "privacy": "私密金鑰、連線密鑰、帳戶識別碼和連結會自動移除。",
+    "empty_title": "尚無記錄",
+    "empty_hint": "連線嘗試和應用程式故障會顯示在這裡。",
+    "share": "分享記錄",
+    "share_failed": "無法分享記錄。",
+    "clear": "清除記錄",
+    "clear_title": "清除所有記錄？",
+    "clear_message": "這會移除此裝置上儲存的診斷歷史。"
+  },
   "app_update": {
     "check": "檢查更新",
     "up_to_date": "目前已是最新版本",

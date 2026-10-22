@@ -11,6 +11,7 @@ import { Database } from '@solar-icons/react-native/category/ui/Linear/Database'
 import { ForbiddenCircle as Ban } from '@solar-icons/react-native/category/ui/Linear/ForbiddenCircle';
 import { InfoCircle } from '@solar-icons/react-native/category/ui/Linear/InfoCircle';
 import { Camera } from '@solar-icons/react-native/category/video/Linear/Camera';
+import { FileText } from '@solar-icons/react-native/category/files/Linear/FileText';
 import { QrCode } from '@solar-icons/react-native/category/security/Linear/QrCode';
 import { ServerSquare } from '@solar-icons/react-native/category/devices/Linear/ServerSquare';
 import { Refresh } from '@solar-icons/react-native/category/arrows/Linear/Refresh';
@@ -260,6 +261,13 @@ export function SettingsHub() {
         </ListGroup>
 
         <ListGroup>
+          <ListRow
+            icon={<FileText size={22} color={c.text} />}
+            title={t('logs.title')}
+            trailing={chevron}
+            onPress={() => openInDetailPane('/logs')}
+            active={selection.settingsItem === 'logs'}
+          />
           {IS_DEVELOPMENT_BUILD ? (
             <ListRow
               icon={<Camera size={22} color={c.text} />}

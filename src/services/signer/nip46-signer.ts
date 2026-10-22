@@ -3,6 +3,7 @@ import { BunkerSigner, type BunkerPointer } from 'nostr-tools/nip46';
 
 import { platform } from '@/platform';
 import { normalizeRelayUrl } from '@/lib/nostr/relay-url';
+import { recordAppDiagnostic } from '@/services/diagnostics/app-error-diagnostics.service';
 
 import { relayPool } from '../relay/relay-pool';
 import type { Signer } from './signer.interface';
@@ -79,6 +80,13 @@ export class Nip46Signer implements Signer {
     try {
       return await withNip46Timeout(run(signer), operation);
     } catch (error) {
+      void recordAppDiagnostic({
+        level: 'error',
+        area: 'remote_signing',
+        code: error instanceof Nip46TimeoutError
+          ? `request_${operation}_timeout`
+          : `request_${operation}_failed`,
+      });
       if (error instanceof Nip46TimeoutError) await this.discard(signer);
       throw error;
     }

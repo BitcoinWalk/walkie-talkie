@@ -620,6 +620,18 @@
     "screenshot_preview": "Ekran görüntüsü önizleme",
     "screenshot_preview_exit": "Ekran görüntüsü önizlemesinden çık"
   },
+  "logs": {
+    "title": "Günlükler",
+    "description": "Oturum açma ve diğer uygulama hatalarını gidermek için bu günlükleri kullanın.",
+    "privacy": "Özel anahtarlar, bağlantı sırları, hesap tanımlayıcıları ve bağlantılar otomatik olarak kaldırılır.",
+    "empty_title": "Henüz günlük yok",
+    "empty_hint": "Bağlantı denemeleri ve uygulama hataları burada görünecek.",
+    "share": "Günlükleri paylaş",
+    "share_failed": "Günlükler paylaşılamadı.",
+    "clear": "Günlükleri temizle",
+    "clear_title": "Tüm günlükler temizlensin mi?",
+    "clear_message": "Bu işlem, bu cihazda saklanan tanılama geçmişini kaldırır."
+  },
   "app_update": {
     "check": "Güncellemeleri denetle",
     "up_to_date": "En güncel sürümü kullanıyorsunuz",

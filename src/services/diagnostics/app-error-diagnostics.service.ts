@@ -2,9 +2,9 @@ import { platform } from '@/platform';
 
 const DIAGNOSTICS_DIRECTORY = 'diagnostics/';
 const JOURNAL_FILE = 'app-errors.json';
-const EXPORT_FILE = 'psstpsst-diagnostics.json';
-const MAX_ENTRIES = 10;
-const MAX_JOURNAL_BYTES = 128 * 1024;
+const EXPORT_FILE = 'walkie-talkie-diagnostics.json';
+const MAX_ENTRIES = 100;
+const MAX_JOURNAL_BYTES = 512 * 1024;
 const MAX_STACK_LENGTH = 4_000;
 const REPEAT_WINDOW_MS = 5 * 60 * 1_000;
 
@@ -22,9 +22,27 @@ type AppErrorEntry = AppErrorContext & {
   occurredAt: number;
 };
 
+export type AppDiagnosticLevel = 'info' | 'warning' | 'error';
+
+export type AppDiagnosticEvent = {
+  level: AppDiagnosticLevel;
+  area: string;
+  code: string;
+  detail?: string;
+};
+
+type AppDiagnosticEventEntry = AppDiagnosticEvent & {
+  kind: 'event';
+  occurredAt: number;
+};
+
+export type AppDiagnosticLogEntry = AppDiagnosticEvent & {
+  occurredAt: number;
+};
+
 type AppErrorJournal = {
   version: 1;
-  entries: AppErrorEntry[];
+  entries: (AppErrorEntry | AppDiagnosticEventEntry)[];
 };
 
 let writeQueue: Promise<void> = Promise.resolve();
@@ -41,7 +59,7 @@ function sanitizeStack(stack: string | undefined): string | undefined {
     .slice(1, 33)
     .map((line) =>
       line
-        .replace(/(?:https?|wss?|file|content|psstpsst(?:-dev)?):[^\s)]+/gi, '[uri]')
+        .replace(/(?:https?|wss?|file|content|bunker|nostrconnect|psstpsst(?:-dev)?):[^\s)]+/gi, '[uri]')
         .replace(/\b(?:npub|nsec|nprofile|nevent|note)1[023456789acdefghjklmnpqrstuvwxyz]+\b/gi, '[nostr]')
         .replace(/\b[0-9a-f]{64}\b/gi, '[hex64]')
         .replace(/\/[^\s():]+\/(src|modules|desktop|node_modules)\//g, '$1/')
@@ -50,6 +68,19 @@ function sanitizeStack(stack: string | undefined): string | undefined {
     .join('\n')
     .slice(0, MAX_STACK_LENGTH);
   return frames || undefined;
+}
+
+function sanitizeDetail(detail: string | undefined): string | undefined {
+  if (!detail) return undefined;
+  const sanitized = detail
+    .replace(/(?:https?|wss?|file|content|bunker|nostrconnect|psstpsst(?:-dev)?):[^\s)]+/gi, '[uri]')
+    .replace(/\b(?:npub|nsec|nprofile|nevent|note)1[023456789acdefghjklmnpqrstuvwxyz]+\b/gi, '[nostr]')
+    .replace(/\b[0-9a-f]{64}\b/gi, '[hex64]')
+    .replace(/\b(secret|token|private[_-]?key|client[_-]?secret)\s*[=:]\s*[^\s,;]+/gi, '$1=[redacted]')
+    .replace(/[\r\n\t]+/g, ' ')
+    .trim()
+    .slice(0, 1_000);
+  return sanitized || undefined;
 }
 
 function normalizeContext(context: AppErrorContext): AppErrorContext {
@@ -64,9 +95,24 @@ function normalizeContext(context: AppErrorContext): AppErrorContext {
   };
 }
 
-function isEntry(value: unknown): value is AppErrorEntry {
+function isDiagnosticEventEntry(
+  entry: Partial<AppErrorEntry & AppDiagnosticEventEntry>,
+): entry is AppDiagnosticEventEntry {
+  return (
+    entry.kind === 'event' &&
+    typeof entry.occurredAt === 'number' &&
+    Number.isFinite(entry.occurredAt) &&
+    (entry.level === 'info' || entry.level === 'warning' || entry.level === 'error') &&
+    typeof entry.area === 'string' &&
+    typeof entry.code === 'string' &&
+    (entry.detail === undefined || typeof entry.detail === 'string')
+  );
+}
+
+function isEntry(value: unknown): value is AppErrorEntry | AppDiagnosticEventEntry {
   if (!value || typeof value !== 'object') return false;
-  const entry = value as Partial<AppErrorEntry>;
+  const entry = value as Partial<AppErrorEntry & AppDiagnosticEventEntry>;
+  if (isDiagnosticEventEntry(entry)) return true;
   return (
     typeof entry.occurredAt === 'number' &&
     Number.isFinite(entry.occurredAt) &&
@@ -133,6 +179,7 @@ export function recordAppError(context: AppErrorContext): Promise<number> {
     let consecutive = 1;
     if (
       previous &&
+      !('kind' in previous) &&
       previous.errorName === normalized.errorName &&
       previous.route === normalized.route &&
       occurredAt - previous.occurredAt <= REPEAT_WINDOW_MS
@@ -140,6 +187,7 @@ export function recordAppError(context: AppErrorContext): Promise<number> {
       for (let index = journal.entries.length - 1; index >= 0; index -= 1) {
         const entry = journal.entries[index];
         if (
+          'kind' in entry ||
           entry.errorName !== normalized.errorName ||
           entry.route !== normalized.route ||
           occurredAt - entry.occurredAt > REPEAT_WINDOW_MS
@@ -156,6 +204,63 @@ export function recordAppError(context: AppErrorContext): Promise<number> {
     await writeJournal(directory, journal);
     return consecutive;
   }).catch(() => 1);
+}
+
+/** Persist one bounded, privacy-filtered lifecycle event for user-visible diagnostics. */
+export function recordAppDiagnostic(event: AppDiagnosticEvent): Promise<void> {
+  return enqueue(async () => {
+    const directory = await diagnosticsDirectory();
+    if (!directory) return;
+    const journal = await readJournal(directory);
+    journal.entries.push({
+      kind: 'event',
+      occurredAt: Date.now(),
+      level: event.level,
+      area: safeToken(event.area, 'app', 80),
+      code: safeToken(event.code, 'unknown', 120),
+      detail: sanitizeDetail(event.detail),
+    });
+    if (journal.entries.length > MAX_ENTRIES) {
+      journal.entries.splice(0, journal.entries.length - MAX_ENTRIES);
+    }
+    await writeJournal(directory, journal);
+  }).catch(() => {});
+}
+
+/** Read the local journal in a stable shape suitable for the in-app Logs screen. */
+export function readAppDiagnostics(): Promise<AppDiagnosticLogEntry[]> {
+  return enqueue(async () => {
+    const directory = await diagnosticsDirectory();
+    if (!directory) return [];
+    const journal = await readJournal(directory);
+    return journal.entries.map((entry) => {
+      if (isDiagnosticEventEntry(entry)) {
+        return {
+          occurredAt: entry.occurredAt,
+          level: entry.level,
+          area: entry.area,
+          code: entry.code,
+          detail: entry.detail,
+        };
+      }
+      return {
+        occurredAt: entry.occurredAt,
+        level: 'error' as const,
+        area: entry.route,
+        code: entry.errorName,
+        detail: entry.stack,
+      };
+    }).reverse();
+  }).catch(() => []);
+}
+
+/** Remove all locally stored diagnostic entries. */
+export function clearAppDiagnostics(): Promise<void> {
+  return enqueue(async () => {
+    const directory = await diagnosticsDirectory();
+    if (!directory) return;
+    await platform.fileSystem.delete(`${directory}${JOURNAL_FILE}`, { idempotent: true });
+  }).catch(() => {});
 }
 
 /** Copy the bounded local journal to an OS-shareable cache file. */

@@ -623,6 +623,18 @@
     "screenshot_preview": "Prévia de capturas de tela",
     "screenshot_preview_exit": "Sair da prévia de capturas de tela"
   },
+  "logs": {
+    "title": "Registros",
+    "description": "Use estes registros para solucionar falhas de login e outros problemas do aplicativo.",
+    "privacy": "Chaves privadas, segredos de conexão, identificadores de conta e links são removidos automaticamente.",
+    "empty_title": "Ainda não há registros",
+    "empty_hint": "As tentativas de conexão e as falhas do aplicativo aparecerão aqui.",
+    "share": "Compartilhar registros",
+    "share_failed": "Não foi possível compartilhar os registros.",
+    "clear": "Limpar registros",
+    "clear_title": "Limpar todos os registros?",
+    "clear_message": "Isso remove o histórico de diagnóstico armazenado neste dispositivo."
+  },
   "app_update": {
     "check": "Verificar atualizações",
     "up_to_date": "Você está com a versão mais recente",

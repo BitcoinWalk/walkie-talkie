@@ -641,6 +641,10 @@ the page themselves.
 ## 11. States, copy, and accessibility
 
 Loading, empty, error, and disabled are distinct states.
+User-visible diagnostic history is local, bounded, and privacy-filtered. It may
+show stable event codes, phases, timestamps, and aggregate counts, but never raw
+signer links, connection secrets, private keys, account identifiers, or message
+content. Sharing diagnostics exports the same filtered journal shown in the app.
 Custom emoji retain their frame with a neutral grey placeholder until the image
 is displayed. Active loading shows a centred muted spinner; failed or deferred
 downloads keep a static placeholder.

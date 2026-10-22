@@ -623,6 +623,18 @@
     "screenshot_preview": "Pré-visualização de capturas de ecrã",
     "screenshot_preview_exit": "Sair da pré-visualização de capturas de ecrã"
   },
+  "logs": {
+    "title": "Registos",
+    "description": "Use estes registos para resolver falhas de início de sessão e outros problemas da aplicação.",
+    "privacy": "Chaves privadas, segredos de ligação, identificadores de conta e ligações são removidos automaticamente.",
+    "empty_title": "Ainda não há registos",
+    "empty_hint": "As tentativas de ligação e as falhas da aplicação aparecerão aqui.",
+    "share": "Partilhar registos",
+    "share_failed": "Não foi possível partilhar os registos.",
+    "clear": "Limpar registos",
+    "clear_title": "Limpar todos os registos?",
+    "clear_message": "Isto remove o histórico de diagnóstico guardado neste dispositivo."
+  },
   "app_update": {
     "check": "Procurar atualizações",
     "up_to_date": "Tens a versão mais recente",

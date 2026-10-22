@@ -620,6 +620,18 @@
     "screenshot_preview": "Screenshot-Vorschau",
     "screenshot_preview_exit": "Screenshot-Vorschau beenden"
   },
+  "logs": {
+    "title": "Protokolle",
+    "description": "Mit diesen Protokollen kannst du Anmelde- und andere App-Fehler untersuchen.",
+    "privacy": "Private Schlüssel, Verbindungsgeheimnisse, Kontokennungen und Links werden automatisch entfernt.",
+    "empty_title": "Noch keine Protokolle",
+    "empty_hint": "Verbindungsversuche und App-Fehler werden hier angezeigt.",
+    "share": "Protokolle teilen",
+    "share_failed": "Die Protokolle konnten nicht geteilt werden.",
+    "clear": "Protokolle löschen",
+    "clear_title": "Alle Protokolle löschen?",
+    "clear_message": "Dadurch wird der auf diesem Gerät gespeicherte Diagnoseverlauf entfernt."
+  },
   "app_update": {
     "check": "Nach Updates suchen",
     "up_to_date": "Du bist auf dem neuesten Stand",

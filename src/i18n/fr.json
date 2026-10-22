@@ -623,6 +623,18 @@
     "screenshot_preview": "Aperçu des captures",
     "screenshot_preview_exit": "Quitter l’aperçu des captures"
   },
+  "logs": {
+    "title": "Journaux",
+    "description": "Utilisez ces journaux pour résoudre les échecs de connexion et les autres problèmes de l’application.",
+    "privacy": "Les clés privées, secrets de connexion, identifiants de compte et liens sont supprimés automatiquement.",
+    "empty_title": "Aucun journal pour le moment",
+    "empty_hint": "Les tentatives de connexion et les erreurs de l’application apparaîtront ici.",
+    "share": "Partager les journaux",
+    "share_failed": "Les journaux n’ont pas pu être partagés.",
+    "clear": "Effacer les journaux",
+    "clear_title": "Effacer tous les journaux ?",
+    "clear_message": "Cela supprime l’historique de diagnostic stocké sur cet appareil."
+  },
   "app_update": {
     "check": "Rechercher des mises à jour",
     "up_to_date": "Vous êtes à jour",

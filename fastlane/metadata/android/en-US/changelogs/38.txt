@@ -1,0 +1,3 @@
+Walkie Talkie 26.10.31
+
+Added privacy-safe in-app Logs under Account to troubleshoot remote signing and other app failures. Nostr Connect and bunker sign-in now record connection, signer handoff, recovery, timeout, and account-save milestones without storing signer links, secrets, private keys, or account identifiers.
