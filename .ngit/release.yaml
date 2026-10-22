@@ -32,5 +32,7 @@ notes: |
   - Keep Bluetooth mesh parked behind a Coming soon screen without requesting permissions or starting radio activity.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk
 publication:
+  blossom_servers:
+    - https://blossom.primal.net
   zapstore_relay: true
   strict_metadata: true
