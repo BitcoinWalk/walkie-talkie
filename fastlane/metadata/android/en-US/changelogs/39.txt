@@ -1,0 +1,3 @@
+Walkie Talkie 26.10.32
+
+Fixed bunker sign-in when Amber approves the connection while Walkie Talkie is in the background. The app now waits until it returns to the foreground before requesting the signing public key, avoiding the false signer-relay failure seen after a successful approval.

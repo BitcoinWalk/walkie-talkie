@@ -188,6 +188,46 @@ describe('loginWithBunker', () => {
     }
   });
 
+  test('defers the public-key request when Amber approves before the app returns', async () => {
+    jest.useFakeTimers();
+    try {
+      let approve!: () => void;
+      const bunker = {
+        bp: { pubkey: 'a'.repeat(64), relays: ['wss://remote.bitcoinwalk.org/'], secret: 'one-time' },
+        connect: jest.fn(() => new Promise<void>((resolve) => { approve = resolve; })),
+        getPublicKey: jest.fn(async () => {
+          if (mockAppState !== 'active') throw new AggregateError([], 'relay unavailable');
+          return 'user-pubkey';
+        }),
+        close: jest.fn(async () => {}),
+      };
+      mockFromBunker.mockReturnValue(bunker);
+
+      const pending = loginWithBunker(
+        `bunker://${'a'.repeat(64)}?relay=wss://remote.bitcoinwalk.org&secret=one-time`,
+      );
+      await jest.advanceTimersByTimeAsync(0);
+      mockAppState = 'background';
+      mockAppStateListener?.(mockAppState);
+      approve();
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(bunker.getPublicKey).not.toHaveBeenCalled();
+      expect(mockAddRemoteAccount).not.toHaveBeenCalled();
+
+      mockAppState = 'active';
+      mockAppStateListener?.(mockAppState);
+      await jest.advanceTimersByTimeAsync(500);
+
+      await expect(pending).resolves.toEqual({ pubkey: 'user-pubkey' });
+      expect(bunker.connect).toHaveBeenCalledTimes(1);
+      expect(bunker.getPublicKey).toHaveBeenCalledTimes(1);
+      expect(mockAddRemoteAccount).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('waits for foreground recovery when the original CONNECT socket closes in background', async () => {
     jest.useFakeTimers();
     try {

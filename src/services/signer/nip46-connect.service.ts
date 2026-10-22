@@ -112,6 +112,18 @@ async function connectWithForegroundRecovery(
         area: 'remote_signing',
         code: 'bunker_approval_received',
       });
+      // Amber can approve CONNECT before Android brings this app back to the
+      // foreground. Starting get_public_key here would publish on a socket the
+      // OS still considers offline. Defer that follow-up to the same foreground
+      // recovery probe used when the original CONNECT response is interrupted.
+      if (leftForeground && platform.appState.currentState() !== 'active') {
+        void recordAppDiagnostic({
+          level: 'info',
+          area: 'remote_signing',
+          code: 'bunker_public_key_deferred_until_foreground',
+        });
+        return recover;
+      }
       return null;
     })
     .catch((error: unknown) => {
