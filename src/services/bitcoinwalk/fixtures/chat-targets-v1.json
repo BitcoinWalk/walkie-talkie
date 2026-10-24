@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cases": [
+    {"path":"/chat/madeira","intent":{"kind":"city","city":"madeira"},"target":{"version":1,"kind":"city","cityId":"city-madeira"}},
+    {"path":"/chat/guide","intent":{"kind":"guide"},"target":{"version":1,"kind":"guide"}},
+    {"path":"/chat/global","intent":{"kind":"global"},"target":{"version":1,"kind":"global"}},
+    {"path":"/chat/hosts","intent":{"kind":"hosts"},"target":{"version":1,"kind":"hosts"}}
+  ],
+  "legacyCases": [
+    {"path":"/chat/city/madeira","intent":{"kind":"city","city":"madeira"},"canonicalPath":"/chat/madeira"}
+  ],
+  "invalidPaths": ["https://evil.example/chat/hosts","//evil.example/chat/global","/chat","/chat/city","/chat/city/madeira/hosts","/chat/city/%2Fhosts","/chat/city/madeira?role=host","/chat/city/../hosts","/chat/madeira/hosts","/chat/%2Fhosts","/chat/madeira?role=host","/chat/Hosts","/chat/city/hosts"]
+}

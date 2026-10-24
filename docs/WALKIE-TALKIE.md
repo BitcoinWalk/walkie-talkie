@@ -108,6 +108,16 @@ the successful join on that device. Global remains an explicit choice and join,
 not an automatic subscription. The city group avatar uses a centred circular
 crop of the approved city OG artwork.
 
+Permanent BitcoinWalk chat links share the website's versioned destination
+contract. The platform-independent mobile resolver accepts only City, Guide,
+Global and Hosts paths, maps approved city slugs and retained aliases to the
+immutable city ID, and derives current transport from the read-only BitcoinWalk
+resolver. Link input never supplies account, role, membership or relay authority.
+Anonymous Hosts resolution must contain no private transport; the app continues
+to discover that room only after the connected account passes the signed roster
+check. Operating-system delivery of these HTTPS links is a separate app-link
+milestone.
+
 Branding now defaults to black/white with exact BitcoinWalk orange `#F7931A` and
 uses the approved BitcoinWalk mark on a black native loading screen. Red, green
 and amber remain available only for semantic error, success and warning states.
