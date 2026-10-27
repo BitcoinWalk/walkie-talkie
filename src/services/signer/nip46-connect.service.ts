@@ -30,6 +30,7 @@ export const NIP46_DEFAULT_RELAYS = ['wss://remote.bitcoinwalk.org/'];
 
 const APP_NAME = 'Walkie Talkie';
 const APP_URL = 'https://bitcoinwalk.org';
+const APP_IMAGE = 'https://bitcoinwalk.org/app/walkie-talkie/icon.png';
 const FOREGROUND_RECOVERY_DELAY_MS = 500;
 
 function openAuthUrl(url: string): void {
@@ -105,7 +106,7 @@ async function connectWithForegroundRecovery(
     }
   });
   const connect = signer
-    .connect({ name: APP_NAME, url: APP_URL })
+    .connect({ name: APP_NAME, url: APP_URL, image: APP_IMAGE })
     .then(() => {
       void recordAppDiagnostic({
         level: 'info',
@@ -279,12 +280,16 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
   // A one-time secret the signer must echo back so we accept only the bunker we
   // invited (not any relay eavesdropper replaying the URI).
   const secret = bytesToHex(generateSecretKey());
+  // URLSearchParams serializes spaces as `+`. Amber currently presents that
+  // value literally in its application list, so keep the visible name exact.
   const uri = createNostrConnectURI({
     clientPubkey,
     relays,
     secret,
     name: APP_NAME,
-  });
+    url: APP_URL,
+    image: APP_IMAGE,
+  }).replace('name=Walkie+Talkie', 'name=Walkie%20Talkie');
 
   const controller = new AbortController();
   let settled = false;

@@ -1,4 +1,8 @@
-import { loginWithBunker, NIP46_DEFAULT_RELAYS } from '../nip46-connect.service';
+import {
+  loginWithBunker,
+  NIP46_DEFAULT_RELAYS,
+  startNostrConnect,
+} from '../nip46-connect.service';
 
 const mockFromBunker = jest.fn();
 const mockAddRemoteAccount = jest.fn(async (_opts: unknown) => ({ pubkey: 'user-pubkey' }));
@@ -64,6 +68,7 @@ describe('loginWithBunker', () => {
     expect(bunker.connect).toHaveBeenCalledWith({
       name: 'Walkie Talkie',
       url: 'https://bitcoinwalk.org',
+      image: 'https://bitcoinwalk.org/app/walkie-talkie/icon.png',
     });
     expect(mockAddRemoteAccount).toHaveBeenCalledWith(expect.objectContaining({
       pubkey: 'user-pubkey',
@@ -266,4 +271,17 @@ describe('loginWithBunker', () => {
 
 test('uses the dedicated BitcoinWalk transport for app-initiated Nostr Connect', () => {
   expect(NIP46_DEFAULT_RELAYS).toEqual(['wss://remote.bitcoinwalk.org/']);
+});
+
+test('brands app-initiated Nostr Connect sessions for Amber', () => {
+  const session = startNostrConnect();
+  const parsed = new URL(session.uri);
+
+  expect(session.uri).toContain('name=Walkie%20Talkie');
+  expect(parsed.searchParams.get('name')).toBe('Walkie Talkie');
+  expect(parsed.searchParams.get('url')).toBe('https://bitcoinwalk.org');
+  expect(parsed.searchParams.get('image')).toBe(
+    'https://bitcoinwalk.org/app/walkie-talkie/icon.png',
+  );
+  session.cancel();
 });
