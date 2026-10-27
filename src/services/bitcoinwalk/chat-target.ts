@@ -1,5 +1,5 @@
 import { BITCOINWALK_ORIGIN } from './config';
-import { isWalkieTalkieDestination, type BitcoinWalkCity } from './cities';
+import { isWalkieTalkieDestination, loadCities, type BitcoinWalkCity } from './cities';
 import type { BitcoinWalkCommunityDestination } from './community';
 
 export type BitcoinWalkChatTarget = { version: 1 } & (
@@ -169,4 +169,21 @@ export function bitcoinWalkMobileHref(resolution: BitcoinWalkChatTargetResolutio
   }
   const transport = resolution.transport;
   return transport?.protocol === 'nip17' ? `/chat/${transport.pubkey}?mode=guide` : null;
+}
+
+/** Resolve a canonical BitcoinWalk HTTPS chat URL into an authority-free native route. */
+export async function loadBitcoinWalkMobileHref(
+  candidate: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  let url: URL;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return null;
+  }
+  if (url.origin !== BITCOINWALK_ORIGIN || url.search || url.hash ||
+      !parseBitcoinWalkChatPath(url.pathname)) return null;
+  const cities = await loadCities(signal);
+  return bitcoinWalkMobileHref(await loadBitcoinWalkChatTarget(url.pathname, cities, signal));
 }

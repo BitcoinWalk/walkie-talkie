@@ -11,6 +11,7 @@ const mockActiveMembership = jest.fn();
 const mockLoadDirectory = jest.fn();
 const mockLoadCities = jest.fn();
 const mockSelectCity = jest.fn();
+const mockRememberPendingChat = jest.fn();
 const mockRouterPush = jest.fn();
 let mockParams: {scope?: string; city?: string} = {scope: 'global'};
 let mockActivePubkey: string | null = 'a'.repeat(64);
@@ -83,6 +84,9 @@ jest.mock('@/services/bitcoinwalk/cities', () => ({ loadCities: (...args: unknow
 jest.mock('@/services/bitcoinwalk/chat-directory', () => ({
   loadBitcoinWalkChatDirectory: (...args: unknown[]) => mockLoadDirectory(...args),
 }));
+jest.mock('@/services/bitcoinwalk/pending-chat-target', () => ({
+  rememberPendingBitcoinWalkChatHref: (...args: unknown[]) => mockRememberPendingChat(...args),
+}));
 jest.mock('@/stores/active-account.store', () => ({
   useActiveAccount: (selector: (state: { activePubkey: string | null }) => unknown) =>
     selector({ activePubkey: mockActivePubkey }),
@@ -139,6 +143,7 @@ describe('BitcoinWalk community join screen', () => {
       failed: [],
       failureReasons: {},
     });
+    mockRememberPendingChat.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -240,6 +245,7 @@ describe('BitcoinWalk community join screen', () => {
     });
 
     expect(mockRouterPush).toHaveBeenCalledWith('/welcome');
+    expect(mockRememberPendingChat).toHaveBeenCalledWith('/community?scope=global');
     expect(mockEnsureMemberships).not.toHaveBeenCalled();
   });
 

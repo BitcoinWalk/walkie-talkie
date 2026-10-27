@@ -22,6 +22,7 @@ import { exportAppErrorDiagnostics, recordAppError } from '@/services/diagnostic
 import { platform } from '@/platform';
 import { useActiveAccount } from '@/stores/active-account.store';
 import { spacing } from '@/theme';
+import { postSignInHref } from '@/services/bitcoinwalk/pending-chat-target';
 
 export default function LoginBunker() {
   const { scrolled, scrollProps } = useScrolled();
@@ -42,7 +43,7 @@ export default function LoginBunker() {
     try {
       const { pubkey } = await loginWithBunker(input.trim(), setPhase);
       await setActive(pubkey);
-      router.replace('/walks');
+      router.replace(await postSignInHref());
     } catch (cause) {
       const code = classifyBunkerLoginError(cause);
       setError(t(`login.bunker.errors.${code}`));

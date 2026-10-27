@@ -32,12 +32,12 @@ export function BitcoinWalkCommunityBootstrap() {
       }
       if (controller.signal.aborted) return;
       const destinations = communityChoicesForCity(city)
-        .filter((choice) => choice.scope === 'city' || choice.scope === 'global')
+        .filter((choice) => choice.scope === 'city')
         .map((choice) => choice.destination);
       if (destinations.length === 0) return;
-      // Choosing a city establishes the signed-in profile's two public
-      // BitcoinWalk contexts. The membership service keeps remote-signer
-      // approvals sequential and remembers only confirmed relay state.
+      // Choosing a city establishes only that signed-in city context. Global
+      // stays an explicit join from Chat, avoiding a second surprise signer
+      // approval while the membership service remembers confirmed relay state.
       await ensureCommunityMemberships(accountPubkey, destinations).catch(() => {});
       await Promise.all(destinations.map(async (destination) => {
         if (await hasCommunityMembership(accountPubkey, destination)) {

@@ -28,6 +28,7 @@ import { isWideLayoutSize } from '@/lib/layout/wide-layout';
 import { IS_ELECTRON } from '@/lib/platform';
 import { useActiveAccount } from '@/stores/active-account.store';
 import { iconStrokeWidth } from '@/theme/icons';
+import { postSignInHref } from '@/services/bitcoinwalk/pending-chat-target';
 import {
   desktopChrome,
   spacing,
@@ -94,9 +95,9 @@ export default function Welcome() {
   const titlebarClearance = immersiveTitlebar && IS_ELECTRON ? desktopChrome.titlebarHeight : 0;
   useImmersiveDesktopTitlebar(!wide && !showAccounts);
 
-  function enterAccount(pubkey: string) {
-    void setActive(pubkey);
-    router.replace('/walks');
+  async function enterAccount(pubkey: string) {
+    await setActive(pubkey);
+    router.replace(await postSignInHref());
   }
 
   function renderAccountRows() {
@@ -109,7 +110,7 @@ export default function Welcome() {
           key={account.pubkey}
           pressFeedback="delayed"
           fallbackHoverOpacity={false}
-          onPress={() => enterAccount(account.pubkey)}
+          onPress={() => { void enterAccount(account.pubkey); }}
           style={{
             flexDirection: 'row',
             alignItems: 'center',

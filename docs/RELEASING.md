@@ -43,10 +43,10 @@ or upload iOS apps, submit to Google Play or F-Droid, or publish Nostr events to
 
 ## Development and production identities
 
-`EXPO_PUBLIC_APP_ENV=development` selects **PsstPsst Dev**, application ID
-`chat.psstpsst.app.dev`, and URL scheme `psstpsst-dev`. Production uses
-**PsstPsst**, `chat.psstpsst.app`, and `psstpsst`. Missing or unknown environment
-values select production. The identities are defined in
+`EXPO_PUBLIC_APP_ENV=development` selects **Walkie Talkie**, application ID
+`org.bitcoinwalk.walkietalkie.dev`, and URL scheme `walkietalkie-dev`. Production
+uses **Walkie Talkie**, `org.bitcoinwalk.walkietalkie`, and `walkietalkie`.
+Missing or unknown environment values select production. The identities are defined in
 `config/app-identities.json`; `app.json` retains production version metadata.
 
 `npm run start`, `npm run android:dev`, `npm run ios:dev`, and `npm run electron:dev`
@@ -63,10 +63,10 @@ Prebuild replaces generated native files; keep native customizations in config
 plugins. The new app has separate accounts, settings, and OS permissions; it
 does not migrate the old installation's data.
 
-Electron development uses its own user-data directory and single-instance lock,
+The inherited Electron development path uses its own user-data directory and single-instance lock,
 registers only its development URL scheme, and disables release-feed updates.
 On macOS, the development launcher creates and ad-hoc signs a cached
-`desktop/.dev-runtime/PsstPsst Dev.app` host so OS permissions use the development
+development app host so OS permissions use the development
 bundle ID. It rebuilds this copy when Electron or the identity changes.
 
 `electron:package` and `electron:package:signed` explicitly select production;

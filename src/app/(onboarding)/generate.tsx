@@ -21,6 +21,7 @@ import { useActiveAccount } from '@/stores/active-account.store';
 import { useScrolled } from '@/hooks/use-scrolled';
 import { iconStrokeWidth } from '@/theme/icons';
 import { spacing, useThemeColors } from '@/theme';
+import { postSignInHref } from '@/services/bitcoinwalk/pending-chat-target';
 
 export default function Generate() {
   const { scrolled, scrollProps } = useScrolled();
@@ -45,9 +46,10 @@ export default function Generate() {
     try {
       const { pubkey: savedPubkey } = await persistGeneratedAccount(keyMaterial.privkeyHex);
       // BitcoinWalk does not use the upstream psstpsst.chat identifier service.
-      // Activate the new identity immediately and return to the selected city.
+      // Activate the new identity immediately and resume a bounded chat target
+      // when sign-in began there; otherwise return to the selected city.
       await setActive(savedPubkey);
-      router.replace('/walks');
+      router.replace(await postSignInHref());
     } finally {
       setContinuing(false);
     }

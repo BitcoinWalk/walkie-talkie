@@ -25,6 +25,7 @@ export default function WalksTab() {
         bottomClearance={bottomBarHeight + insets.bottom}
         onChangeCity={() => router.push('/city')}
         onOpenCommunity={openCommunity}
+        onOpenChat={(href) => router.navigate(href)}
       />
     </AppScreen>
   );

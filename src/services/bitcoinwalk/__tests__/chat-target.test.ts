@@ -1,6 +1,7 @@
 import fixture from '../fixtures/chat-targets-v1.json';
 import {
   bitcoinWalkMobileHref,
+  loadBitcoinWalkMobileHref,
   loadBitcoinWalkChatTarget,
   parseBitcoinWalkChatPath,
   parseBitcoinWalkChatTargetResolution,
@@ -105,5 +106,34 @@ describe('BitcoinWalk canonical chat targets', () => {
       `${BITCOINWALK_ORIGIN}/api/chat/destination?path=%2Fchat%2Fglobal`,
       expect.objectContaining({ signal: controller.signal }),
     );
+  });
+
+  it('resolves an exact canonical HTTPS target to its native route', async () => {
+    const controller = new AbortController();
+    jest.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      return {
+        ok: true,
+        text: async () => JSON.stringify(url.endsWith('/api/cities')
+          ? { version: 1, cities }
+          : responseFor('city')),
+      } as Response;
+    });
+
+    await expect(loadBitcoinWalkMobileHref(
+      `${BITCOINWALK_ORIGIN}/chat/madeira`,
+      controller.signal,
+    )).resolves.toBe('/community?scope=city&city=madeira');
+  });
+
+  it.each([
+    'https://evil.example/chat/madeira',
+    `${BITCOINWALK_ORIGIN}/chat/madeira?account=attacker`,
+    `${BITCOINWALK_ORIGIN}/not-chat/madeira`,
+  ])('does not treat %s as a canonical mobile target', async (url) => {
+    const controller = new AbortController();
+    const fetchSpy = jest.spyOn(global, 'fetch');
+    await expect(loadBitcoinWalkMobileHref(url, controller.signal)).resolves.toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

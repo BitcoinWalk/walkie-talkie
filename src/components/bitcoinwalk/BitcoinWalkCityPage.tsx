@@ -1,5 +1,5 @@
 import MapPin from 'lucide-react-native/icons/map-pin';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
@@ -10,6 +10,7 @@ import { AppText } from '@/components/common/AppText';
 import { platform } from '@/platform';
 import { appCityPageUrl, communityScopeForCityPageUrl, type PublicCommunityScope } from '@/services/bitcoinwalk/city-page-links';
 import type { BitcoinWalkCity } from '@/services/bitcoinwalk/cities';
+import { loadBitcoinWalkMobileHref } from '@/services/bitcoinwalk/chat-target';
 import { BITCOINWALK_ORIGIN } from '@/services/bitcoinwalk/config';
 import { iconStrokeWidth } from '@/theme/icons';
 import { spacing, uiDensity, useThemeColors } from '@/theme';
@@ -19,6 +20,7 @@ type Props = {
   bottomClearance: number;
   onChangeCity: () => void;
   onOpenCommunity: (scope: PublicCommunityScope) => void;
+  onOpenChat: (href: string) => void;
 };
 
 // The canonical website currently uses CSS system colours. Android WebView
@@ -31,11 +33,15 @@ const LIGHT_CITY_PAGE_SCRIPT = `
   true;
 `;
 
-export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpenCommunity }: Props) {
+export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpenCommunity,
+  onOpenChat }: Props) {
   const { t } = useTranslation();
   const c = useThemeColors();
   const webView = useRef<WebView>(null);
+  const chatTargetRequest = useRef<AbortController | null>(null);
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => () => chatTargetRequest.current?.abort(), []);
 
   function handleUrl(url: string): boolean {
     const scope = communityScopeForCityPageUrl(city, url);
@@ -44,7 +50,21 @@ export function BitcoinWalkCityPage({ city, bottomClearance, onChangeCity, onOpe
       return false;
     }
     try {
-      if (new URL(url).origin === BITCOINWALK_ORIGIN) return true;
+      const candidate = new URL(url);
+      if (candidate.origin === BITCOINWALK_ORIGIN && candidate.pathname.startsWith('/chat/')) {
+        chatTargetRequest.current?.abort();
+        const controller = new AbortController();
+        chatTargetRequest.current = controller;
+        void loadBitcoinWalkMobileHref(url, controller.signal).then((href) => {
+          if (!controller.signal.aborted && href) onOpenChat(href);
+        }).catch((cause: unknown) => {
+          if ((cause as { name?: string })?.name !== 'AbortError') {
+            console.warn('[bitcoinwalk.chat] Canonical target resolution failed.', cause);
+          }
+        });
+        return false;
+      }
+      if (candidate.origin === BITCOINWALK_ORIGIN) return true;
     } catch {
       return false;
     }

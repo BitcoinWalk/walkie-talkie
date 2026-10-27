@@ -14,6 +14,7 @@ import { useFocusAfterTransition } from '@/hooks/use-focus-after-transition';
 import { addAccountFromNsec } from '@/services/account/account.service';
 import { useActiveAccount } from '@/stores/active-account.store';
 import { spacing } from '@/theme';
+import { postSignInHref } from '@/services/bitcoinwalk/pending-chat-target';
 
 export default function LoginNsec() {
   const { scrolled, scrollProps } = useScrolled();
@@ -30,7 +31,7 @@ export default function LoginNsec() {
     try {
       const { pubkey } = await addAccountFromNsec(nsec.trim());
       await setActive(pubkey);
-      router.replace('/walks');
+      router.replace(await postSignInHref());
     } catch (e) {
       setError((e as Error).message || t('login.nsec.invalid'));
       setLoading(false);

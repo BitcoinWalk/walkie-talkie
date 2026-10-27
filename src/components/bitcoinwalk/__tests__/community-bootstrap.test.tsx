@@ -74,7 +74,7 @@ describe('BitcoinWalk community bootstrap', () => {
     renderer = undefined;
   });
 
-  it('requests both selected-city and Global membership after sign-in', async () => {
+  it('requests selected-city membership without automatically joining Global', async () => {
     await act(async () => {
       renderer = create(<BitcoinWalkCommunityBootstrap />);
       await settle();
@@ -82,7 +82,7 @@ describe('BitcoinWalk community bootstrap', () => {
 
     expect(mockEnsureMemberships).toHaveBeenCalledWith(
       'a'.repeat(64),
-      [mockCityDestination, mockGlobalDestination],
+      [mockCityDestination],
     );
   });
 

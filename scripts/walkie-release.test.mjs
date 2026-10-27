@@ -66,6 +66,6 @@ test('release UI exposes the version and BitcoinWalk author', () => {
 test('new BitcoinWalk accounts bypass the upstream identifier claim', () => {
   const generate = readText('src/app/(onboarding)/generate.tsx');
   assert.match(generate, /await setActive\(savedPubkey\)/);
-  assert.match(generate, /router\.replace\('\/walks'\)/);
+  assert.match(generate, /router\.replace\(await postSignInHref\(\)\)/);
   assert.doesNotMatch(generate, /pathname:\s*['"]\/nip05['"]/);
 });

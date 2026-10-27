@@ -36,6 +36,7 @@ import { useActiveAccount } from '@/stores/active-account.store';
 import { useScrolled } from '@/hooks/use-scrolled';
 import { iconStrokeWidth } from '@/theme/icons';
 import { radius, spacing, uiDensity, useThemeColors } from '@/theme';
+import { postSignInHref } from '@/services/bitcoinwalk/pending-chat-target';
 
 const QR_SIZE = 220;
 
@@ -74,7 +75,7 @@ export default function LoginNostrConnect() {
       .then(async ({ pubkey }) => {
         if (!active) return;
         await setActive(pubkey);
-        router.replace('/walks');
+        router.replace(await postSignInHref());
       })
       .catch(() => {
         if (active) setErrored(true);

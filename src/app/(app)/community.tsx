@@ -62,6 +62,7 @@ import {
   registerCommunityNotifications,
   setCommunityMuted,
 } from '@/services/bitcoinwalk/community-notifications';
+import { rememberPendingBitcoinWalkChatHref } from '@/services/bitcoinwalk/pending-chat-target';
 
 const HOSTS_ACCESS_DENIED = 'HOSTS_ACCESS_DENIED';
 
@@ -333,6 +334,10 @@ export function BitcoinWalkCommunityView({ embedded = false, embeddedScope }: Pr
   async function join() {
     if (!destination || busy) return;
     if (!accountPubkey) {
+      const href = scope === 'city' && city
+        ? `/community?scope=city&city=${encodeURIComponent(city.slug)}`
+        : `/community?scope=${scope}`;
+      await rememberPendingBitcoinWalkChatHref(href);
       router.push('/welcome');
       return;
     }

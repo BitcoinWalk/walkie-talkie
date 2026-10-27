@@ -17,6 +17,7 @@ import { saveProfile } from '@/services/profile/profile.service';
 import { loadAccountDmRelays } from '@/services/relay/relay-list.service';
 import { useActiveAccount } from '@/stores/active-account.store';
 import { spacing } from '@/theme';
+import { postSignInHref } from '@/services/bitcoinwalk/pending-chat-target';
 
 /**
  * Optional last onboarding step, immediately after the key backup: claim a
@@ -37,13 +38,13 @@ export default function OnboardingNip05() {
   async function finish() {
     if (leaving) return;
     if (!pubkey) {
-      router.replace('/walks');
+      router.replace(await postSignInHref());
       return;
     }
     setLeaving(true);
     try {
       await setActive(pubkey);
-      router.replace('/walks');
+      router.replace(await postSignInHref());
     } finally {
       setLeaving(false);
     }

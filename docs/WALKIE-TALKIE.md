@@ -2,9 +2,10 @@
 
 BitcoinWalk's city-organized Nostr companion for Android and iOS.
 Local foundation: PsstPsst MIT source at b4d286fac02ae545ad1d6de2de26f20c8e268977.
-Keep upstream attribution and license notices. This is an initial development checkout,
-not a released BitcoinWalk app. Native packaging and upstream update channels must
-be changed to BitcoinWalk identities before distributing any binary.
+Keep upstream attribution and license notices. The current public Android baseline is
+Walkie Talkie `26.10.32` / version code `39`, published through Zapstore with the
+BitcoinWalk package, signing certificate and Nostr publisher identities. New releases
+must preserve those identities and the ngit-first offline signing path.
 
 ## Product
 
@@ -18,28 +19,27 @@ remain part of the scope.
 
 Distribution decision: Android targets Zapstore as the primary release channel,
 with signed APKs for initial device testing; Google Play is outside the current
-scope. iOS uses development builds followed by TestFlight. Before Android release,
-establish a BitcoinWalk-owned package identifier, protected APK signing key with
-recovery backup, release repository and authorized Nostr publisher identity.
-Replace the inherited PsstPsst Zapstore metadata before publication; never publish
-using upstream's identity or release URLs. Acceptance includes clean installation,
+scope. iOS uses development builds followed by TestFlight. The BitcoinWalk-owned
+package identifier, protected APK signing key, release repository and authorized
+Nostr publisher identity are established. Never publish using upstream's identity
+or release URLs. Acceptance includes clean installation,
 an upgrade preserving accounts/history, and city-page installation links pointing
-to the verified Walkie Talkie listing. Publishing credentials are not yet configured.
+to the verified Walkie Talkie listing.
 
-1. Foundation: preserve upstream source; define city/walk invites and counting
-   semantics; inventory native build prerequisites and upstream messaging behavior.
+1. Foundation: preserve upstream source; define counting semantics; inventory
+   native build prerequisites and upstream messaging behavior.
 2. First installable Android slice: BitcoinWalk app identity, My walks reading
    the versioned public events feed, walk details and existing NIP-46 login.
    Add iOS development signing/build on a Mac. Feed is a discovery projection;
    verify the signed occurrence and current approval before joining a walk session.
-3. Links: implement `/walkie/city/<city-id>?event=<signed-event-id>` on the website
-   and mobile router. City-only links resolve the next approved walk; event links
-   keep their exact occurrence, including cancelled/ended explanations. Add
-   Android App Links and iOS Universal Links after signing IDs are available.
-   With no app installed show a useful city/walk page and installation options.
-   Preserve the intended destination through login. Roll out automatic city-page
-   buttons through a default-off flag once this works. These public links invite
-   navigation; private groups require authenticated expiring membership invitations.
+3. Links: use BitcoinWalk's versioned City, Guide, Global and Hosts destination
+   contract for online chat navigation. The mobile client validates those HTTPS
+   targets against current server authority and preserves the resulting native
+   destination through sign-in without accepting account, role, relay or membership
+   authority from the link. Android App Links and iOS Universal Links remain BW-158.
+   Exact walk-event handoff remains outside this online release until the website
+   and app share a signed occurrence contract; the retired test-only
+   `/walkie/city/<uuid>` formatter was never a public route or app integration.
 4. Chats: ship an explicitly documented supported protocol set. BW-128 is the
    planned standard NIP-17/NIP-44/NIP-59 DM and BitcoinWalk Guide compatibility
    task. Verify Guide receipt and bidirectional text with an independent client,
@@ -74,9 +74,11 @@ to the verified Walkie Talkie listing. Publishing credentials are not yet config
 
 The first physical-device gate passed on 13 October 2026: the arm64 Android test
 APK installed on a Pixel running GrapheneOS, connected through Amber over NIP-46,
-and the user confirmed the current build works as expected. This proves the app
-shell and remote-signer path on that device; it does not yet prove city groups,
-background notifications or Bluetooth mesh.
+and the user confirmed the build worked as expected. The published `26.10.32`
+baseline subsequently added the online city/community, standard-DM, diagnostics
+and signer-recovery work recorded below. A new signed candidate still requires the
+current upgrade, account-isolation and multi-user Android acceptance matrix;
+background notifications and Bluetooth mesh remain later slices.
 
 The city-first slice uses one persisted approved city as the app context.
 A new installation chooses its city from a visual mosaic before Nostr sign-in.
@@ -184,10 +186,9 @@ Physical-device acceptance:
 4. Test directions, pull-to-refresh, offline errors, and recovery after reconnect.
 5. Check light/dark mode and larger system text for clipping.
 
-Standard NIP-17 compatibility, NIP-29 groups, BitcoinWalk invites and walk-linked
-Bluetooth are not acceptance claims of this first APK.
+Standard NIP-17 compatibility, NIP-29 groups and walk-linked Bluetooth are not
+acceptance claims of this first APK.
 
-`src/lib/bitcoinwalk/invites.mjs` supplies validated invite formatting/parsing.
 `presence.mjs` is an in-memory counting reducer accepting already-verified direct
 BLE observations. It does not authenticate peers, read GPS, persist state, merge
 device reports or connect the radio. Those integrations remain explicit work.

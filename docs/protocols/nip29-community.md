@@ -28,8 +28,9 @@ city's room.
   bounded relay-scoped batches; suggestions are not memberships. The city
   avatar centre-crops the city's approved OG artwork.
 - After an anonymous visitor chooses a city, Nostr sign-in is the boundary for
-  automatically requesting membership in both that city's room and BitcoinWalk
-  Global. The selected walking city is not changed by opening other city chats.
+  automatically requesting membership in that city's room. BitcoinWalk Global
+  remains a separate explicit join. The selected walking city is not changed by
+  opening other city chats.
 - On the first authenticated launch for an account and destination, read that
   account's own kind `9000`/`9001` membership history first. This deliberately
   triggers NIP-42 authentication before the user signs a fresh kind `9021`
