@@ -1,4 +1,4 @@
-import { generateSecretKey, getPublicKey } from 'nostr-tools';
+import { generateSecretKey, getPublicKey, SimplePool } from 'nostr-tools';
 import {
   BUNKER_REGEX,
   BunkerSigner,
@@ -302,18 +302,25 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
   });
 
   const waitForConnection = async (): Promise<{ pubkey: string }> => {
+    // App-initiated pairing crosses an Android activity boundary. Keep this
+    // rendezvous socket independent from the shared pool's foreground/network
+    // recovery: the remote relay deliberately does not persist NIP-46 envelopes,
+    // so replacing the socket after Amber publishes loses the one-time reply.
+    // The pool is scoped to this handshake and is always destroyed below.
+    const pairingPool = new SimplePool();
+    let signer: BunkerSigner | null = null;
     try {
       void recordAppDiagnostic({
         level: 'info',
         area: 'remote_signing',
         code: 'nostr_connect_waiting',
       });
-      const signer = await withNip46Timeout(
+      signer = await withNip46Timeout(
         BunkerSigner.fromURI(
           clientSecretKey,
           uri,
           {
-            pool: relayPool.underlyingPool,
+            pool: pairingPool,
             onauth: openAuthUrl,
             // Keep the initial Nostr Connect exchange on the relay that Amber
             // just approved. nostr-tools otherwise sends switch_relays before
@@ -332,28 +339,24 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
         area: 'remote_signing',
         code: 'nostr_connect_signer_connected',
       });
-      try {
-        const pubkey = await readBunkerPublicKey(signer);
-        void recordAppDiagnostic({
-          level: 'info',
-          area: 'remote_signing',
-          code: 'nostr_connect_public_key_received',
-        });
-        await addRemoteAccount({
-          pubkey,
-          pointer: signer.bp,
-          clientSecretKeyHex: bytesToHex(clientSecretKey),
-        });
-        void recordAppDiagnostic({
-          level: 'info',
-          area: 'remote_signing',
-          code: 'nostr_connect_account_saved',
-        });
-        settled = true;
-        return { pubkey };
-      } finally {
-        await signer.close().catch(() => {});
-      }
+      const pubkey = await readBunkerPublicKey(signer);
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'nostr_connect_public_key_received',
+      });
+      await addRemoteAccount({
+        pubkey,
+        pointer: signer.bp,
+        clientSecretKeyHex: bytesToHex(clientSecretKey),
+      });
+      void recordAppDiagnostic({
+        level: 'info',
+        area: 'remote_signing',
+        code: 'nostr_connect_account_saved',
+      });
+      settled = true;
+      return { pubkey };
     } catch (error) {
       settled = true;
       if (!cancelRequested) {
@@ -364,6 +367,10 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
         });
       }
       throw error;
+    } finally {
+      if (signer) await signer.close().catch(() => {});
+      pairingPool.close(relays);
+      pairingPool.destroy();
     }
   };
 

@@ -15,7 +15,7 @@ notes: |
   - Keep the requested chat through sign-in cancellation, retry or restart.
   - Join only the selected city automatically; Global remains an explicit choice.
   - Show the Walkie Talkie name and BitcoinWalk icon in Amber for Nostr Connect and bunker sign-in.
-  - Complete fresh Amber pairing without an optional relay switch blocking account setup.
+  - Keep the one-time Amber approval connection alive while switching between apps.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk
 publication:
   blossom_servers:

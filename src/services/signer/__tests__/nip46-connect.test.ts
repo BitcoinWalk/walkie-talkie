@@ -319,3 +319,25 @@ test('keeps app-initiated pairing on the approved relay until the account is sav
   }));
   expect(bunker.close).toHaveBeenCalledTimes(1);
 });
+
+test('isolates the Android signer handoff from shared relay lifecycle recovery', async () => {
+  const bunker = {
+    bp: {
+      pubkey: 'a'.repeat(64),
+      relays: ['wss://remote.bitcoinwalk.org/'],
+      secret: 'one-time',
+    },
+    getPublicKey: jest.fn(async () => 'user-pubkey'),
+    close: jest.fn(async () => {}),
+  };
+  mockFromURI.mockResolvedValueOnce(bunker);
+
+  const session = startNostrConnect();
+  await expect(session.waitForConnection()).resolves.toEqual({ pubkey: 'user-pubkey' });
+
+  const pairingOptions = mockFromURI.mock.calls[0]?.[2] as { pool?: unknown };
+  expect(pairingOptions.pool).toBeDefined();
+  expect(pairingOptions.pool).not.toBe(
+    jest.requireMock('@/services/relay/relay-pool').relayPool.underlyingPool,
+  );
+});

@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.35
+
+- Keep the one-time Amber approval connection alive while switching between apps.
+- Complete fresh Nostr Connect pairing on the dedicated BitcoinWalk signer relay.
+- Preserve the Walkie Talkie name and BitcoinWalk icon in Amber.
