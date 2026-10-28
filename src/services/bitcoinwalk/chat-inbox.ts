@@ -5,7 +5,10 @@ import { relayPool } from '@/services/relay/relay-pool';
 
 import { loadCities, type BitcoinWalkCity } from './cities';
 import { loadBitcoinWalkChatDirectory, type BitcoinWalkChatDirectory } from './chat-directory';
-import { communityDestinationKey } from './community-membership';
+import {
+  communityDestinationKey,
+  listCommunityMemberships,
+} from './community-membership';
 import type { BitcoinWalkCommunityDestination } from './community';
 
 export type BitcoinWalkInbox = {
@@ -19,6 +22,11 @@ export type BitcoinWalkInbox = {
 // 200 results. Eight filters leave room under its 16-listener socket budget.
 const MEMBERSHIP_FILTER_BATCH = 8;
 const MEMBERSHIP_HISTORY_LIMIT = 10;
+// Inbox discovery is a background read, not an interactive signing action. A
+// remote signer may take up to a minute to time out, but that must never hold the
+// whole Chat tab. Keep one total deadline across city and Hosts verification;
+// previously saved city membership remains available when the live read fails.
+const INBOX_MEMBERSHIP_TIMEOUT_MS = 8_000;
 
 /** Bounded membership reads, not one request per city. Only verified directory
  * destinations are eligible. Reading the inbox never joins a community. */
@@ -79,33 +87,52 @@ export async function loadBitcoinWalkInbox(
   accountPubkey: string,
   signal: AbortSignal,
 ): Promise<BitcoinWalkInbox> {
-  const [cities, directory] = await Promise.all([
-    loadCities(signal), loadBitcoinWalkChatDirectory(signal),
+  const [cities, directory, savedDestinations] = await Promise.all([
+    loadCities(signal), loadBitcoinWalkChatDirectory(signal), listCommunityMemberships(accountPubkey),
   ]);
-  let joined = new Set<string>();
+  let joined = new Set(savedDestinations.map(communityDestinationKey));
   let membershipError = false;
+  const membershipAbort = new AbortController();
+  const abortMembership = () => membershipAbort.abort();
+  signal.addEventListener('abort', abortMembership, { once: true });
+  if (signal.aborted) abortMembership();
+  const membershipTimeout = setTimeout(abortMembership, INBOX_MEMBERSHIP_TIMEOUT_MS);
   try {
-    joined = await loadJoinedDestinations(accountPubkey,
-      cities.flatMap((city) => city.chat.communities.city ? [city.chat.communities.city] : []), signal);
-  } catch (cause) {
-    if (signal.aborted) throw cause;
-    membershipError = true;
+    try {
+      joined = await loadJoinedDestinations(accountPubkey,
+        cities.flatMap((city) => city.chat.communities.city ? [city.chat.communities.city] : []),
+        membershipAbort.signal);
+    } catch (cause) {
+      if (signal.aborted) throw cause;
+      membershipError = true;
+    }
+    // A private-room denial must not prevent public city membership discovery.
+    let hosts = false;
+    if (!membershipAbort.signal.aborted) {
+      try {
+        const privateJoined = await loadJoinedDestinations(
+          accountPubkey,
+          [directory.communities.hosts],
+          membershipAbort.signal,
+        );
+        hosts = privateJoined.has(communityDestinationKey(directory.communities.hosts));
+      } catch (cause) {
+        if (signal.aborted) throw cause;
+        membershipError = true;
+      }
+    } else {
+      membershipError = true;
+    }
+    return {
+      directory,
+      cities: cities.filter((city) => city.chat.communities.city &&
+        joined.has(communityDestinationKey(city.chat.communities.city)))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      hosts,
+      ...(membershipError ? {membershipError: true} : {}),
+    };
+  } finally {
+    clearTimeout(membershipTimeout);
+    signal.removeEventListener('abort', abortMembership);
   }
-  // A private-room denial must not prevent public city membership discovery.
-  let hosts = false;
-  try {
-    const privateJoined = await loadJoinedDestinations(accountPubkey, [directory.communities.hosts], signal);
-    hosts = privateJoined.has(communityDestinationKey(directory.communities.hosts));
-  } catch (cause) {
-    if (signal.aborted) throw cause;
-    membershipError = true;
-  }
-  return {
-    directory,
-    cities: cities.filter((city) => city.chat.communities.city &&
-      joined.has(communityDestinationKey(city.chat.communities.city)))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    hosts,
-    ...(membershipError ? {membershipError: true} : {}),
-  };
 }

@@ -5,12 +5,16 @@ import { relayPool } from '@/services/relay/relay-pool';
 import { buildSigner } from '@/services/account/account.service';
 import { loadCities } from '../cities';
 import { loadBitcoinWalkChatDirectory } from '../chat-directory';
+import { listCommunityMemberships } from '../community-membership';
 
 jest.mock('@/services/account/account.service', () => ({ buildSigner: jest.fn() }));
 jest.mock('@/services/relay/relay-pool', () => ({ relayPool: {query: jest.fn(), publishEvent: jest.fn()} }));
 jest.mock('../cities', () => ({ loadCities: jest.fn() }));
 jest.mock('../chat-directory', () => ({ loadBitcoinWalkChatDirectory: jest.fn() }));
-jest.mock('../community-membership', () => ({ communityDestinationKey: (value: {relay: string; groupId: string}) => `${value.relay}\n${value.groupId}` }));
+jest.mock('../community-membership', () => ({
+  communityDestinationKey: (value: {relay: string; groupId: string}) => `${value.relay}\n${value.groupId}`,
+  listCommunityMemberships: jest.fn(),
+}));
 
 const relay = 'wss://chat.bitcoinwalk.org/';
 const account = 'a'.repeat(64);
@@ -26,6 +30,7 @@ describe('bounded joined-community inbox discovery', () => {
     jest.clearAllMocks();
     jest.mocked(buildSigner).mockResolvedValue({getPublicKey: async () => account, signEvent: jest.fn(), destroy});
     jest.mocked(relayPool.query).mockResolvedValue([]);
+    jest.mocked(listCommunityMemberships).mockResolvedValue([]);
   });
 
   it('uses the latest membership for the exact account/group and never publishes a join', async () => {
@@ -121,5 +126,40 @@ describe('bounded joined-community inbox discovery', () => {
     const result = await loadBitcoinWalkInbox(account, new AbortController().signal);
     expect(result.directory.guidePubkey).toBe('b'.repeat(64));
     expect(result).toMatchObject({cities: [], hosts: false, membershipError: true});
+  });
+
+  it('bounds unavailable remote signing and falls back to saved city membership', async () => {
+    jest.useFakeTimers();
+    try {
+      const city = {id: 'madeira', name: 'Madeira', slug: 'madeira',
+        chat: {communities: {city: destination('bitcoinwalk-madeira')}}};
+      jest.mocked(loadCities).mockResolvedValue([city] as Awaited<ReturnType<typeof loadCities>>);
+      jest.mocked(loadBitcoinWalkChatDirectory).mockResolvedValue({guidePubkey: 'b'.repeat(64),
+        communities: {global: destination('global'), hosts: destination('bitcoinwalk-organizers')}});
+      jest.mocked(listCommunityMemberships).mockResolvedValue([destination('bitcoinwalk-madeira')]);
+      jest.mocked(relayPool.query).mockImplementation((query) => new Promise((_resolve, reject) => {
+        query.abort?.addEventListener('abort', () => {
+          const error = new Error('Relay query was cancelled.');
+          error.name = 'AbortError';
+          reject(error);
+        }, { once: true });
+      }));
+
+      const pending = loadBitcoinWalkInbox(account, new AbortController().signal);
+      await jest.advanceTimersByTimeAsync(7_999);
+      let settled = false;
+      void pending.then(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+
+      await expect(pending).resolves.toMatchObject({
+        cities: [expect.objectContaining({slug: 'madeira'})],
+        hosts: false,
+        membershipError: true,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
