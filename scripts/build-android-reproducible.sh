@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly IMAGE="registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie@sha256:9cb68105642ca4e7b295f0ceab10f069f5b3247dc18fa7c36046e9d81aa469a8"
+readonly IMAGE="registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie@sha256:1ea8bef1820bff06c2974e31b4fc4c79c364cd24231b86e71fa4b926797e0dac"
 readonly PROJECT_DIR="/home/vagrant/build/chat.psstpsst.app"
 readonly NODE_VERSION="24.15.0"
 readonly NODE_ARCHIVE="node-v${NODE_VERSION}-linux-x64.tar.xz"
