@@ -11,25 +11,10 @@ website: https://bitcoinwalk.org
 repository: nostr://npub1jr8sgwrpuk66n9evk76jnfd6wxept4k3uv2vwjw42fhvzvl3mdes38wwnw/relay.ngit.dev/walkie-talkie
 icon: fastlane/metadata/android/en-US/images/icon.png
 notes: |
-  - Recover NIP-46 approvals after Android suspends the app during an Amber handoff, using BitcoinWalk's bounded memory-only relay window.
-  - Open standard encrypted BitcoinWalk Guide messages from compatible NIP-17 inboxes.
-  - Keep the conversation visible while a discreet purple progress indicator checks the encrypted Guide inbox.
-  - Fix Amber and other NIP-46 bunker sign-in when Android briefly reports Walkie Talkie offline while the signer is open.
-  - Preserve the active signing reply subscription and recover cleanly when returning from the signer.
-  - Browse BitcoinWalk cities before signing in and keep your selected city as the home screen.
-  - Open distinct City and Global conversations, with the private Hosts group limited to organizers.
-  - Sign in with a local key, Amber, or a remote signer.
-  - Route Amber and other Nostr Connect sign-ins through BitcoinWalk's dedicated ephemeral relay.
-  - Skip the upstream psstpsst.chat identifier claim when creating a BitcoinWalk account.
-  - Recover bunker login after an Amber approval reply is lost while switching apps.
-  - Refresh Android connectivity after returning from Amber so a stale offline hint cannot block the signer relay.
-  - Fixed Android cold-start city recovery and remote-signer reconnection.
-  - Added the app version to the loading screen.
-  - Refresh the city mosaic from BitcoinWalk whenever it opens.
-  - Keep the newest group messages visible above the keyboard and composer using an Android-safe measured footer.
-  - Mention people in community chats and receive local notifications with per-room mute controls.
-  - Show current NIP-05 verification on profiles.
-  - Keep Bluetooth mesh parked behind a Coming soon screen without requesting permissions or starting radio activity.
+  - Open canonical BitcoinWalk City, Guide, Global and Hosts targets in the correct native conversation.
+  - Keep the requested chat through sign-in cancellation, retry or restart.
+  - Join only the selected city automatically; Global remains an explicit choice.
+  - Show the Walkie Talkie name and BitcoinWalk icon in Amber for Nostr Connect and bunker sign-in.
 release_source: release/zapstore/WalkieTalkie-{version}-android.apk
 publication:
   blossom_servers:
