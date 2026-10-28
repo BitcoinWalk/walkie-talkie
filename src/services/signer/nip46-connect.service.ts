@@ -325,28 +325,63 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
     // only offers a short memory replay for this handoff. The pool is scoped to
     // this handshake and is always destroyed below.
     const pairingPool = new Nip46PairingPool();
+    const pairingPools = [pairingPool];
     let signer: BunkerSigner | null = null;
+    let leftForeground = platform.appState.currentState() !== 'active';
+    let resolveReturned!: () => void;
+    const returned = new Promise<void>((resolve) => { resolveReturned = resolve; });
+    const removeAppStateListener = platform.appState.addChangeListener((state) => {
+      if (state !== 'active') {
+        leftForeground = true;
+        return;
+      }
+      if (leftForeground) resolveReturned();
+    });
+    const connectWithPool = (pool: Nip46PairingPool) => BunkerSigner.fromURI(
+      clientSecretKey,
+      uri,
+      {
+        pool,
+        onauth: openAuthUrl,
+        // Keep the initial Nostr Connect exchange on the relay that Amber
+        // just approved. nostr-tools otherwise sends switch_relays before
+        // we can read the account pubkey; signers that do not complete that
+        // optional request leave the required get_public_key call waiting.
+        skipSwitchRelays: true,
+      },
+      controller.signal,
+    );
     try {
       void recordAppDiagnostic({
         level: 'info',
         area: 'remote_signing',
         code: 'nostr_connect_waiting',
       });
+      const initialConnect = connectWithPool(pairingPool);
+      const foregroundReplay = returned.then(async () => {
+        // Android may resume the JavaScript runtime while the original socket
+        // still looks open to nostr-tools. A fresh pool forces a new REQ, which
+        // can recover Amber's approval from the relay's short memory window.
+        await new Promise<void>((resolve) => setTimeout(resolve, FOREGROUND_RECOVERY_DELAY_MS));
+        const replayPool = new Nip46PairingPool();
+        pairingPools.push(replayPool);
+        void recordAppDiagnostic({
+          level: 'info',
+          area: 'remote_signing',
+          code: 'nostr_connect_foreground_replay_started',
+        });
+        return connectWithPool(replayPool);
+      });
       signer = await withNip46Timeout(
-        BunkerSigner.fromURI(
-          clientSecretKey,
-          uri,
-          {
-            pool: pairingPool,
-            onauth: openAuthUrl,
-            // Keep the initial Nostr Connect exchange on the relay that Amber
-            // just approved. nostr-tools otherwise sends switch_relays before
-            // we can read the account pubkey; signers that do not complete that
-            // optional request leave the required get_public_key call waiting.
-            skipSwitchRelays: true,
-          },
-          controller.signal,
-        ),
+        Promise.race([
+          initialConnect.catch((error: unknown) => {
+            if (!leftForeground) throw error;
+            return foregroundReplay;
+          }),
+          // A failed replay must not discard an approval that the original
+          // connection may still deliver; the outer timeout remains decisive.
+          foregroundReplay.catch(() => new Promise<never>(() => {})),
+        ]),
         'connection',
         NIP46_PAIRING_TIMEOUT_MS,
         () => controller.abort(),
@@ -385,9 +420,12 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
       }
       throw error;
     } finally {
+      removeAppStateListener();
       if (signer) await signer.close().catch(() => {});
-      pairingPool.close(relays);
-      pairingPool.destroy();
+      for (const pool of pairingPools) {
+        pool.close(relays);
+        pool.destroy();
+      }
     }
   };
 

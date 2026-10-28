@@ -301,6 +301,56 @@ test('allows the relay to replay a memory-only handoff after Android resumes', (
   }
 });
 
+test('reopens the Nostr Connect subscription when Android returns from Amber', async () => {
+  jest.useFakeTimers();
+  try {
+    mockFromURI.mockReset();
+    mockAddRemoteAccount.mockReset().mockResolvedValue({ pubkey: 'user-pubkey' });
+    mockAppState = 'active';
+    mockAppStateListener = null;
+    const bunker = {
+      bp: {
+        pubkey: 'a'.repeat(64),
+        relays: ['wss://remote.bitcoinwalk.org/'],
+        secret: 'one-time',
+      },
+      getPublicKey: jest.fn(async () => 'user-pubkey'),
+      close: jest.fn(async () => {}),
+    };
+    mockFromURI
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockResolvedValueOnce(bunker);
+
+    const session = startNostrConnect();
+    const pending = session.waitForConnection();
+    await jest.advanceTimersByTimeAsync(0);
+    const emitAppState = mockAppStateListener as unknown as (state: string) => void;
+    mockAppState = 'background';
+    emitAppState(mockAppState);
+    mockAppState = 'active';
+    emitAppState(mockAppState);
+    await jest.advanceTimersByTimeAsync(500);
+
+    await expect(pending).resolves.toEqual({ pubkey: 'user-pubkey' });
+    expect(mockFromURI).toHaveBeenCalledTimes(2);
+    expect(mockFromURI.mock.calls[0]?.[2]).toEqual(expect.objectContaining({
+      pool: expect.any(Nip46PairingPool),
+      skipSwitchRelays: true,
+    }));
+    expect(mockFromURI.mock.calls[1]?.[2]).toEqual(expect.objectContaining({
+      pool: expect.any(Nip46PairingPool),
+      skipSwitchRelays: true,
+    }));
+    expect(
+      (mockFromURI.mock.calls[0]?.[2] as { pool: unknown }).pool,
+    ).not.toBe((mockFromURI.mock.calls[1]?.[2] as { pool: unknown }).pool);
+    expect(bunker.getPublicKey).toHaveBeenCalledTimes(1);
+    expect(mockAddRemoteAccount).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test('brands app-initiated Nostr Connect sessions for Amber', () => {
   const session = startNostrConnect();
   const parsed = new URL(session.uri);

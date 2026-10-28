@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.37
+
+- Reopen Nostr Connect after Android returns from Amber.
+- Recover the encrypted approval from the BitcoinWalk relay's short memory-only handoff window.
+- Preserve the Walkie Talkie identity and the existing account data during upgrade.
