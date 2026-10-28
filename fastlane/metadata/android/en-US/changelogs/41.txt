@@ -1,0 +1,7 @@
+Walkie Talkie 26.10.34
+
+- Open canonical BitcoinWalk City, Guide, Global and Hosts targets in the correct native conversation.
+- Keep the requested chat through sign-in cancellation, retry or restart.
+- Join only the selected city automatically; Global remains an explicit choice.
+- Show the Walkie Talkie name and BitcoinWalk icon in Amber.
+- Complete fresh Amber pairing without an optional relay switch blocking account setup.

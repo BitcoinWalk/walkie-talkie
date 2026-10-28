@@ -5,6 +5,7 @@ import {
 } from '../nip46-connect.service';
 
 const mockFromBunker = jest.fn();
+const mockFromURI = jest.fn();
 const mockAddRemoteAccount = jest.fn(async (_opts: unknown) => ({ pubkey: 'user-pubkey' }));
 let mockAppState = 'active';
 let mockAppStateListener: ((state: string) => void) | null = null;
@@ -13,6 +14,7 @@ jest.mock('nostr-tools/nip46', () => ({
   ...jest.requireActual('nostr-tools/nip46'),
   BunkerSigner: {
     fromBunker: (...args: unknown[]) => mockFromBunker(...args),
+    fromURI: (...args: unknown[]) => mockFromURI(...args),
   },
 }));
 
@@ -284,4 +286,36 @@ test('brands app-initiated Nostr Connect sessions for Amber', () => {
     'https://bitcoinwalk.org/app/walkie-talkie/icon.png',
   );
   session.cancel();
+});
+
+test('keeps app-initiated pairing on the approved relay until the account is saved', async () => {
+  const bunker = {
+    bp: {
+      pubkey: 'a'.repeat(64),
+      relays: ['wss://remote.bitcoinwalk.org/'],
+      secret: 'one-time',
+    },
+    getPublicKey: jest.fn(async () => 'user-pubkey'),
+    close: jest.fn(async () => {}),
+  };
+  mockFromURI.mockResolvedValueOnce(bunker);
+
+  const session = startNostrConnect();
+  await expect(session.waitForConnection()).resolves.toEqual({ pubkey: 'user-pubkey' });
+
+  expect(mockFromURI).toHaveBeenCalledWith(
+    expect.any(Uint8Array),
+    session.uri,
+    expect.objectContaining({
+      pool: expect.anything(),
+      skipSwitchRelays: true,
+    }),
+    expect.any(AbortSignal),
+  );
+  expect(bunker.getPublicKey).toHaveBeenCalledTimes(1);
+  expect(mockAddRemoteAccount).toHaveBeenCalledWith(expect.objectContaining({
+    pubkey: 'user-pubkey',
+    pointer: bunker.bp,
+  }));
+  expect(bunker.close).toHaveBeenCalledTimes(1);
 });

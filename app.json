@@ -2,7 +2,7 @@
   "expo": {
     "name": "Walkie Talkie",
     "slug": "walkie-talkie",
-    "version": "26.10.33",
+    "version": "26.10.34",
     "orientation": "default",
     "icon": "./assets/images/bitcoinwalk-app-icon.png",
     "scheme": "walkietalkie",
@@ -14,7 +14,7 @@
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 40,
+      "versionCode": 41,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/bitcoinwalk-app-icon-foreground.png",

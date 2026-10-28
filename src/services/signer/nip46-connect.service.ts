@@ -312,7 +312,15 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
         BunkerSigner.fromURI(
           clientSecretKey,
           uri,
-          { pool: relayPool.underlyingPool, onauth: openAuthUrl },
+          {
+            pool: relayPool.underlyingPool,
+            onauth: openAuthUrl,
+            // Keep the initial Nostr Connect exchange on the relay that Amber
+            // just approved. nostr-tools otherwise sends switch_relays before
+            // we can read the account pubkey; signers that do not complete that
+            // optional request leave the required get_public_key call waiting.
+            skipSwitchRelays: true,
+          },
           controller.signal,
         ),
         'connection',
