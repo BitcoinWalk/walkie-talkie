@@ -8,7 +8,7 @@ readonly NODE_VERSION="24.15.0"
 readonly NODE_ARCHIVE="node-v${NODE_VERSION}-linux-x64.tar.xz"
 readonly NODE_SHA256="472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6"
 readonly TEMPLATE_SHA256="b5796fa7a2de78499e81ec2b2b7aa2ad25f3702d61daaed2ddb7c23757e98b49"
-readonly JDK_PACKAGE_VERSION="17.0.20.1+1-1~deb12u1"
+readonly JDK_PACKAGE_VERSION="17.0.21+9-1~deb12u1"
 
 if [[ "${1:-}" == "--check-image" ]]; then
   docker manifest inspect "$IMAGE" > /dev/null

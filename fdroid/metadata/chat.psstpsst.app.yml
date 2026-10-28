@@ -34,7 +34,7 @@ Builds:
       - echo 'deb https://security.debian.org/debian-security bookworm-security main' >> /etc/apt/sources.list.d/psstpsst-bookworm.list
       - apt-get update
       - apt-get install -y openjdk-17-jdk-headless ca-certificates curl xz-utils
-      - test "$(dpkg-query -W -f='${Version}' openjdk-17-jdk-headless)" = '17.0.20.1+1-1~deb12u1'
+      - test "$(dpkg-query -W -f='${Version}' openjdk-17-jdk-headless)" = '17.0.21+9-1~deb12u1'
       - curl --fail --location --retry 3 https://nodejs.org/dist/v24.15.0/node-v24.15.0-linux-x64.tar.xz -o /tmp/psstpsst-node.tar.xz
       - echo '472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6  /tmp/psstpsst-node.tar.xz' | sha256sum -c -
       - mkdir -p /opt/psstpsst-node

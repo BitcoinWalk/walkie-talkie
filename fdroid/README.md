@@ -103,7 +103,9 @@ The current release build pins the official amd64 `buildserver-trixie` image at
 digest `sha256:1ea8bef1820bff06c2974e31b4fc4c79c364cd24231b86e71fa4b926797e0dac`.
 The registry returned that immutable manifest on 28 October 2026 after removing
 the previously pinned manifest. Release preflight must continue checking the
-digest before every build rather than building from the moving tag alone.
+digest before every build rather than building from the moving tag alone. The
+same build pins the Bookworm Security OpenJDK package at
+`17.0.21+9-1~deb12u1`; the exact-version guard remains fail-closed.
 
 ## v0.2.4 validation status (2026-09-26)
 
