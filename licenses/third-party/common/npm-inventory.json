@@ -1,6 +1,6 @@
 {
-  "reviewed": "2026-10-19",
-  "lockfileSha256": "07c3eaf114e433d3d622380b8b71e2b4d1150ba021eee149d855ae41e34b6d73",
+  "reviewed": "2026-10-28",
+  "lockfileSha256": "dcce7d5301ad96b4080ff72b5d4bb2f28b6c95b16bc9f05c4ce544ba45f1344e",
   "scope": "All locked non-development npm packages on all platforms, plus the shipped Electron runtime. Includes build utilities; not an exact binary inventory.",
   "packages": [
     {

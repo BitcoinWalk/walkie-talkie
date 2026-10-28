@@ -33,6 +33,23 @@ const APP_URL = 'https://bitcoinwalk.org';
 const APP_IMAGE = 'https://bitcoinwalk.org/app/walkie-talkie/icon.png';
 const FOREGROUND_RECOVERY_DELAY_MS = 500;
 
+/** nostr-tools uses `limit: 0` for a live-only NIP-46 subscription. That is
+ * correct while Walkie remains in front, but Android can suspend the socket
+ * while Amber approves. The BitcoinWalk rendezvous relay keeps a short,
+ * memory-only handoff window specifically for that return path; removing the
+ * live-only sentinel lets the resumed subscription recover the encrypted
+ * approval. Every other filter constraint remains intact. This also covers the
+ * follow-up get_public_key subscription created inside BunkerSigner. */
+export class Nip46PairingPool extends SimplePool {
+  override subscribe(
+    ...[relays, filter, params]: Parameters<SimplePool['subscribe']>
+  ): ReturnType<SimplePool['subscribe']> {
+    if (filter.limit !== 0) return super.subscribe(relays, filter, params);
+    const { limit: _liveOnlySentinel, ...replayableFilter } = filter;
+    return super.subscribe(relays, replayableFilter, params);
+  }
+}
+
 function openAuthUrl(url: string): void {
   void platform.urlOpener.openExternalUrl(url).catch((error) => {
     console.warn('[nip46] Failed to open the authorization URL.', error);
@@ -304,10 +321,10 @@ export function startNostrConnect(opts?: { relays?: string[] }): NostrConnectSes
   const waitForConnection = async (): Promise<{ pubkey: string }> => {
     // App-initiated pairing crosses an Android activity boundary. Keep this
     // rendezvous socket independent from the shared pool's foreground/network
-    // recovery: the remote relay deliberately does not persist NIP-46 envelopes,
-    // so replacing the socket after Amber publishes loses the one-time reply.
-    // The pool is scoped to this handshake and is always destroyed below.
-    const pairingPool = new SimplePool();
+    // recovery: the remote relay never durably persists NIP-46 envelopes, and
+    // only offers a short memory replay for this handoff. The pool is scoped to
+    // this handshake and is always destroyed below.
+    const pairingPool = new Nip46PairingPool();
     let signer: BunkerSigner | null = null;
     try {
       void recordAppDiagnostic({

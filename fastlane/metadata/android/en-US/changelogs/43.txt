@@ -1,0 +1,5 @@
+Walkie Talkie 26.10.36
+
+- Recover fresh Nostr Connect approvals after returning from Amber.
+- Keep NIP-46 handoffs encrypted and memory-only on the BitcoinWalk signer relay.
+- Preserve the Walkie Talkie name and BitcoinWalk icon in Amber.

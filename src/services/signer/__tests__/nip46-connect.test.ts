@@ -1,8 +1,10 @@
 import {
   loginWithBunker,
   NIP46_DEFAULT_RELAYS,
+  Nip46PairingPool,
   startNostrConnect,
 } from '../nip46-connect.service';
+import { SimplePool } from 'nostr-tools';
 
 const mockFromBunker = jest.fn();
 const mockFromURI = jest.fn();
@@ -273,6 +275,30 @@ describe('loginWithBunker', () => {
 
 test('uses the dedicated BitcoinWalk transport for app-initiated Nostr Connect', () => {
   expect(NIP46_DEFAULT_RELAYS).toEqual(['wss://remote.bitcoinwalk.org/']);
+});
+
+test('allows the relay to replay a memory-only handoff after Android resumes', () => {
+  const close = jest.fn();
+  const subscribe = jest
+    .spyOn(SimplePool.prototype, 'subscribe')
+    .mockReturnValue({ close });
+  try {
+    const pool = new Nip46PairingPool();
+    const params = { onevent: jest.fn() };
+    pool.subscribe(
+      ['wss://remote.bitcoinwalk.org/'],
+      { kinds: [24133], '#p': ['a'.repeat(64)], limit: 0 },
+      params,
+    );
+
+    expect(subscribe).toHaveBeenCalledWith(
+      ['wss://remote.bitcoinwalk.org/'],
+      { kinds: [24133], '#p': ['a'.repeat(64)] },
+      params,
+    );
+  } finally {
+    subscribe.mockRestore();
+  }
 });
 
 test('brands app-initiated Nostr Connect sessions for Amber', () => {
