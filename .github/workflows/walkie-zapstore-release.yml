@@ -71,6 +71,7 @@ jobs:
             src/services/bitcoinwalk/__tests__/config.test.ts \
             src/services/bitcoinwalk/__tests__/community.test.ts \
             src/services/bitcoinwalk/__tests__/community-membership.test.ts \
+            src/services/bitcoinwalk/__tests__/chat-inbox.test.ts \
             src/components/bitcoinwalk/__tests__/community-screen-join.test.tsx \
             src/components/bitcoinwalk/__tests__/community-bootstrap.test.tsx \
             src/components/bitcoinwalk/__tests__/city-selection-flow.test.tsx \
